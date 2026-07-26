@@ -219,9 +219,11 @@ class RA_AlarmService {
   static const String _alarmSoundChannel =
       'com.example.rolling_alarm/alarm_sound';
 
-  /// Clears lock-screen overlay flags and sends the Flutter activity to the
-  /// background via [moveTaskToBack], restoring the keyguard without killing
-  /// the engine. Call after Snooze / Dismiss ends a live ring.
+  /// Clears lock-screen overlay flags after Snooze / Dismiss ends a live ring.
+  ///
+  /// When the keyguard is still locked, native also backgrounds the activity
+  /// so the lock screen returns without killing the Flutter engine. When the
+  /// user was already in the unlocked app, the activity stays foregrounded.
   static Future<void> dismissAlarmUI() async {
     try {
       const channel = MethodChannel(_alarmSoundChannel);
@@ -673,8 +675,8 @@ class RA_AlarmService {
     await _cancelWatchdog(routineId);
     await RA_NotificationService.cancelNotification(routineId);
 
-    // Drop lock-screen overlay and minimize so the keyguard returns. Must run
-    // after IsRinging is cleared so the ring presenter cannot re-foreground.
+    // Drop lock-screen overlay (and background only if the keyguard is locked).
+    // Must run after IsRinging is cleared so the ring presenter cannot re-foreground.
     if (action == RA_AlarmActionTypeCodeEnum.Dismiss ||
         action == RA_AlarmActionTypeCodeEnum.Snooze ||
         action == RA_AlarmActionTypeCodeEnum.AutoSnooze) {

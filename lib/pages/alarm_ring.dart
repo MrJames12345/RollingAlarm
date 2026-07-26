@@ -102,7 +102,12 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     } finally {
       if (mounted) {
         setState(() => _busy = false);
-        Navigator.pop(context);
+        // Guard canPop: a provider listen may already have popped after
+        // IsRinging cleared, and dismissAlarmUI must not race a bare pop.
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop();
+        }
       }
     }
   }

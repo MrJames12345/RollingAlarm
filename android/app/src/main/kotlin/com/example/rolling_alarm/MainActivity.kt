@@ -101,6 +101,11 @@ class MainActivity : FlutterActivity() {
         editor.apply()
     }
 
+    private fun isDeviceKeyguardLocked(): Boolean {
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+        return km?.isKeyguardLocked == true
+    }
+
     /**
      * Show the activity ON TOP of the lock screen while ringing.
      *
@@ -185,9 +190,13 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "dismissAlarmUI" -> {
-                        // User snoozed/dismissed: drop lock-screen overlay privileges
-                        // and send the task to the background so the keyguard returns.
+                        // User snoozed/dismissed: drop lock-screen overlay privileges.
                         // Do not finish(); that would tear down the Flutter engine.
+                        // Only background when the keyguard is still locked so it
+                        // returns. If the user was already in the unlocked app,
+                        // stay foregrounded so Flutter can pop the ring route
+                        // without a pause/resume race that crashes on re-entry.
+                        val keyguardLocked = isDeviceKeyguardLocked()
                         isAlarmRinging = false
                         lockOverlayFromAlarmIntent = false
                         writeRingingPref(false)
@@ -205,7 +214,9 @@ class MainActivity : FlutterActivity() {
                         }
                         // Also drop keep-screen-on / allow-lock leftovers from the ring.
                         applyLockScreenFlags(false)
-                        moveTaskToBack(true)
+                        if (keyguardLocked) {
+                            moveTaskToBack(true)
+                        }
                         result.success(null)
                     }
                     "listDeviceSounds" -> {
