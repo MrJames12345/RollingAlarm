@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
@@ -21,36 +23,34 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import es.antonborri.home_widget.HomeWidgetGlanceState
-import es.antonborri.home_widget.HomeWidgetGlanceStateDefinition
 import es.antonborri.home_widget.actionStartActivity
 
 /**
- * Read-only home screen dashboard for the single user-pinned Rolling Alarm routine.
- * Data is bridged from Flutter via home_widget SharedPreferences keys.
+ * Read-only home screen dashboard for one user-selected routine per widget instance.
+ * [routine_id] lives in per-instance Glance preferences; display strings are bridged
+ * via HomeWidgetPreferences keys scoped by that id.
  */
 class RollingAlarmGlanceWidget : GlanceAppWidget() {
 
-    override val stateDefinition = HomeWidgetGlanceStateDefinition()
+    override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            GlanceContent(context, currentState())
+            val prefs = currentState<Preferences>()
+            val routineId = prefs[intPreferencesKey(WidgetRoutineBridge.PREFS_ROUTINE_ID_KEY)]
+            GlanceContent(context, routineId)
         }
     }
 
     @Composable
-    private fun GlanceContent(context: Context, currentState: HomeWidgetGlanceState) {
-        val prefs = currentState.preferences
-        val routineName = prefs.getString("routine_name", "No Routine") ?: "No Routine"
-        val nextAlarmTime = prefs.getString("next_alarm_time", "--:--") ?: "--:--"
-        val intervalTime = prefs.getString("interval_time", "--") ?: "--"
-        val dismissalsToday = prefs.getString("dismissals_today", "0") ?: "0"
+    private fun GlanceContent(context: Context, routineId: Int?) {
+        val display = WidgetRoutineBridge.readDisplay(context, routineId)
 
         Column(
             modifier = GlanceModifier
@@ -62,7 +62,7 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
             horizontalAlignment = Alignment.Horizontal.Start,
         ) {
             Text(
-                text = routineName,
+                text = display.name,
                 style = TextStyle(
                     color = ColorProvider(Primary),
                     fontSize = 14.sp,
@@ -74,7 +74,7 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
             Spacer(modifier = GlanceModifier.height(8.dp))
 
             Text(
-                text = nextAlarmTime,
+                text = display.nextAlarmTime,
                 style = TextStyle(
                     color = ColorProvider(Teal),
                     fontSize = 28.sp,
@@ -92,13 +92,13 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
             ) {
                 MetricColumn(
                     label = "Interval",
-                    value = intervalTime,
+                    value = display.intervalTime,
                     valueColor = Teal,
                 )
                 Spacer(modifier = GlanceModifier.width(24.dp))
                 MetricColumn(
                     label = "Dismissed",
-                    value = dismissalsToday,
+                    value = display.dismissalsToday,
                     valueColor = SoftCoral,
                 )
             }
@@ -136,7 +136,6 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
     }
 
     companion object {
-        // Matches lib/styles.dart RA_ColourStyles
         private val OffBlack = Color(0xFF0A0A0A)
         private val Primary = Color(0xFFD4D2CF)
         private val MutedPrimary = Color(0x80D4D2CF)

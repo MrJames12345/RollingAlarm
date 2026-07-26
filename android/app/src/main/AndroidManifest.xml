@@ -102,6 +102,16 @@
                 android:resource="@xml/alarm_widget_info" />
         </receiver>
 
+        <!-- Per-instance routine picker when adding / reconfiguring the widget -->
+        <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

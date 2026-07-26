@@ -168,7 +168,6 @@ class RA_RoutineCard extends ConsumerWidget {
       final db = ref.read(RA_DatabaseProvider);
       await RA_AlarmService.cancel(routine.Id);
       await db.softDeleteRoutine(routine.Id);
-      await RA_WidgetService.clearPinnedRoutineIfMatch(routine.Id);
       await RA_WidgetService.updateWidgetState(db: db);
       return true;
     });

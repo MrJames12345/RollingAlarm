@@ -53,7 +53,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   int _volume = 100;
   bool _fadeIn = false;
   bool _showValidationErrors = false;
-  bool _pinToWidget = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
   final GlobalKey _intervalFieldKey = GlobalKey();
@@ -105,16 +104,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       _vibrate = r.Vibrate;
       _volume = r.Volume.clamp(0, 100);
       _fadeIn = r.FadeIn;
-      unawaited(_loadPinState(r.Id));
     } else {
       unawaited(_seedVolumeFromSystem());
     }
-  }
-
-  Future<void> _loadPinState(int routineId) async {
-    final pinned = await RA_WidgetService.getPinnedRoutineId();
-    if (!mounted) return;
-    setState(() => _pinToWidget = pinned == routineId);
   }
 
   /// Seeds a new routine's slider from the live STREAM_ALARM hardware level.
@@ -236,7 +228,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             refreshWidget: false,
           );
         }
-        await _applyWidgetPin(id, db);
+        await RA_WidgetService.updateWidgetState(db: db);
       } else {
         final nextTrigger = DateTime.now().add(_interval);
         final routineId = await db.insertRoutineWithInitialState(
@@ -250,7 +242,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           routineName: name,
           refreshWidget: false,
         );
-        await _applyWidgetPin(routineId, db);
+        await RA_WidgetService.updateWidgetState(db: db);
       }
 
       if (mounted) Navigator.pop(context);
@@ -258,17 +250,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       // Persist / schedule failures still leave the editor.
       if (mounted) Navigator.pop(context);
     }
-  }
-
-  /// Pins or unpins this routine as the single home widget dashboard source.
-  Future<void> _applyWidgetPin(int routineId, RA_Database db) async {
-    final current = await RA_WidgetService.getPinnedRoutineId();
-    if (_pinToWidget) {
-      await RA_WidgetService.setPinnedRoutineId(routineId);
-    } else if (current == routineId) {
-      await RA_WidgetService.setPinnedRoutineId(null);
-    }
-    await RA_WidgetService.updateWidgetState(db: db);
   }
 
   @override
@@ -399,14 +380,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                     enabled: _maxTimesPerDayEnabled,
                   ),
                 ],
-              ),
-            ),
-            RA_FormSection(
-              label: 'Home widget',
-              child: RA_Toggle(
-                label: 'Show on home widget',
-                value: _pinToWidget,
-                onChanged: (v) => setState(() => _pinToWidget = v),
               ),
             ),
             RA_FormSection(

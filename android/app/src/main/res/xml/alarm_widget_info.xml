@@ -9,4 +9,6 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_description"
-    android:previewLayout="@layout/glance_default_loading_layout" />
+    android:previewLayout="@layout/glance_default_loading_layout"
+    android:configure="com.example.rolling_alarm.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable" />
