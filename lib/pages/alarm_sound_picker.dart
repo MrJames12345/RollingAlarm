@@ -68,22 +68,34 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
   }
 
   Future<void> _pickLocalFile() async {
-    final picked = await RA_AlarmSoundPickerService.pickLocalFile(
-      onError: (message) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              message,
-              style: RA_TextStyles.tinyFont.copyWith(color: RA_ColourStyles.surface),
+    try {
+      // Stop preview while the system picker is open so audio session and
+      // activity pause do not race with just_audio on cancel.
+      await RA_SoundPreviewService.stop();
+      if (!mounted) return;
+
+      final picked = await RA_AlarmSoundPickerService.pickLocalFile(
+        onError: (message) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                message,
+                style: RA_TextStyles.tinyFont.copyWith(
+                  color: RA_ColourStyles.surface,
+                ),
+              ),
+              backgroundColor: RA_ColourStyles.softCoral,
             ),
-            backgroundColor: RA_ColourStyles.softCoral,
-          ),
-        );
-      },
-    );
-    if (picked != null && mounted) {
-      await _preview(picked);
+          );
+        },
+      );
+      if (!mounted) return;
+      if (picked != null) {
+        await _preview(picked);
+      }
+    } catch (_) {
+      // Cancel and picker teardown must never surface as an unhandled crash.
     }
   }
 

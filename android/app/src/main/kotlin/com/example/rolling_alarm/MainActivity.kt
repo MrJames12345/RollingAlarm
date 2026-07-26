@@ -2,6 +2,7 @@ package com.example.rolling_alarm
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -190,6 +191,41 @@ class MainActivity : FlutterActivity() {
                             result.error("list_failed", e.message, null)
                         }
                     }
+                    "playDeviceSound" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrBlank()) {
+                            result.error("bad_args", "uri required", null)
+                            return@setMethodCallHandler
+                        }
+                        val loop = call.argument<Boolean>("loop") ?: true
+                        val fadeInMs = call.argument<Number>("fadeInMs")?.toLong() ?: 0L
+                        val asAlarm = call.argument<Boolean>("asAlarm") ?: true
+                        val usage = if (asAlarm) {
+                            AudioAttributes.USAGE_ALARM
+                        } else {
+                            AudioAttributes.USAGE_MEDIA
+                        }
+                        try {
+                            val started = AlarmRingtonePlayer.play(
+                                this@MainActivity,
+                                uri,
+                                loop = loop,
+                                usage = usage,
+                                fadeInMs = fadeInMs,
+                            )
+                            result.success(started)
+                        } catch (e: Exception) {
+                            result.error("play_failed", e.message, null)
+                        }
+                    }
+                    "stopDeviceSound" -> {
+                        try {
+                            AlarmRingtonePlayer.stop()
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("stop_failed", e.message, null)
+                        }
+                    }
                     "pickDeviceSound" -> {
                         if (pickerResult != null) {
                             result.error("busy", "Picker already open", null)
@@ -223,6 +259,8 @@ class MainActivity : FlutterActivity() {
                         }
                         pickerResult = result
                         activeRequestCode = REQUEST_LOCAL_FILE
+                        // Grant flags belong on the returned URI via
+                        // takePersistableUriPermission, not on this launch intent.
                         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "audio/*"
@@ -230,7 +268,6 @@ class MainActivity : FlutterActivity() {
                                 Intent.EXTRA_MIME_TYPES,
                                 arrayOf("audio/*", "application/ogg", "application/x-flac", "audio/x-wav", "audio/mpeg")
                             )
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         }
                         try {
                             @Suppress("DEPRECATION")
@@ -248,71 +285,98 @@ class MainActivity : FlutterActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        // Handle our pickers before super so cancel (null data) is not
+        // delivered to every Flutter plugin. Some plugins crash on null data.
+        if (requestCode == REQUEST_RINGTONE || requestCode == REQUEST_LOCAL_FILE) {
+            handlePickerActivityResult(requestCode, resultCode, data)
+            return
+        }
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQUEST_RINGTONE && requestCode != REQUEST_LOCAL_FILE) return
+    }
+
+    private fun handlePickerActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         val pending = pickerResult
         val currentRequest = activeRequestCode
         pickerResult = null
         activeRequestCode = 0
         if (pending == null) return
-        if (resultCode != RESULT_OK || data == null) {
-            pending.success(null)
-            return
-        }
-        if (currentRequest == REQUEST_RINGTONE) {
-            @Suppress("DEPRECATION")
-            val uri =
-                data.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            if (uri == null) {
-                pending.success(null)
-                return
-            }
-            val title = RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: "Device sound"
-            pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
-        } else if (currentRequest == REQUEST_LOCAL_FILE) {
-            val uri = data.data
-            if (uri == null) {
-                pending.success(null)
-                return
-            }
-            try {
-                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                contentResolver.takePersistableUriPermission(uri, takeFlags)
-            } catch (_: Exception) {}
 
-            var title = "Local file"
-            try {
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                        if (idx != -1) {
-                            val name = cursor.getString(idx)
-                            if (!name.isNullOrBlank()) title = name
+        try {
+            if (resultCode != RESULT_OK || data == null) {
+                pending.success(null)
+                return
+            }
+            if (currentRequest == REQUEST_RINGTONE || requestCode == REQUEST_RINGTONE) {
+                @Suppress("DEPRECATION")
+                val uri =
+                    data.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+                if (uri == null) {
+                    pending.success(null)
+                    return
+                }
+                val title = RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: "Device sound"
+                pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
+                return
+            }
+
+            if (currentRequest == REQUEST_LOCAL_FILE || requestCode == REQUEST_LOCAL_FILE) {
+                val uri = data.data
+                if (uri == null) {
+                    pending.success(null)
+                    return
+                }
+                try {
+                    var takeFlags = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    if (takeFlags == 0) {
+                        takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (_: Exception) {}
+
+                var title = "Local file"
+                try {
+                    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (idx != -1) {
+                                val name = cursor.getString(idx)
+                                if (!name.isNullOrBlank()) title = name
+                            }
                         }
                     }
+                } catch (_: Exception) {}
+
+                val mimeType = try {
+                    contentResolver.getType(uri) ?: ""
+                } catch (_: Exception) {
+                    ""
                 }
-            } catch (_: Exception) {}
+                val ext = title.substringAfterLast('.', "").lowercase()
+                val audioExtensions = setOf("mp3", "wav", "ogg", "flac", "m4a", "aac", "wma", "opus", "mid", "midi", "amr", "aiff", "mpga", "m3u", "aif")
+                val nonAudioExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "zip", "rar", "7z", "tar", "gz", "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "exe", "apk", "bin", "iso", "xml", "html", "json")
 
-            val mimeType = contentResolver.getType(uri) ?: ""
-            val ext = title.substringAfterLast('.', "").lowercase()
-            val audioExtensions = setOf("mp3", "wav", "ogg", "flac", "m4a", "aac", "wma", "opus", "mid", "midi", "amr", "aiff", "mpga", "m3u", "aif")
-            val nonAudioExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "zip", "rar", "7z", "tar", "gz", "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "exe", "apk", "bin", "iso", "xml", "html", "json")
+                val isAudioMime = mimeType.startsWith("audio/", ignoreCase = true) ||
+                    mimeType.equals("application/ogg", ignoreCase = true) ||
+                    mimeType.equals("application/x-flac", ignoreCase = true)
+                val isAudioExt = audioExtensions.contains(ext)
+                val isNonAudioExt = nonAudioExtensions.contains(ext) ||
+                    mimeType.startsWith("image/", ignoreCase = true) ||
+                    mimeType.startsWith("video/", ignoreCase = true) ||
+                    mimeType.startsWith("text/", ignoreCase = true)
 
-            val isAudioMime = mimeType.startsWith("audio/", ignoreCase = true) ||
-                mimeType.equals("application/ogg", ignoreCase = true) ||
-                mimeType.equals("application/x-flac", ignoreCase = true)
-            val isAudioExt = audioExtensions.contains(ext)
-            val isNonAudioExt = nonAudioExtensions.contains(ext) ||
-                mimeType.startsWith("image/", ignoreCase = true) ||
-                mimeType.startsWith("video/", ignoreCase = true) ||
-                mimeType.startsWith("text/", ignoreCase = true)
+                if (isNonAudioExt || (!isAudioMime && !isAudioExt && ext.isNotEmpty())) {
+                    pending.error("non_audio_file", "The selected file '$title' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).", null)
+                    return
+                }
 
-            if (isNonAudioExt || (!isAudioMime && !isAudioExt && ext.isNotEmpty())) {
-                pending.error("non_audio_file", "The selected file '$title' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).", null)
-                return
+                pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
             }
-
-            pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
+        } catch (e: Exception) {
+            try {
+                pending.error("picker_failed", e.message, null)
+            } catch (_: Exception) {
+                // Reply may already have been submitted.
+            }
         }
     }
 

@@ -92,6 +92,24 @@ void main() {
       expect(errorMessage, contains('not an audio file'));
     });
 
+    test('pickLocalFile returns null when user cancels without selecting', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'pickLocalFile') {
+          return null;
+        }
+        return null;
+      });
+
+      String? errorMessage;
+      final sound = await RA_AlarmSoundPickerService.pickLocalFile(
+        onError: (msg) => errorMessage = msg,
+      );
+
+      expect(sound, isNull);
+      expect(errorMessage, isNull);
+    });
+
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
