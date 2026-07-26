@@ -477,6 +477,7 @@ class RA_AlarmService {
 
       // Wake UI / lock-screen paths BEFORE audio. just_audio init can hang or
       // fail on OEM devices; the ring page must still appear on time.
+      // Prefs only: never post a local notification (full-page ring only).
       await RA_NotificationService.showAlarmNotification(
         routineId: routineId,
         routineName: routine.Name,
@@ -496,7 +497,7 @@ class RA_AlarmService {
           volume: routine.Volume,
         );
       } catch (_) {
-        // Ring UI + FSI notification already posted; audio can retry on ring page.
+        // Ring UI wake prefs already set; audio can retry on ring page.
       }
 
       // Second ping in case the first raced ahead of Drift visibility.
@@ -700,7 +701,7 @@ class RA_AlarmService {
     if (nextTrigger == null) return;
 
     // Every action ends the current ring, so the watchdog armed for it and the
-    // ongoing full-screen notification both belong to a cycle that is over.
+    // native FGS / wake prefs both belong to a cycle that is over.
     await _cancelWatchdog(routineId);
     await RA_NotificationService.cancelNotification(routineId);
 

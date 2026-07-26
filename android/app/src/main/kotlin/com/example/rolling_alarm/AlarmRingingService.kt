@@ -1,5 +1,6 @@
 package com.example.rolling_alarm
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,9 +15,13 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 
 /**
- * Foreground service that posts a max-importance full-screen-intent notification
- * the instant an exact alarm fires. This is the reliable wake path when the
- * Flutter isolate is dead or deferred by OEM battery policies.
+ * Foreground service that wakes [MainActivity] for the full-page alarm UI the
+ * instant an exact alarm fires. Reliable when the Flutter isolate is dead or
+ * deferred by OEM battery policies.
+ *
+ * Android requires an ongoing FGS notification; that notification is silent and
+ * is not the alarm UX. The activity is always started so the user sees the
+ * full-page ring screen instead of a heads-up banner.
  */
 class AlarmRingingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -34,7 +39,7 @@ class AlarmRingingService : Service() {
         writeRingingPref(true)
         ensureChannel()
 
-        val notification = buildFullScreenNotification(routineId)
+        val notification = buildServiceNotification(routineId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 notificationId(routineId),
@@ -44,6 +49,9 @@ class AlarmRingingService : Service() {
         } else {
             startForeground(notificationId(routineId), notification)
         }
+
+        // Always open the full-page alarm; do not rely on heads-up demotion of FSI.
+        launchRingActivity(routineId)
 
         return START_STICKY
     }
@@ -78,24 +86,44 @@ class AlarmRingingService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val existing = nm.getNotificationChannel(CHANNEL_ID)
-        if (existing != null) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = CHANNEL_DESC
-            setBypassDnd(true)
-            setSound(null, null)
-            enableVibration(true)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        if (nm.getNotificationChannel(CHANNEL_ID_SERVICE) == null) {
+            // Low importance: required FGS entry only, never a heads-up banner.
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_SERVICE,
+                    CHANNEL_NAME_SERVICE,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = CHANNEL_DESC_SERVICE
+                    setBypassDnd(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_SECRET
+                }
+            )
         }
-        nm.createNotificationChannel(channel)
+        if (nm.getNotificationChannel(CHANNEL_ID_WAKE) == null) {
+            // High importance only for locked / screen-off FSI backup.
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_WAKE,
+                    CHANNEL_NAME_WAKE,
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = CHANNEL_DESC_WAKE
+                    setBypassDnd(true)
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                }
+            )
+        }
     }
 
-    private fun buildFullScreenNotification(routineId: Int): Notification {
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
+    private fun buildLaunchIntent(routineId: Int): Intent {
+        return Intent(this, MainActivity::class.java).apply {
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -105,33 +133,75 @@ class AlarmRingingService : Service() {
             putExtra(MainActivity.EXTRA_ALARM_RINGING, true)
             putExtra(EXTRA_ROUTINE_ID, routineId)
         }
-        val fullScreenPi = PendingIntent.getActivity(
-            this,
-            REQUEST_FSI_BASE + routineId,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    }
+
+    private fun launchRingActivity(routineId: Int) {
+        try {
+            startActivity(buildLaunchIntent(routineId))
+        } catch (_: Exception) {
+            // Fall back to full-screen intent on the FGS notification below.
+        }
+    }
+
+    private fun needsFullScreenIntentBackup(): Boolean {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+        val interactive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            pm.isInteractive
+        } else {
+            @Suppress("DEPRECATION")
+            pm.isScreenOn
+        }
+        return km.isKeyguardLocked || !interactive
+    }
+
+    /**
+     * Minimal ongoing notification required to keep the FGS alive.
+     * Unlocked: low-importance silent entry (no heads-up). Locked / screen off:
+     * high-importance FSI backup so Android can still launch the full-page UI.
+     */
+    private fun buildServiceNotification(routineId: Int): Notification {
+        val launchIntent = buildLaunchIntent(routineId)
         val contentPi = PendingIntent.getActivity(
             this,
             REQUEST_CONTENT_BASE + routineId,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val useFsi = needsFullScreenIntentBackup()
+        val channelId = if (useFsi) CHANNEL_ID_WAKE else CHANNEL_ID_SERVICE
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Rolling Alarm")
             .setContentText("Alarm is ringing")
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setSilent(true)
             .setSound(null)
             .setContentIntent(contentPi)
-            .setFullScreenIntent(fullScreenPi, true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+
+        if (useFsi) {
+            val fullScreenPi = PendingIntent.getActivity(
+                this,
+                REQUEST_FSI_BASE + routineId,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setFullScreenIntent(fullScreenPi, true)
+        } else {
+            builder
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+        }
+
+        return builder.build()
     }
 
     private fun writeRingingPref(ringing: Boolean) {
@@ -150,10 +220,16 @@ class AlarmRingingService : Service() {
     companion object {
         const val EXTRA_ROUTINE_ID = AlarmReceiver.EXTRA_ROUTINE_ID
 
-        private const val CHANNEL_ID = "ra_native_alarm_fsi"
-        private const val CHANNEL_NAME = "Alarm Wake"
-        private const val CHANNEL_DESC =
-            "Native full-screen wake when an exact alarm fires"
+        // Low-importance FGS channel for unlocked alarms (no heads-up).
+        private const val CHANNEL_ID_SERVICE = "ra_native_alarm_fgs_v3"
+        private const val CHANNEL_NAME_SERVICE = "Alarm Service"
+        private const val CHANNEL_DESC_SERVICE =
+            "Keeps the alarm wake service alive; ring UI is full-screen only"
+        // High-importance wake channel only when locked / screen off (FSI backup).
+        private const val CHANNEL_ID_WAKE = "ra_native_alarm_wake_v3"
+        private const val CHANNEL_NAME_WAKE = "Alarm Wake"
+        private const val CHANNEL_DESC_WAKE =
+            "Launches the full-page alarm when the device is locked or asleep"
         private const val WAKE_LOCK_TAG = "rolling_alarm:alarm_ringing"
         private const val NOTIFICATION_BASE = 70000
         private const val REQUEST_FSI_BASE = 71000

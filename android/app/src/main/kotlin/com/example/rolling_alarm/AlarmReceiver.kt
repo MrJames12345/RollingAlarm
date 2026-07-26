@@ -11,7 +11,7 @@ import android.os.PowerManager
  * Must not start [MainActivity] directly from the background; Android will kill
  * or defer that path under Doze / OEM limits. Immediately acquires a
  * [PowerManager.PARTIAL_WAKE_LOCK], then escalates to [AlarmRingingService]
- * which posts the full-screen-intent foreground notification while the lock
+ * which starts the foreground service and full-page ring activity while the lock
  * is still held.
  */
 class AlarmReceiver : BroadcastReceiver() {

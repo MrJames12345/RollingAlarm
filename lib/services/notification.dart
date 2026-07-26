@@ -13,7 +13,11 @@ Future<void> raNotificationBackgroundHandler(
   await RA_NotificationService.handleNotificationResponse(response);
 }
 
-/// Manages local notifications including full-screen intent for alarm ring.
+/// Manages alarm wake prefs and leftover notification cleanup.
+///
+/// Alarms never post a Flutter local notification. Ring UX is always the
+/// full-page [AlarmRingPage], woken via native [AlarmRingingService] and
+/// [RA_AlarmRingPresenter].
 class RA_NotificationService {
   RA_NotificationService._();
 
@@ -24,12 +28,11 @@ class RA_NotificationService {
   /// second sync [NativeDatabase] when notification actions fire in foreground.
   static RA_Database? _uiDatabase;
 
-  /// v2: bypass DND + max importance. New id so existing installs pick up
-  /// channel settings that Android freezes after first create.
+  /// Legacy channel id (kept for cancel / permission APIs only).
   static const String _channelId = 'ra_alarm_channel_v2';
   static const String _channelName = 'Alarm';
   static const String _channelDesc =
-      'Full-screen alarm alerts when a Rolling Alarm is ringing';
+      'Legacy channel; alarms use the full-page ring UI only';
   static const String _actionSnooze = 'snooze';
   static const String _actionDismiss = 'dismiss';
 
@@ -62,15 +65,16 @@ class RA_NotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >();
 
+      // Channel retained so cancel/permission APIs stay valid on upgrades.
       await androidPlugin?.createNotificationChannel(
         const AndroidNotificationChannel(
           _channelId,
           _channelName,
           description: _channelDesc,
-          importance: Importance.max,
+          importance: Importance.low,
           playSound: false,
-          enableVibration: true,
-          bypassDnd: true,
+          enableVibration: false,
+          bypassDnd: false,
         ),
       );
     } catch (_) {
@@ -80,6 +84,7 @@ class RA_NotificationService {
 
   /// Requests Android 14+ full-screen intent special access when needed.
   ///
+  /// Used by the native [AlarmRingingService] wake path, not Flutter banners.
   /// [USE_FULL_SCREEN_INTENT] is declared in the manifest; on API 34+ the OS
   /// may still require an app-ops grant via Settings. No-ops on older APIs /
   /// non-Android / headless test hosts.
@@ -95,9 +100,10 @@ class RA_NotificationService {
     }
   }
 
-  /// Posts a high-importance full-screen-intent notification so Android can
-  /// launch [MainActivity] over the lock screen even when the UI process is
-  /// dead (Google Clock pattern). Audio stays in [RA_AudioService].
+  /// Marks the alarm as ringing for lock-screen / cold-start flags.
+  ///
+  /// Does not post a local notification. The full-page ring UI is presented by
+  /// [RA_AlarmRingPresenter]; native wake uses [AlarmRingingService].
   static Future<void> showAlarmNotification({
     required int routineId,
     required String routineName,
@@ -110,45 +116,8 @@ class RA_NotificationService {
         alarmWakeAtPrefKey,
         DateTime.now().millisecondsSinceEpoch,
       );
-
-      final androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDesc,
-        importance: Importance.max,
-        priority: Priority.max,
-        category: AndroidNotificationCategory.alarm,
-        visibility: NotificationVisibility.public,
-        fullScreenIntent: true,
-        ongoing: true,
-        autoCancel: false,
-        playSound: false,
-        enableVibration: vibrate,
-        actions: <AndroidNotificationAction>[
-          AndroidNotificationAction(
-            _actionSnooze,
-            'Snooze',
-            showsUserInterface: false,
-            cancelNotification: false,
-          ),
-          AndroidNotificationAction(
-            _actionDismiss,
-            'Dismiss',
-            showsUserInterface: false,
-            cancelNotification: false,
-          ),
-        ],
-      );
-
-      await _plugin.show(
-        id: routineId,
-        title: routineName,
-        body: 'Alarm is ringing',
-        notificationDetails: NotificationDetails(android: androidDetails),
-        payload: '$routineId',
-      );
     } catch (_) {
-      // Never let notification failure block audio / UI wake paths.
+      // Never let pref failure block audio / UI wake paths.
     }
   }
 

@@ -574,7 +574,7 @@ void main() {
     );
 
     test(
-      'RA_NotificationService showAlarmNotification posts full-screen intent alarm',
+      'RA_NotificationService showAlarmNotification never posts a local notification',
       () async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -594,23 +594,14 @@ void main() {
         final showCalls = notifChannelCalls
             .where((c) => c.method == 'show')
             .toList();
-        expect(showCalls, isNotEmpty);
-        final args = showCalls.last.arguments as Map<dynamic, dynamic>;
-        expect(args['id'], 1);
-        expect(args['title'], 'Morning Alarm');
-        expect(
-          args.keys.map((k) => k.toString()).toList(),
-          contains('platformSpecifics'),
-          reason: 'show arg keys=${args.keys.toList()}',
-        );
-        final platform = args['platformSpecifics'] as Map<dynamic, dynamic>?;
-        expect(platform, isNotNull);
-        expect(platform!['fullScreenIntent'], isTrue);
-        expect(platform['category'], 'alarm');
-        expect(platform['ongoing'], isTrue);
+        expect(showCalls, isEmpty);
 
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getBool(RA_NotificationService.ringingPrefKey), isTrue);
+        expect(
+          prefs.getInt(RA_NotificationService.alarmWakeAtPrefKey),
+          isNotNull,
+        );
 
         await RA_NotificationService.cancelNotification(1);
         final cancelCalls = notifChannelCalls
