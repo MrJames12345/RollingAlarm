@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
-import 'package:rolling_alarm/components/common/save_running_routine_dialog.dart';
 import 'package:rolling_alarm/components/field/duration_field.dart';
 import 'package:rolling_alarm/components/field/number_field.dart';
 import 'package:rolling_alarm/components/field/radio_group.dart';
@@ -15,7 +14,6 @@ import 'package:rolling_alarm/components/field/text_field.dart';
 import 'package:rolling_alarm/components/field/time_of_day_field.dart';
 import 'package:rolling_alarm/components/field/toggle.dart';
 import 'package:rolling_alarm/database/database.dart';
-import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
@@ -165,44 +163,46 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       final name = _nameController.text.trim();
 
       if (_isEditing) {
-        final id = widget.existingRoutine!.Id;
+        final existing = widget.existingRoutine!;
+        final id = existing.Id;
         final state = await db.getRoutineState(id);
-        final isRunning =
-            state != null && (state.IsRinging || state.NextTriggerTime != null);
-
-        RA_RunningRoutineSaveChoice choice =
-            RA_RunningRoutineSaveChoice.continueCurrent;
-        if (isRunning) {
-          if (!mounted) return;
-          final selected = await RA_showRunningRoutineSaveDialog(context);
-          if (selected == null) return;
-          choice = selected;
-        }
+        final oldDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
+          existing.DayStartSeconds,
+        );
+        final newDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
+          _dayStart.hour * 3600 + _dayStart.minute * 60,
+        );
+        final previousNext = state?.NextTriggerTime;
 
         await db.updateRoutine(_companion(id: id));
 
-        if (choice == RA_RunningRoutineSaveChoice.skipCurrent) {
-          final updated = await db.getRoutineById(id);
-          final freshState = await db.getRoutineState(id);
-          if (freshState != null) {
-            await RA_AlarmService.handleTransition(
-              action: RA_AlarmActionTypeCodeEnum.Skip,
-              routineId: id,
-              db: db,
-              routine: updated,
-              state: freshState,
-            );
-          }
-        } else {
-          final next = (await db.getRoutineState(id))?.NextTriggerTime;
-          if (next != null) {
-            await RA_AlarmService.scheduleNext(
-              routineId: id,
-              triggerTime: next,
-              dbPath: widget.dbPath,
-              routineName: name,
-            );
-          }
+        // Keep the active timer as-is so interval / other edits apply next
+        // cycle. If we were waiting on "Start at time of day" and that time
+        // changed, retarget the countdown to the new day-start boundary.
+        var next = previousNext;
+        if (next != null &&
+            oldDayStart != newDayStart &&
+            RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+              nextTrigger: next,
+              dayStartSeconds: oldDayStart,
+            )) {
+          next = RA_DailyRingLimit.nextPeriodStartAfter(
+            DateTime.now(),
+            newDayStart,
+          );
+          await db.updateRoutineState(
+            id,
+            RoutineStatesCompanion(NextTriggerTime: Value(next)),
+          );
+        }
+
+        if (next != null) {
+          await RA_AlarmService.scheduleNext(
+            routineId: id,
+            triggerTime: next,
+            dbPath: widget.dbPath,
+            routineName: name,
+          );
         }
       } else {
         final nextTrigger = DateTime.now().add(_interval);
