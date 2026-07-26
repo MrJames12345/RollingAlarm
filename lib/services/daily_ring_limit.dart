@@ -81,4 +81,21 @@ class RA_DailyRingLimit {
   /// Next day-period boundary after [now] (the next "Start at time of day").
   static DateTime nextPeriodStartAfter(DateTime now, int dayStartSeconds) =>
       periodStart(now, dayStartSeconds).add(const Duration(days: 1));
+
+  /// Whether [nextTrigger] is the next "Start at time of day" after [now].
+  ///
+  /// True when the daily cap deferred the next ring to the period reset, so
+  /// skipping ahead would land on the same boundary again.
+  static bool isScheduledAtNextPeriodStart({
+    required DateTime nextTrigger,
+    required int dayStartSeconds,
+    DateTime? now,
+  }) {
+    final expected = nextPeriodStartAfter(
+      now ?? DateTime.now(),
+      dayStartSeconds,
+    );
+    return nextTrigger.millisecondsSinceEpoch ==
+        expected.millisecondsSinceEpoch;
+  }
 }

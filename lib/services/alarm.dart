@@ -84,6 +84,7 @@ class RA_AlarmService {
             await RA_NotificationService.showAlarmNotification(
               routineId: routine.Id,
               routineName: routine.Name,
+              vibrate: routine.Vibrate,
             );
             // Replace any reboot-restored watchdog with a fresh window from now.
             await _cancelWatchdog(routine.Id);
@@ -412,6 +413,7 @@ class RA_AlarmService {
       await RA_NotificationService.showAlarmNotification(
         routineId: routineId,
         routineName: routine.Name,
+        vibrate: routine.Vibrate,
       );
       _pingUiIsolate(routineId);
 
@@ -421,7 +423,10 @@ class RA_AlarmService {
       );
 
       try {
-        await RA_AudioService.startAlarm(audioUri: routine.AudioUri);
+        await RA_AudioService.startAlarm(
+          audioUri: routine.AudioUri,
+          vibrate: routine.Vibrate,
+        );
       } catch (_) {
         // Ring UI + FSI notification already posted; audio can retry on ring page.
       }
@@ -478,12 +483,17 @@ class RA_AlarmService {
   /// UI action and a watchdog/alarm isolate writing on separate connections
   /// cannot both commit against the same ring (a plain re-read is not enough
   /// across SQLite connections).
+  ///
+  /// When [action] is [RA_AlarmActionTypeCodeEnum.Skip] and
+  /// [countSkipTowardsDaily] is true, increments [TimesRingToday] for an idle
+  /// (not yet ringing) skip. Live rings already counted at trigger time.
   static Future<void> handleTransition({
     required RA_AlarmActionTypeCodeEnum action,
     required int routineId,
     required RA_Database db,
     required RoutineModel routine,
     required RoutineStateModel state,
+    bool countSkipTowardsDaily = false,
   }) async {
     final now = DateTime.now();
     final compensation =
@@ -517,6 +527,30 @@ class RA_AlarmService {
           action == RA_AlarmActionTypeCodeEnum.Dismiss ||
           action == RA_AlarmActionTypeCodeEnum.Skip;
 
+      // Idle Skip can optionally count as a "gone off" for today's total.
+      // Do not increment while already ringing; triggerAlarm already counted.
+      final shouldCountSkip =
+          action == RA_AlarmActionTypeCodeEnum.Skip &&
+          countSkipTowardsDaily &&
+          !fresh.IsRinging;
+
+      var timesRingToday = fresh.TimesRingToday;
+      var timesRingDay = fresh.TimesRingDay;
+      if (shouldCountSkip) {
+        final period = RA_DailyRingLimit.periodStart(
+          now,
+          routine.DayStartSeconds,
+        );
+        final priorCount = RA_DailyRingLimit.countForDay(
+          timesRingToday: fresh.TimesRingToday,
+          timesRingDay: fresh.TimesRingDay,
+          now: now,
+          dayStartSeconds: routine.DayStartSeconds,
+        );
+        timesRingToday = priorCount + 1;
+        timesRingDay = period;
+      }
+
       // Daily cap only defers the next interval cycle, never an in-cycle snooze.
       final next = isEffectiveDismiss
           ? RA_DailyRingLimit.deferIfDailyLimitReached(
@@ -524,8 +558,8 @@ class RA_AlarmService {
               maxTimesPerDay: routine.MaxTimesPerDayEnabled
                   ? routine.MaxTimesPerDay
                   : 0,
-              timesRingToday: fresh.TimesRingToday,
-              timesRingDay: fresh.TimesRingDay,
+              timesRingToday: timesRingToday,
+              timesRingDay: timesRingDay,
               now: now,
               dayStartSeconds: routine.DayStartSeconds,
             )
@@ -557,6 +591,12 @@ class RA_AlarmService {
           ),
           LastDismissedAt:
               isEffectiveDismiss ? Value(now) : const Value.absent(),
+          TimesRingToday: shouldCountSkip
+              ? Value(timesRingToday)
+              : const Value.absent(),
+          TimesRingDay: shouldCountSkip
+              ? Value(timesRingDay)
+              : const Value.absent(),
         ),
         requireIsRinging: ringingCas,
         matchNextTriggerTime: matchNext,

@@ -12,6 +12,7 @@ import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/notification.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -113,6 +114,7 @@ void main() {
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
+          Vibrate: true,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -201,6 +203,7 @@ void main() {
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.InitialRing.index,
           ShowPreview: true,
+          Vibrate: true,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -286,6 +289,7 @@ void main() {
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
+          Vibrate: true,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -387,6 +391,7 @@ void main() {
         DriftCompensationTypeCode:
             DriftCompensationTypeCodeEnum.InitialRing.index,
         ShowPreview: true,
+        Vibrate: true,
         AudioUri: null,
         IsActive: true,
         CreatedAt: now,
@@ -437,7 +442,8 @@ void main() {
             that: predicate<RoutineStatesCompanion>((companion) {
               return companion.IsRinging.value == false &&
                   companion.CurrentSnoozeCount.value == 0 &&
-                  companion.LastDismissedAt.present;
+                  companion.LastDismissedAt.present &&
+                  !companion.TimesRingToday.present;
             }),
           ),
           requireIsRinging: null,
@@ -455,6 +461,82 @@ void main() {
                   companion.TimeSinceLastDismissalSeconds.present;
             }),
           ),
+        ),
+      ).called(1);
+    });
+
+    test('handleTransition Skip with countSkipTowardsDaily increments TimesRingToday',
+        () async {
+      final now = DateTime.now();
+      final routine = RoutineModel(
+        Id: 4,
+        Name: 'Count Skip',
+        SnoozeSeconds: 300,
+        IntervalSeconds: 7200,
+        MaxTimesPerDayEnabled: false,
+        MaxTimesPerDay: 0,
+        DayStartSeconds: 0,
+        DriftCompensationTypeCode:
+            DriftCompensationTypeCodeEnum.ActualDismissal.index,
+        ShowPreview: true,
+        Vibrate: true,
+        AudioUri: null,
+        IsActive: true,
+        CreatedAt: now,
+        ModifiedAt: null,
+        Deleted: false,
+      );
+
+      final state = RoutineStateModel(
+        Id: 40,
+        RoutineId: 4,
+        NextTriggerTime: now.add(const Duration(minutes: 10)),
+        InitialRingTime: null,
+        IsRinging: false,
+        CurrentSnoozeCount: 0,
+        TimesRingToday: 2,
+        TimesRingDay: RA_DailyRingLimit.periodStart(now, 0),
+        LastDismissedAt: null,
+        CreatedAt: now,
+        ModifiedAt: null,
+        Deleted: false,
+      );
+
+      when(() => mockDb.getRoutineState(routine.Id))
+          .thenAnswer((_) async => state);
+      when(
+        () => mockDb.updateRoutineState(
+          any(),
+          any(),
+          requireIsRinging: any(named: 'requireIsRinging'),
+          matchNextTriggerTime: any(named: 'matchNextTriggerTime'),
+          nextTriggerTimeToMatch: any(named: 'nextTriggerTimeToMatch'),
+        ),
+      ).thenAnswer((_) async => 1);
+      when(() => mockDb.insertLogEntry(any())).thenAnswer((_) async => 1);
+
+      await RA_AlarmService.handleTransition(
+        action: RA_AlarmActionTypeCodeEnum.Skip,
+        routineId: routine.Id,
+        db: mockDb,
+        routine: routine,
+        state: state,
+        countSkipTowardsDaily: true,
+      );
+
+      verify(
+        () => mockDb.updateRoutineState(
+          routine.Id,
+          any(
+            that: predicate<RoutineStatesCompanion>((companion) {
+              return companion.TimesRingToday.present &&
+                  companion.TimesRingToday.value == 3 &&
+                  companion.TimesRingDay.present;
+            }),
+          ),
+          requireIsRinging: null,
+          matchNextTriggerTime: true,
+          nextTriggerTimeToMatch: state.NextTriggerTime,
         ),
       ).called(1);
     });

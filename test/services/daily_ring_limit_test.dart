@@ -7,10 +7,7 @@ void main() {
     const sixAm = 6 * 3600;
 
     test('periodStart uses midnight when dayStartSeconds is 0', () {
-      expect(
-        RA_DailyRingLimit.periodStart(now, 0),
-        DateTime(2026, 7, 26),
-      );
+      expect(RA_DailyRingLimit.periodStart(now, 0), DateTime(2026, 7, 26));
     });
 
     test('periodStart rolls back before the custom start time', () {
@@ -103,18 +100,21 @@ void main() {
       expect(deferred, DateTime(2026, 7, 27, 6));
     });
 
-    test('deferIfDailyLimitReached snaps next-period proposals to day-start', () {
-      final proposed = DateTime(2026, 7, 27, 8);
-      final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
-        proposed: proposed,
-        maxTimesPerDay: 1,
-        timesRingToday: 1,
-        timesRingDay: DateTime(2026, 7, 26, 6),
-        now: now,
-        dayStartSeconds: sixAm,
-      );
-      expect(deferred, DateTime(2026, 7, 27, 6));
-    });
+    test(
+      'deferIfDailyLimitReached snaps next-period proposals to day-start',
+      () {
+        final proposed = DateTime(2026, 7, 27, 8);
+        final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: proposed,
+          maxTimesPerDay: 1,
+          timesRingToday: 1,
+          timesRingDay: DateTime(2026, 7, 26, 6),
+          now: now,
+          dayStartSeconds: sixAm,
+        );
+        expect(deferred, DateTime(2026, 7, 27, 6));
+      },
+    );
 
     test('deferIfDailyLimitReached leaves proposed alone under the cap', () {
       final proposed = DateTime(2026, 7, 26, 19, 45);
@@ -139,11 +139,35 @@ void main() {
         DateTime(2026, 7, 27, 6),
       );
       expect(
-        RA_DailyRingLimit.nextPeriodStartAfter(
-          DateTime(2026, 7, 26, 5),
-          sixAm,
-        ),
+        RA_DailyRingLimit.nextPeriodStartAfter(DateTime(2026, 7, 26, 5), sixAm),
         DateTime(2026, 7, 26, 6),
+      );
+    });
+
+    test('isScheduledAtNextPeriodStart matches the next day-start only', () {
+      expect(
+        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+          nextTrigger: DateTime(2026, 7, 27, 6),
+          dayStartSeconds: sixAm,
+          now: now,
+        ),
+        isTrue,
+      );
+      expect(
+        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+          nextTrigger: DateTime(2026, 7, 26, 19, 45),
+          dayStartSeconds: sixAm,
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+          nextTrigger: DateTime(2026, 7, 26, 6),
+          dayStartSeconds: sixAm,
+          now: DateTime(2026, 7, 26, 5),
+        ),
+        isTrue,
       );
     });
   });
