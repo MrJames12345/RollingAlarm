@@ -59,6 +59,7 @@ Future<void> RA_showImportDialog(
       title: Text('Import Routines', style: RA_TextStyles.mediumFont),
       content: TextField(
         controller: controller,
+        autofocus: true,
         style: RA_TextStyles.tinyFont.copyWith(height: 1.35),
         maxLines: 3,
         decoration: RA_InputDecoration(

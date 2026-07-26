@@ -19,6 +19,7 @@ Future<bool?> RA_showCountDailySkipDialog(BuildContext context) {
         style: RA_TextStyles.mediumFont,
       ),
       actions: [
+        RA_DialogButton('Cancel', () => Navigator.pop(ctx)),
         RA_DialogButton('No', () => Navigator.pop(ctx, false)),
         RA_DialogButton(
           'Yes',
