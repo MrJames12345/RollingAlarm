@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rolling_alarm/database/tables/log_entries.dart';
 import 'package:rolling_alarm/database/tables/routine_states.dart';
 import 'package:rolling_alarm/database/tables/routines.dart';
+import 'package:rolling_alarm/enums/log_action_type_code.dart';
 
 part 'database.g.dart';
 
@@ -311,6 +312,23 @@ class RA_Database extends _$RA_Database {
           ..where((l) => l.Deleted.equals(false))
           ..orderBy([(l) => OrderingTerm.desc(l.Timestamp)]))
         .get();
+  }
+
+  /// Count of [LogActionTypeCodeEnum.Dismiss] events for [routineId] at or
+  /// after [since] (typically the routine's current day-period start).
+  Future<int> countDismissalsSince({
+    required int routineId,
+    required DateTime since,
+  }) async {
+    final dismissCode = LogActionTypeCodeEnum.Dismiss.index;
+    final rows =
+        await (select(logEntries)
+              ..where((l) => l.Deleted.equals(false))
+              ..where((l) => l.RoutineId.equals(routineId))
+              ..where((l) => l.LogActionTypeCode.equals(dismissCode))
+              ..where((l) => l.Timestamp.isBiggerOrEqualValue(since)))
+            .get();
+    return rows.length;
   }
 
   // --------------------------------------------------------------------- //

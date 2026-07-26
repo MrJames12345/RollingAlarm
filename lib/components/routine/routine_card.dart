@@ -16,6 +16,7 @@ import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -167,6 +168,8 @@ class RA_RoutineCard extends ConsumerWidget {
       final db = ref.read(RA_DatabaseProvider);
       await RA_AlarmService.cancel(routine.Id);
       await db.softDeleteRoutine(routine.Id);
+      await RA_WidgetService.clearPinnedRoutineIfMatch(routine.Id);
+      await RA_WidgetService.updateWidgetState(db: db);
       return true;
     });
     return deleted == true;
@@ -332,7 +335,7 @@ class _CardChrome {
 
 _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
   RA_RoutineUiPhase.ringing => _CardChrome(
-    fill: RA_ColourStyles.softCoral.withValues(alpha: 0.08),
+    fill: RA_ColourStyles.offBlack,
     border: RA_ColourStyles.softCoral.withValues(alpha: 0.7),
     borderWidth: 1.5,
     glow: RA_ShapeStyles.softCoralGlow,
@@ -340,7 +343,7 @@ _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
     highlight: RA_ColourStyles.softCoral.withValues(alpha: 0.05),
   ),
   RA_RoutineUiPhase.countingDown => _CardChrome(
-    fill: RA_ColourStyles.secondary.withValues(alpha: 0.04),
+    fill: RA_ColourStyles.offBlack,
     border: RA_ColourStyles.secondary.withValues(alpha: 0.35),
     borderWidth: 1.5,
     glow: RA_ShapeStyles.tealGlow,

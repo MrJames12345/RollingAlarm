@@ -89,9 +89,10 @@
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
             android:exported="false" />
 
-        <!-- Home screen widget provider -->
+        <!-- Sole home screen widget (Jetpack Glance + home_widget) -->
         <receiver
-            android:name=".AlarmWidgetProvider"
+            android:name=".RollingAlarmWidgetReceiver"
+            android:label="@string/widget_label"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -99,15 +100,6 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/alarm_widget_info" />
-        </receiver>
-
-        <!-- home_widget background interactivity (Skip button) -->
-        <receiver
-            android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
-            </intent-filter>
         </receiver>
 
         <meta-data

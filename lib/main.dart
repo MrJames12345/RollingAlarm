@@ -5,16 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/components/common/alarm_ring_presenter.dart';
 import 'package:rolling_alarm/database/database.dart';
-import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/home.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/notification.dart';
-import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +32,6 @@ Future<void> main() async {
 
   await RA_AlarmService.init();
   await RA_NotificationService.init();
-  await RA_WidgetService.registerBackgroundCallback(_homeWidgetCallback);
   await _requestPermissions();
   // Re-arm from Drift after force-stop / missed native reboot restore.
   await RA_AlarmService.reconcileAlarmsOnStartup(db: database, dbPath: dbPath);
@@ -56,35 +52,6 @@ Future<void> main() async {
       child: RollingAlarmApp(dbPath: dbPath),
     ),
   );
-}
-
-@pragma('vm:entry-point')
-Future<void> _homeWidgetCallback(Uri? uri) async {
-  try {
-    if (uri?.host != 'skip') return;
-    final routineId = int.tryParse(uri?.queryParameters['id'] ?? '');
-    if (routineId == null) return;
-    final dbPath = (await SharedPreferences.getInstance()).getString(
-      'ra_db_path',
-    );
-    if (dbPath == null) return;
-    final db = RA_Database.openForIsolate(dbPath);
-    try {
-      final routine = await db.getRoutineById(routineId);
-      final state = await db.getRoutineState(routineId);
-      if (state != null) {
-        await RA_AlarmService.handleTransition(
-          action: RA_AlarmActionTypeCodeEnum.Skip,
-          routineId: routineId,
-          db: db,
-          routine: routine,
-          state: state,
-        );
-      }
-    } finally {
-      await db.close();
-    }
-  } catch (_) {}
 }
 
 Future<void> _requestPermissions() async {

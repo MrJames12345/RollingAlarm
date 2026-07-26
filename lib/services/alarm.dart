@@ -103,11 +103,13 @@ class RA_AlarmService {
             triggerTime: next,
             dbPath: dbPath,
             routineName: routine.Name,
+            refreshWidget: false,
           );
         } catch (_) {
           // One bad routine must not block re-arming the rest.
         }
       }
+      await RA_WidgetService.updateWidgetState(db: db);
     } catch (_) {
       // Startup must never crash on reconcile failure.
     }
@@ -122,6 +124,7 @@ class RA_AlarmService {
     required DateTime triggerTime,
     required String dbPath,
     String? routineName,
+    bool refreshWidget = true,
   }) async {
     try {
       // Force Unrestricted battery mode before any AlarmManager arming.
@@ -160,11 +163,10 @@ class RA_AlarmService {
       // (works even when the Flutter UI process was killed). Best-effort.
       await _scheduleAlarmUi(fireAt: fireAt, routineId: routineId);
 
-      await RA_WidgetService.updateWidget(
-        routineName: routineName ?? 'Rolling Alarm',
-        nextTriggerTime: triggerTime,
-        routineId: routineId,
-      );
+      // Refresh the pinned routine dashboard (not whichever routine scheduled).
+      if (refreshWidget) {
+        await RA_WidgetService.updateWidgetState();
+      }
     } catch (_) {
       // Platform channel / permission failures must not crash callers.
     }
@@ -503,6 +505,9 @@ class RA_AlarmService {
 
       // Second ping in case the first raced ahead of Drift visibility.
       _pingUiIsolate(routineId);
+
+      // Push dismissals / next time for the pinned routine without opening the app.
+      await RA_WidgetService.updateWidgetState(db: db);
     } catch (_) {
       // Never let an unhandled exception kill the background isolate mid-ring.
     } finally {
@@ -724,8 +729,12 @@ class RA_AlarmService {
         triggerTime: nextTrigger!,
         dbPath: dbPath,
         routineName: routine.Name,
+        refreshWidget: false,
       );
     }
+
+    // Recalculate dismissals_today / next_alarm_time for the pinned dashboard.
+    await RA_WidgetService.updateWidgetState(db: db);
 
     _pingUiIsolate(routineId);
   }
