@@ -7,6 +7,7 @@ import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/reset_today_counter_dialog.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
 import 'package:rolling_alarm/components/routine/routine_history_list.dart';
 import 'package:rolling_alarm/database/database.dart';
@@ -77,10 +78,7 @@ class RoutineSummaryPage extends ConsumerWidget {
                 Navigator.push(
                   context,
                   RA_Routes.fade(
-                    RoutineEditPage(
-                      dbPath: dbPath,
-                      existingRoutine: routine,
-                    ),
+                    RoutineEditPage(dbPath: dbPath, existingRoutine: routine),
                   ),
                 ),
               );
@@ -191,7 +189,10 @@ class _SummaryTab extends ConsumerWidget {
                 value: RA_Utils.formatInterval(routine.SnoozeSeconds),
               ),
               const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(label: 'Drift compensation', value: compensationLabel),
+              _SummaryRow(
+                label: 'Drift compensation',
+                value: compensationLabel,
+              ),
             ],
           ),
         ),
@@ -207,25 +208,20 @@ class _SummaryTab extends ConsumerWidget {
               ),
               if (routine.MaxTimesPerDayEnabled) ...[
                 const SizedBox(height: RA_ShapeStyles.space8),
-                _SummaryRow(
-                  label: 'Limit',
-                  value: '${routine.MaxTimesPerDay}',
-                ),
+                _SummaryRow(label: 'Limit', value: '${routine.MaxTimesPerDay}'),
                 const SizedBox(height: RA_ShapeStyles.space8),
                 _SummaryRow(label: 'Starts at', value: dayStartLabel),
               ],
               const SizedBox(height: RA_ShapeStyles.space8),
               _SummaryRow(
                 label: 'Today',
-                value: todayCount == 1
-                    ? '1 time'
-                    : '$todayCount times',
+                value: todayCount == 1 ? '1 time' : '$todayCount times',
               ),
               const SizedBox(height: RA_ShapeStyles.space16),
               RA_Button(
                 text: "Reset today's counter",
                 isPrimary: false,
-                onClick: () => unawaited(_resetTodayCounter(ref)),
+                onClick: () => unawaited(_resetTodayCounter(context, ref)),
               ),
             ],
           ),
@@ -234,14 +230,14 @@ class _SummaryTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _resetTodayCounter(WidgetRef ref) async {
+  Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {
+    final confirmed = await RA_showResetTodayCounterDialog(context);
+    if (confirmed != true) return;
+
     RA_Haptics.heavyUnawaited();
     final db = ref.read(RA_DatabaseProvider);
     final now = DateTime.now();
-    final period = RA_DailyRingLimit.periodStart(
-      now,
-      routine.DayStartSeconds,
-    );
+    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
     await db.updateRoutineState(
       routine.Id,
       RoutineStatesCompanion(
