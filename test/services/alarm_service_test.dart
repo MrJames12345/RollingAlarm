@@ -65,6 +65,9 @@ void main() {
           if (methodCall.method == 'requestIgnoreBatteryOptimizations') {
             return true;
           }
+          if (methodCall.method == 'ensureIgnoringBatteryOptimizations') {
+            return true;
+          }
           return null;
         });
 

@@ -114,6 +114,9 @@ class RA_AlarmService {
   }
 
   /// Schedules the next alarm for [routineId] at [triggerTime].
+  ///
+  /// Always runs the aggressive battery-optimization check first so create /
+  /// toggle / reschedule paths cannot silently stay under OEM Doze limits.
   static Future<void> scheduleNext({
     required int routineId,
     required DateTime triggerTime,
@@ -121,6 +124,10 @@ class RA_AlarmService {
     String? routineName,
   }) async {
     try {
+      // Force Unrestricted battery mode before any AlarmManager arming.
+      // scheduleNext is the single create / toggle / reschedule entry point.
+      await ensureBatteryOptimizationExempt();
+
       // Persist the DB path so the background isolate can find it
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_dbPathKey, dbPath);
@@ -241,12 +248,27 @@ class RA_AlarmService {
     }
   }
 
-  /// Ensures battery exemption; prompts when not granted. Call at startup.
+  /// Ensures battery exemption; prompts when not granted.
+  ///
+  /// Called from [scheduleNext] on every create / toggle / reschedule, and
+  /// once at app startup, so the user cannot bypass Unrestricted mode.
   static Future<void> ensureBatteryOptimizationExempt() async {
     try {
+      const channel = MethodChannel(_uiSchedulerChannel);
+      // Prefer the combined native check+prompt so the dialog fires immediately.
+      final ensured = await channel.invokeMethod<bool>(
+        'ensureIgnoringBatteryOptimizations',
+      );
+      if (ensured == true) return;
+      // Older plugin builds may lack the combined method; fall back.
       if (await isIgnoringBatteryOptimizations()) return;
       await requestIgnoreBatteryOptimizations();
-    } catch (_) {}
+    } catch (_) {
+      try {
+        if (await isIgnoringBatteryOptimizations()) return;
+        await requestIgnoreBatteryOptimizations();
+      } catch (_) {}
+    }
   }
 
   /// Re-arms native AlarmReceiver setAlarmClock timers from Drift. Call once the
