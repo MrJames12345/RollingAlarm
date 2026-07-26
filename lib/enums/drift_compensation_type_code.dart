@@ -1,0 +1,4 @@
+enum DriftCompensationTypeCodeEnum {
+  ActualDismissal,
+  InitialRing,
+}
