@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
+import 'package:rolling_alarm/services/device_ringtone.dart';
 
 /// Lightweight preview playback for the alarm sound picker.
 ///
@@ -17,6 +18,7 @@ class RA_SoundPreviewService {
   static final StreamController<bool> _playingController =
       StreamController<bool>.broadcast();
   static bool _testPlaying = false;
+  static bool _usingNativeRingtone = false;
 
   static const String _defaultAsset = 'assets/audio/default_alarm.wav';
 
@@ -25,6 +27,7 @@ class RA_SoundPreviewService {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return _testPlaying;
     }
+    if (_usingNativeRingtone) return true;
     return _player?.playing ?? false;
   }
 
@@ -41,6 +44,25 @@ class RA_SoundPreviewService {
 
     try {
       await stop();
+
+      if (sound.usesNativeRingtone) {
+        final started = await RA_DeviceRingtone.play(
+          uri: sound.uri!.trim(),
+          loop: true,
+          asAlarm: false,
+          fadeInMs: 0,
+        );
+        if (started == true) {
+          _usingNativeRingtone = true;
+          if (!_playingController.isClosed) {
+            _playingController.add(true);
+          }
+          return;
+        }
+        await stop();
+        return;
+      }
+
       await _configureSession();
 
       final player = AudioPlayer();
@@ -74,6 +96,17 @@ class RA_SoundPreviewService {
       return;
     }
 
+    if (_usingNativeRingtone) {
+      if (isPlaying) {
+        await RA_DeviceRingtone.stop();
+        _usingNativeRingtone = false;
+        if (!_playingController.isClosed) {
+          _playingController.add(false);
+        }
+      }
+      return;
+    }
+
     final player = _player;
     if (player == null) return;
 
@@ -100,6 +133,11 @@ class RA_SoundPreviewService {
 
     await _playingSub?.cancel();
     _playingSub = null;
+
+    if (_usingNativeRingtone) {
+      _usingNativeRingtone = false;
+      await RA_DeviceRingtone.stop();
+    }
 
     try {
       await _player?.stop();

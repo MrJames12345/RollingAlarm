@@ -11,11 +11,7 @@ class RA_AlarmSound {
   final String? uri;
   final String? label;
 
-  const RA_AlarmSound({
-    required this.source,
-    this.uri,
-    this.label,
-  });
+  const RA_AlarmSound({required this.source, this.uri, this.label});
 
   static const RA_AlarmSound deviceDefault = RA_AlarmSound(
     source: RA_AlarmSoundSource.deviceDefault,
@@ -29,9 +25,22 @@ class RA_AlarmSound {
   }
 
   /// True when [just_audio] can load [uri] directly.
+  ///
+  /// Device ringtone URIs are excluded; those need native [Ringtone] playback.
   bool get hasPlayableUri {
     final value = uri?.trim() ?? '';
     if (value.isEmpty) return false;
+    if (source == RA_AlarmSoundSource.deviceSounds) return false;
+    return value.startsWith('content:') ||
+        value.startsWith('file:') ||
+        value.startsWith('http:') ||
+        value.startsWith('https:');
+  }
+
+  /// True when this sound should play through Android Ringtone, not just_audio.
+  bool get usesNativeRingtone {
+    if (source != RA_AlarmSoundSource.deviceSounds) return false;
+    final value = uri?.trim() ?? '';
     return value.startsWith('content:') ||
         value.startsWith('file:') ||
         value.startsWith('http:') ||

@@ -6,7 +6,10 @@ void main() {
   group('RA_AlarmSound', () {
     test('default encodes to empty and decodes from null', () {
       expect(RA_AlarmSound.deviceDefault.encode(), isEmpty);
-      expect(RA_AlarmSound.decode(null).source, RA_AlarmSoundSource.deviceDefault);
+      expect(
+        RA_AlarmSound.decode(null).source,
+        RA_AlarmSoundSource.deviceDefault,
+      );
       expect(
         RA_AlarmSound.decode('').source,
         RA_AlarmSoundSource.deviceDefault,
@@ -23,7 +26,8 @@ void main() {
       expect(decoded.source, RA_AlarmSoundSource.deviceSounds);
       expect(decoded.uri, sound.uri);
       expect(decoded.label, 'Argon');
-      expect(decoded.hasPlayableUri, isTrue);
+      expect(decoded.hasPlayableUri, isFalse);
+      expect(decoded.usesNativeRingtone, isTrue);
     });
 
     test('reads legacy plain file uri', () {
@@ -31,7 +35,16 @@ void main() {
       expect(decoded.source, RA_AlarmSoundSource.localFile);
       expect(decoded.uri, 'file:///music/wake.mp3');
       expect(decoded.hasPlayableUri, isTrue);
+      expect(decoded.usesNativeRingtone, isFalse);
+    });
+
+    test('legacy content uri uses native ringtone', () {
+      final decoded = RA_AlarmSound.decode(
+        'content://media/internal/audio/media/27',
+      );
+      expect(decoded.source, RA_AlarmSoundSource.deviceSounds);
+      expect(decoded.usesNativeRingtone, isTrue);
+      expect(decoded.hasPlayableUri, isFalse);
     });
   });
 }
-
