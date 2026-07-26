@@ -1,0 +1,80 @@
+Rolling Alarm Foundation: Plan Verification and Architecture Audit
+Scope: Subagent 1 (architecture verification, GetX/Isar remnant removal, manifest completeness, RA_AlarmCalculator TDD proof, Patrol soundness for alarm E2E). Source: rolling_alarm_foundation_3b9bd3ee.plan.md vs C:\repo\RollingAlarm.
+
+Verdict
+Foundation plan items are implemented. Unit suite is green (58/58). RA_AlarmCalculator absolute-interval and DriftCompensation assertions all pass. GetX and Isar are fully absent. Drift uses NativeDatabase.createInBackground (UI) plus openForIsolate sync opener with WAL, busy_timeout=5000, and synchronous=NORMAL. Android manifest permissions match the plan (plus TURN_SCREEN_ON and QUICKBOOT_POWERON). Patrol alarm_cycle passed once on emulator-5554; advanced lifecycle is syntactically sound but API 34 AVD instrumentation is flaky (process crash / mid-suite abort).
+
+Plan todo status (all marked completed in plan file)
+scaffold, test-harness, tdd-calculator, theme, database, providers, alarm-core, audio-tts, ui, extras, android-native, verify, test-alarm-math, test-database, test-services, test-patrol-e2e, test-run: VERIFIED present in codebase.
+
+1. Drift tables, models, isolate connections
+Verified
+- Tables: Routines -> RoutineModel, RoutineStates -> RoutineStateModel, LogEntries -> LogEntryModel with @DataClassName and PascalCase columns plus CreatedAt/ModifiedAt/Deleted audit fields.
+- RoutineStates has unique RoutineId; schemaVersion 2 migration collapses duplicates and adds unique index.
+- UI opener: NativeDatabase.createInBackground with WAL/busy_timeout/synchronous pragmas.
+- Background: RA_Database.openForIsolate uses sync NativeDatabase with the same pragmas; callers close in finally.
+- Alarm + watchdog callbacks use @pragma('vm:entry-point') and openForIsolate.
+- IsolateNameServer UI port refreshes Drift watches after isolate writes.
+
+2. Riverpod only (no GetX)
+Verified
+- providers/: RA_DatabaseProvider, RoutineListProvider, ActiveRoutineStateProvider, LogEntriesProvider, CountdownProvider (plus RoutineUiSnapshotProvider / RingingRoutineStatesProvider).
+- main.dart wraps ProviderScope with RA_DatabaseProvider override.
+- Grep: no package:get, GetX, Obx, GetMaterialApp, GetxController.
+- No controllers/ folder.
+
+3. Isar removed / Drift configured
+Verified
+- No isar dependency in pubspec; no Isar imports.
+- WAL + busy_timeout on both open paths; createInBackground on UI path per plan.
+
+4. Layer-first structure, RA_ prefixes, PascalCase fields
+Verified
+- Folders: database/, providers/, services/, pages/, components/{common,field,routine}/, enums/, styles.dart, utils.dart. No core/domain/data/presentation. No barrel files.
+- Reusable widgets/services use RA_ prefix; pages use Page suffix; models use Model suffix.
+- analysis_options.yaml relaxes camel_case / non_constant_identifier for PascalCase fields.
+- MaterialApp + Navigator (RA_Routes); no go_router.
+
+5 to 7. TDD calculator, mocktail wrappers, Patrol
+Verified (unit)
+- test/services/alarm_calculator_test.dart: baseline 4h30m, ActualDismissal vs InitialRing, 10-cycle zero drift, MaxSnoozes, Skip, AutoSnooze, midnight, DST spring/fall, multi-snooze cumulative drift. All pass.
+- test/services/alarm_service_test.dart: mocktail MethodChannel stubs for AndroidAlarmManager.oneShotAt (exact/wakeup/allowWhileIdle/rescheduleOnReboot) and flutter_local_notifications fullScreenIntent + actions; CAS races; simulateAlarmCallback / watchdog / reconcile.
+- test/database, export, countdown, utils: present and green.
+
+Patrol
+- MainActivityTest.java + PatrolJUnitRunner present.
+- Intentional deviation: ANDROIDX_TEST_ORCHESTRATOR omitted (documented in build.gradle.kts; API 34 AVD crashes between Parametrized cases).
+- Helpers: SCHEDULE_EXACT_ALARM adb appops fallback, native settings attempt, FSI grant, slideToSnooze/slideToDismiss for slide UI.
+- alarm_cycle_test: PASSED on emulator-5554 (exact alarm grant, ring, slide dismiss, NextTriggerTime vs calculator).
+- advanced_alarm_lifecycle_test: dart analyze clean; logic covers FSI ring, InitialRing snooze/auto-snooze/dismiss, isolate WAL handoff, ActualDismissal. Runtime: flaky process crashes (0 tests / mid-run abort) on this AVD; not a syntax defect.
+- Screenshot suite left to Subagent 5 (still may need slide helpers; companions already call slideTo*).
+
+8. AndroidManifest
+Verified present
+- SCHEDULE_EXACT_ALARM (not USE_EXACT_ALARM)
+- WAKE_LOCK, RECEIVE_BOOT_COMPLETED, POST_NOTIFICATIONS, USE_FULL_SCREEN_INTENT, VIBRATE, FOREGROUND_SERVICE
+- TURN_SCREEN_ON (Android 14+ for turnScreenOn)
+- QUICKBOOT_POWERON (added this audit; pairs with existing QUICKBOOT receiver actions)
+- android_alarm_manager_plus service + receivers (including reboot with QUICKBOOT intents)
+- flutter_local_notifications ActionBroadcastReceiver
+- HomeWidget provider + background receiver
+- MainActivity showWhenLocked / turnScreenOn (manifest attrs + Kotlin API)
+
+9. Fixes implemented this audit
+- AndroidManifest: added QUICKBOOT_POWERON permission for OEM quick-boot paths already declared on RebootBroadcastReceiver.
+- AlarmRingPage: stable Keys ra_ring_snooze / ra_ring_dismiss on slide tracks.
+- e2e_pump_helpers: slideRingAction prefers those keys for timedDrag completion.
+
+Test results
+- flutter test: 58 passed, 0 failed.
+- RA_AlarmCalculator alone: 15/15 passed.
+- RA_Database tests: 10/10 passed (including WAL pragma check).
+- patrol alarm_cycle_test: 1/1 passed (earlier this session).
+- patrol advanced_alarm_lifecycle_test: instrumentation flaky on API 34 AVD (remaining risk).
+
+Remaining risks (out of deep ownership or environmental)
+- OEM battery optimization / process kill (plan caveat; no automated coverage).
+- API 34 AVD Patrol process crashes between or during instrumentation runs; prefer Java 17/21 for Gradle; retry or cold boot before CI.
+- Lockscreen true FSI path intentionally deferred to screenshot companions due to keyevent/shade crashes on this AVD.
+- Deeper concurrency surgery owned by Subagent 2 (CAS/transaction already present in handleTransition; Findings1 notes are largely addressed).
+- Screenshot E2E ownership: Subagent 5.

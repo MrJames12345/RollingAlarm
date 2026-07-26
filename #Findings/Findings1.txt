@@ -1,0 +1,116 @@
+Drift concurrency and thread-safety audit
+Scope: lib/database/, isolate openers in alarm/notification/main, and Riverpod StreamProviders bound to Drift .watch(). Source: RollingAlarm codebase as of audit run.
+
+2
+High severity races
+2
+Medium risks
+3
+Low / hygiene
+6/8
+Critical checks passing
+Headline
+WAL, busy_timeout, createInBackground (UI), and autoDispose watch providers are correctly wired. The real hazards are logical races: non-transactional handleTransition under multi-isolate writers, and foreground notification handling opening a sync DB on the UI isolate.
+Critical checklist
+Check	Verdict	Evidence
+NativeDatabase.createInBackground on UI path
+RA_Database() uses createInBackground via _openConnection(); main() resolves path before construction
+Background isolate open path
+openForIsolate uses sync NativeDatabase on the alarm/widget isolate; nesting createInBackground would spawn a third isolate
+WAL + busy_timeout on both paths
+Both setup blocks set PRAGMA journal_mode=WAL and PRAGMA busy_timeout=5000
+StreamProvider.autoDispose on Drift .watch()
+RoutineList, ActiveRoutineState, RingingRoutineStates, LogEntries all autoDispose; cancel ends Drift query streams
+Cross-isolate Drift stream refresh
+registerUiPort + database.notifyUpdates on routines, routineStates, logEntries after isolate writes
+Isolate connection close discipline
+alarm, watchdog, notification, and home-widget paths open via openForIsolate and close in finally
+Foreground notification opens sync DB on UI isolate
+handleNotificationResponse can run on the main isolate and opens a second sync NativeDatabase while createInBackground is already live
+Read-modify-write without transaction / mutex
+handleTransition is not wrapped in db.transaction(); UI dismiss and watchdog/alarm can race on the same RoutineState
+1. createInBackground utilization
+UI / main isolate
+`_openConnection()` returns `NativeDatabase.createInBackground(file, setup: …)`. Queries from the Riverpod-held singleton run on Drift’s worker isolate, so UI frames are not blocked by SQLite I/O.
+
+main() calls resolveDatabasePath() before `RA_Database()`, so `_getDatabaseFile()` does not fall through to the `.` fallback at startup.
+
+Alarm / widget isolates
+`openForIsolate` intentionally uses synchronous `NativeDatabase`. Those callbacks already run off the UI isolate; `createInBackground` would only add another hop.
+
+Do not require createInBackground “for all background operations.” The right rule is: offload from the UI isolate; open sync (or a dedicated isolate connection) where you already are background.
+
+R2: exception path
+When `onDidReceiveNotificationResponse` fires in the foreground, `handleNotificationResponse` still calls `openForIsolate`, opening a second sync connection on the main isolate beside the long-lived createInBackground executor. Prefer reusing `RA_DatabaseProvider` when a Flutter binding / ProviderScope exists, and reserve openForIsolate for true headless entry points.
+2. WAL and busy timeouts
+PRAGMA setup (both openers)
+Identical setup on UI and isolate paths:
+
+`PRAGMA journal_mode = WAL;` then `PRAGMA busy_timeout = 5000;`
+
+This is the right pair for concurrent readers (UI watch / get) plus short writers (alarm isolate log + state). SQLite will wait up to 5s on SQLITE_BUSY instead of failing immediately when the other connection holds the write lock.
+
+Note: busy_timeout does not serialize application-level read-modify-write. It only prevents hard lock errors during overlapping physical writes.
+
+3. StreamProviders and disposal
+Provider	Mode	Drift / stream source	Consumers	Disposal
+RA_DatabaseProvider
+Provider (singleton override)	main() RA_Database()	All DB readers/writers	Never closed; app-lifetime OK
+RoutineListProvider
+StreamProvider.autoDispose	db.watchAllRoutines()	HomePage body	Cancels on leave Home
+ActiveRoutineStateProvider
+autoDispose.family	db.watchRoutineState(id)	RoutineCard	Per-card; drops when card unmounts
+RingingRoutineStatesProvider
+StreamProvider.autoDispose	db.watchRingingRoutineStates()	HomePage ref.listen	Alive while Home mounted
+LogEntriesProvider
+autoDispose.family	db.watchLogEntries()	LogsPage	Cancels when Logs popped
+CountdownProvider
+autoDispose.family	Stream.periodic(1s)	RoutineCountdown	Timer stream cancelled on dispose
+Memory leak verdict on .watch() providers
+No leak found in the Drift StreamProviders. `autoDispose` cancels the Riverpod subscription, which cancels Drift’s query stream. Family providers (per routineId / nextTriggerTime) tear down when cards or pages unmount. The DB singleton is deliberately not autoDisposed.
+Cross-isolate watch coherence
+Isolate writes are invisible to the UI connection’s in-memory cache unless notified. `registerUiPort` correctly calls `database.notifyUpdates` for all three tables after alarm pings, so active `.watch()` streams refresh without polling.
+
+Connection matrix
+Entry point	Isolate	Opener	Close
+main() UI database
+Main	createInBackground + WAL/busy_timeout	Not closed (singleton)
+_alarmCallback
+Alarm bg	openForIsolate → NativeDatabase sync	finally db.close()
+_watchdogCallback
+Alarm bg	openForIsolate → NativeDatabase sync	finally db.close()
+_homeWidgetCallback
+Widget bg	openForIsolate → NativeDatabase sync	finally db.close()
+Notification action (background)
+Notif bg	openForIsolate → NativeDatabase sync	finally db.close()
+Notification action (foreground)
+Main	openForIsolate → sync on UI thread	finally db.close()
+No connection leak on short-lived isolate openers: every reviewed path uses try/finally with `await db.close()`. The only intentional long-lived connection is the UI singleton.
+
+Race conditions and leaks
+ID	Severity	Finding	Location	Impact
+R1
+Lost-update race on concurrent transitions	lib/services/alarm.dart handleTransition	UI dismiss/snooze and watchdog/alarm isolate can both read the same state, then overwrite; duplicate logs, wrong snooze count, double scheduleNext
+R2
+Sync NativeDatabase on main isolate	notification.dart handleNotificationResponse	Foreground notification actions block the UI thread and open a second connection beside createInBackground
+R3
+Non-atomic state update + log insert	handleTransition (no transaction)	Crash or kill between updateRoutineState and insertLogEntry leaves state advanced without a matching log row
+R4
+No UNIQUE on RoutineStates.RoutineId	lib/database/tables/routine_states.dart	Concurrent inserts can create duplicate state rows; watchSingleOrNull / getSingleOrNull then throw or pick arbitrarily
+R5
+Fallback DB path if resolve skipped	database.dart _getDatabaseFile	Falls back to ./rolling_alarm.db if _resolvedDbPath is null; wrong file / surprise concurrency surface if construction order regresses
+R6
+ReceivePort never closed	RA_AlarmService.registerUiPort	App-lifetime leak by design; hot restart can leave orphan ports until process exit
+R7
+Home ringing listener push race	lib/pages/home.dart ref.listen	Async listen callback can push AlarmRingPage more than once if RingingRoutineStates emits repeatedly while IsRinging stays true
+Recommended fixes (priority order)
+Wrap handleTransition’s state update + log insert in `db.transaction()`, and gate concurrent transitions per routineId (e.g. SharedPreferences lock key or compare-and-set on IsRinging / snooze count) so UI and watchdog cannot both commit.
+
+Split notification handling: if WidgetsBinding / UI DB exists, use RA_DatabaseProvider; only call openForIsolate from the `@pragma('vm:entry-point')` background handler.
+
+Add a unique index on RoutineStates.RoutineId (and prefer getSingleOrNull after enforcing uniqueness).
+
+Dedupe AlarmRingPage pushes in HomePage listen (track navigated routineId or check an existing route). Assert `_resolvedDbPath != null` in `_getDatabaseFile` instead of the `.` fallback.
+
+What is already solid
+createInBackground for UI, WAL + 5s busy_timeout on both openers, try/finally closes on isolate DBs, IsolateNameServer notifyUpdates for watch refresh, and autoDispose StreamProviders over Drift .watch() with no keepAlive retention.
