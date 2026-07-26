@@ -51,12 +51,11 @@ class RA_RoutineCard extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
-      child: Dismissible(
-        key: ValueKey('routine_dismiss_${routine.Id}'),
-        direction: DismissDirection.endToStart,
-        confirmDismiss: (_) => _confirmSwipeDelete(context, ref),
-        background: const SizedBox.shrink(),
-        secondaryBackground: DecoratedBox(
+      child: _SwipeToConfirmDelete(
+        confirm: () =>
+            RA_showDeleteRoutineDialog(context, routineName: routine.Name),
+        onConfirmed: () => _deleteRoutine(ref),
+        background: DecoratedBox(
           decoration: BoxDecoration(
             color: RA_ColourStyles.softCoral,
             borderRadius: RA_ShapeStyles.largeBorderRadius,
@@ -161,13 +160,7 @@ class RA_RoutineCard extends ConsumerWidget {
     );
   }
 
-  Future<bool> _confirmSwipeDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await RA_showDeleteRoutineDialog(
-      context,
-      routineName: routine.Name,
-    );
-    if (confirmed != true) return false;
-
+  Future<bool> _deleteRoutine(WidgetRef ref) async {
     final deleted = await RA_tryAsync(() async {
       final db = ref.read(RA_DatabaseProvider);
       await RA_AlarmService.cancel(routine.Id);
@@ -194,6 +187,126 @@ class RA_RoutineCard extends ConsumerWidget {
         countSkipTowardsDaily: countTowardsDaily,
       );
     });
+  }
+}
+
+/// Swipe left to reveal delete. On release past the threshold, the confirm
+/// dialog opens immediately (no wait for a slide off animation).
+class _SwipeToConfirmDelete extends StatefulWidget {
+  final Widget child;
+  final Widget background;
+  final Future<bool?> Function() confirm;
+  final Future<bool> Function() onConfirmed;
+
+  const _SwipeToConfirmDelete({
+    required this.child,
+    required this.background,
+    required this.confirm,
+    required this.onConfirmed,
+  });
+
+  @override
+  State<_SwipeToConfirmDelete> createState() => _SwipeToConfirmDeleteState();
+}
+
+class _SwipeToConfirmDeleteState extends State<_SwipeToConfirmDelete>
+    with SingleTickerProviderStateMixin {
+  static const double _dismissFraction = 0.4;
+
+  late final AnimationController _controller;
+  double _width = 1;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController.unbounded(vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateTo(double target) {
+    return _controller.animateTo(
+      target,
+      duration: RA_ShapeStyles.slideSnapDuration,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _onDragEnd(double velocity) async {
+    if (_busy) return;
+
+    final pastThreshold = -_controller.value >= _width * _dismissFraction;
+    final flingToDelete = velocity < -700 && _controller.value < 0;
+    if (!pastThreshold && !flingToDelete) {
+      await _animateTo(0);
+      return;
+    }
+
+    _busy = true;
+    RA_Haptics.heavyUnawaited();
+
+    final confirmed = await widget.confirm();
+    if (!mounted) return;
+
+    if (confirmed == true) {
+      await _animateTo(-_width);
+      if (!mounted) return;
+      final deleted = await widget.onConfirmed();
+      if (!mounted) return;
+      if (!deleted) {
+        await _animateTo(0);
+      }
+    } else {
+      await _animateTo(0);
+    }
+
+    if (mounted) _busy = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _width = constraints.maxWidth;
+        return GestureDetector(
+          onHorizontalDragStart: (_) {
+            if (_busy) return;
+            _controller.stop();
+          },
+          onHorizontalDragUpdate: (details) {
+            if (_busy) return;
+            _controller.value = (_controller.value + details.delta.dx).clamp(
+              -_width,
+              0.0,
+            );
+          },
+          onHorizontalDragEnd: (details) {
+            if (_busy) return;
+            unawaited(_onDragEnd(details.primaryVelocity ?? 0));
+          },
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  Positioned.fill(child: widget.background),
+                  Transform.translate(
+                    offset: Offset(_controller.value, 0),
+                    child: child,
+                  ),
+                ],
+              );
+            },
+            child: widget.child,
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -236,7 +349,7 @@ _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
   RA_RoutineUiPhase.notScheduled ||
   RA_RoutineUiPhase.loading ||
   RA_RoutineUiPhase.error => _CardChrome(
-    fill: RA_ColourStyles.surface,
+    fill: RA_ColourStyles.offBlack,
     border: RA_ShapeStyles.idleSurfaceBorder,
     borderWidth: 1,
     glow: null,
