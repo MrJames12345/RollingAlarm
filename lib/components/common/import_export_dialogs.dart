@@ -19,16 +19,31 @@ Future<void> RA_showExportDialog(BuildContext context, String exportStr) {
         ),
       ),
       actions: [
-        RA_DialogButton(
-          'Copy',
-          () {
-            unawaited(Clipboard.setData(ClipboardData(text: exportStr)));
-            Navigator.pop(ctx);
-          },
-          color: RA_ColourStyles.secondary,
-        ),
+        RA_DialogButton('Copy', () {
+          unawaited(Clipboard.setData(ClipboardData(text: exportStr)));
+          Navigator.pop(ctx);
+        }, color: RA_ColourStyles.secondary),
         RA_DialogButton('Close', () => Navigator.pop(ctx)),
       ],
+    ),
+  );
+}
+
+/// Warns that export has nothing to share when the routine list is empty.
+void RA_showNoRoutinesToExportWarning(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: RA_ColourStyles.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: RA_ShapeStyles.largeBorderRadius,
+      ),
+      content: Text(
+        'No routines to export. Create a routine first.',
+        style: RA_TextStyles.smallFont.copyWith(
+          color: RA_ColourStyles.softCoral,
+        ),
+      ),
     ),
   );
 }
@@ -55,35 +70,31 @@ Future<void> RA_showImportDialog(
         ),
       ),
       actions: [
-        RA_DialogButton(
-          'Import',
-          () async {
-            final text = controller.text.trim();
-            if (text.isEmpty) return;
-            try {
-              await onImport(text);
-              if (ctx.mounted) Navigator.pop(ctx);
-            } catch (_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: RA_ColourStyles.surface,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: RA_ShapeStyles.largeBorderRadius,
-                  ),
-                  content: Text(
-                    'Import failed. Check the RA1 string and try again.',
-                    style: RA_TextStyles.smallFont.copyWith(
-                      color: RA_ColourStyles.softCoral,
-                    ),
+        RA_DialogButton('Import', () async {
+          final text = controller.text.trim();
+          if (text.isEmpty) return;
+          try {
+            await onImport(text);
+            if (ctx.mounted) Navigator.pop(ctx);
+          } catch (_) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: RA_ColourStyles.surface,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: RA_ShapeStyles.largeBorderRadius,
+                ),
+                content: Text(
+                  'Import failed. Check the RA1 string and try again.',
+                  style: RA_TextStyles.smallFont.copyWith(
+                    color: RA_ColourStyles.softCoral,
                   ),
                 ),
-              );
-            }
-          },
-          color: RA_ColourStyles.secondary,
-        ),
+              ),
+            );
+          }
+        }, color: RA_ColourStyles.secondary),
         RA_DialogButton('Cancel', () => Navigator.pop(ctx)),
       ],
     ),

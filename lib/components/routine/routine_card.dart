@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/components/common/count_daily_skip_dialog.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/routine/routine_countdown.dart';
@@ -11,9 +12,10 @@ import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
-import 'package:rolling_alarm/pages/routine_edit.dart';
+import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -30,96 +32,128 @@ class RA_RoutineCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Chrome cares about ringing + countdown so teal/coral glows animate with
-    // phase without rebuilding on every countdown tick.
+    // phase without rebuilding on every countdown tick. Also watch whether the
+    // next fire is the daily-limit day-start so Dismiss upcoming can hide.
     final phase = ref.watch(
       RoutineUiSnapshotProvider(routine.Id).select((s) => s.phase),
     );
+    final hideDismissUpcoming = ref.watch(
+      RoutineUiSnapshotProvider(routine.Id).select((s) {
+        final next = s.nextTriggerTime;
+        if (next == null || !routine.MaxTimesPerDayEnabled) return false;
+        return RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+          nextTrigger: next,
+          dayStartSeconds: routine.DayStartSeconds,
+        );
+      }),
+    );
     final chrome = _chromeFor(phase);
 
-    return AnimatedContainer(
-      duration: RA_ShapeStyles.stateTransitionDuration,
-      curve: Curves.easeInOut,
-      margin: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
-      decoration: RA_ShapeStyles.elevatedSurface(
-        fill: chrome.fill,
-        borderColor: chrome.border,
-        borderWidth: chrome.borderWidth,
-        boxShadow: chrome.glow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: RA_ShapeStyles.largeBorderRadius,
-        child: InkWell(
-          borderRadius: RA_ShapeStyles.largeBorderRadius,
-          splashColor: chrome.splash,
-          highlightColor: chrome.highlight,
-          onTap: () {
-            RA_Haptics.heavyUnawaited();
-            final isRinging = phase == RA_RoutineUiPhase.ringing;
-            unawaited(
-              Navigator.push(
-                context,
-                isRinging
-                    ? RA_Routes.alarmRing(
-                        AlarmRingPage(
-                          routineId: routine.Id,
-                          routineName: routine.Name,
-                          audioUri: routine.AudioUri,
-                        ),
-                      )
-                    : RA_Routes.fade(
-                        RoutineEditPage(
-                          dbPath: dbPath,
-                          existingRoutine: routine,
-                        ),
-                      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
+      child: Dismissible(
+        key: ValueKey('routine_dismiss_${routine.Id}'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (_) => _confirmSwipeDelete(context, ref),
+        background: const SizedBox.shrink(),
+        secondaryBackground: DecoratedBox(
+          decoration: BoxDecoration(
+            color: RA_ColourStyles.softCoral,
+            borderRadius: RA_ShapeStyles.largeBorderRadius,
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: RA_ShapeStyles.space24),
+              child: Icon(
+                Icons.delete_outline,
+                color: RA_ColourStyles.offBlack,
+                size: 28,
               ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(RA_ShapeStyles.space16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+          ),
+        ),
+        child: AnimatedContainer(
+          duration: RA_ShapeStyles.stateTransitionDuration,
+          curve: Curves.easeInOut,
+          decoration: RA_ShapeStyles.elevatedSurface(
+            fill: chrome.fill,
+            borderColor: chrome.border,
+            borderWidth: chrome.borderWidth,
+            boxShadow: chrome.glow,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: RA_ShapeStyles.largeBorderRadius,
+            child: InkWell(
+              borderRadius: RA_ShapeStyles.largeBorderRadius,
+              splashColor: chrome.splash,
+              highlightColor: chrome.highlight,
+              onTap: () {
+                RA_Haptics.heavyUnawaited();
+                final isRinging = phase == RA_RoutineUiPhase.ringing;
+                unawaited(
+                  Navigator.push(
+                    context,
+                    isRinging
+                        ? RA_Routes.alarmRing(
+                            AlarmRingPage(
+                              routineId: routine.Id,
+                              routineName: routine.Name,
+                              audioUri: routine.AudioUri,
+                              vibrate: routine.Vibrate,
+                            ),
+                          )
+                        : RA_Routes.fade(
+                            RoutineSummaryPage(
+                              routineId: routine.Id,
+                              dbPath: dbPath,
+                            ),
+                          ),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(RA_ShapeStyles.space16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        routine.Name,
-                        style: RA_TextStyles.mediumFont,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            routine.Name,
+                            style: RA_TextStyles.mediumFont,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: RA_ShapeStyles.space8),
+                        Text(
+                          RA_Utils.formatInterval(routine.IntervalSeconds),
+                          style: RA_TextStyles.intervalDigitsFont,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: RA_ShapeStyles.space8),
+                    _TodayRingCount(routine: routine),
+                    const SizedBox(height: RA_ShapeStyles.space16),
+                    _RoutineCardStatus(routineId: routine.Id),
+                    if (!hideDismissUpcoming) ...[
+                      const SizedBox(height: RA_ShapeStyles.space16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: RA_IconTextButton(
+                          icon: Icons.skip_next,
+                          label: 'Dismiss upcoming',
+                          onTap: () => unawaited(_handleSkip(context, ref)),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: RA_ShapeStyles.space8),
-                    Text(
-                      RA_Utils.formatInterval(routine.IntervalSeconds),
-                      style: RA_TextStyles.intervalDigitsFont,
-                    ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: RA_ShapeStyles.space16),
-                _RoutineCardStatus(routineId: routine.Id),
-                const SizedBox(height: RA_ShapeStyles.space16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    RA_IconTextButton(
-                      icon: Icons.skip_next,
-                      label: 'Dismiss upcoming',
-                      onTap: () => unawaited(_handleSkip(ref)),
-                    ),
-                    const SizedBox(width: RA_ShapeStyles.space8),
-                    RA_IconTextButton(
-                      icon: Icons.delete_outline,
-                      label: 'Delete',
-                      color: RA_ColourStyles.softCoral,
-                      onTap: () => unawaited(_handleDelete(context, ref)),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -127,7 +161,26 @@ class RA_RoutineCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleSkip(WidgetRef ref) async {
+  Future<bool> _confirmSwipeDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await RA_showDeleteRoutineDialog(
+      context,
+      routineName: routine.Name,
+    );
+    if (confirmed != true) return false;
+
+    final deleted = await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      await RA_AlarmService.cancel(routine.Id);
+      await db.softDeleteRoutine(routine.Id);
+      return true;
+    });
+    return deleted == true;
+  }
+
+  Future<void> _handleSkip(BuildContext context, WidgetRef ref) async {
+    final countTowardsDaily = await RA_showCountDailySkipDialog(context);
+    if (countTowardsDaily == null) return;
+
     await RA_tryAsync(() async {
       final db = ref.read(RA_DatabaseProvider);
       final state = await db.getRoutineState(routine.Id);
@@ -138,21 +191,8 @@ class RA_RoutineCard extends ConsumerWidget {
         db: db,
         routine: routine,
         state: state,
+        countSkipTowardsDaily: countTowardsDaily,
       );
-    });
-  }
-
-  Future<void> _handleDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await RA_showDeleteRoutineDialog(
-      context,
-      routineName: routine.Name,
-    );
-    if (confirmed != true) return;
-
-    await RA_tryAsync(() async {
-      final db = ref.read(RA_DatabaseProvider);
-      await RA_AlarmService.cancel(routine.Id);
-      await db.softDeleteRoutine(routine.Id);
     });
   }
 }
@@ -176,34 +216,65 @@ class _CardChrome {
 }
 
 _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
-      RA_RoutineUiPhase.ringing => _CardChrome(
-          fill: RA_ColourStyles.softCoral.withValues(alpha: 0.08),
-          border: RA_ColourStyles.softCoral.withValues(alpha: 0.7),
-          borderWidth: 1.5,
-          glow: RA_ShapeStyles.softCoralGlow,
-          splash: RA_ColourStyles.softCoral.withValues(alpha: 0.12),
-          highlight: RA_ColourStyles.softCoral.withValues(alpha: 0.05),
-        ),
-      RA_RoutineUiPhase.countingDown => _CardChrome(
-          fill: RA_ColourStyles.secondary.withValues(alpha: 0.04),
-          border: RA_ColourStyles.secondary.withValues(alpha: 0.35),
-          borderWidth: 1.5,
-          glow: RA_ShapeStyles.tealGlow,
-          splash: RA_ColourStyles.secondary.withValues(alpha: 0.1),
-          highlight: RA_ColourStyles.secondary.withValues(alpha: 0.04),
-        ),
-      RA_RoutineUiPhase.idle ||
-      RA_RoutineUiPhase.notScheduled ||
-      RA_RoutineUiPhase.loading ||
-      RA_RoutineUiPhase.error => _CardChrome(
-          fill: RA_ColourStyles.surface,
-          border: RA_ShapeStyles.idleSurfaceBorder,
-          borderWidth: 1,
-          glow: null,
-          splash: RA_ColourStyles.secondary.withValues(alpha: 0.14),
-          highlight: RA_ColourStyles.secondary.withValues(alpha: 0.06),
-        ),
-    };
+  RA_RoutineUiPhase.ringing => _CardChrome(
+    fill: RA_ColourStyles.softCoral.withValues(alpha: 0.08),
+    border: RA_ColourStyles.softCoral.withValues(alpha: 0.7),
+    borderWidth: 1.5,
+    glow: RA_ShapeStyles.softCoralGlow,
+    splash: RA_ColourStyles.softCoral.withValues(alpha: 0.12),
+    highlight: RA_ColourStyles.softCoral.withValues(alpha: 0.05),
+  ),
+  RA_RoutineUiPhase.countingDown => _CardChrome(
+    fill: RA_ColourStyles.secondary.withValues(alpha: 0.04),
+    border: RA_ColourStyles.secondary.withValues(alpha: 0.35),
+    borderWidth: 1.5,
+    glow: RA_ShapeStyles.tealGlow,
+    splash: RA_ColourStyles.secondary.withValues(alpha: 0.1),
+    highlight: RA_ColourStyles.secondary.withValues(alpha: 0.04),
+  ),
+  RA_RoutineUiPhase.idle ||
+  RA_RoutineUiPhase.notScheduled ||
+  RA_RoutineUiPhase.loading ||
+  RA_RoutineUiPhase.error => _CardChrome(
+    fill: RA_ColourStyles.surface,
+    border: RA_ShapeStyles.idleSurfaceBorder,
+    borderWidth: 1,
+    glow: null,
+    splash: RA_ColourStyles.secondary.withValues(alpha: 0.14),
+    highlight: RA_ColourStyles.secondary.withValues(alpha: 0.06),
+  ),
+};
+
+/// How many times this routine has rung in the current day period.
+class _TodayRingCount extends ConsumerWidget {
+  final RoutineModel routine;
+
+  const _TodayRingCount({required this.routine});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(
+      ActiveRoutineStateProvider(routine.Id).select((async) {
+        final state = async.valueOrNull;
+        if (state == null) return 0;
+        return RA_DailyRingLimit.countForDay(
+          timesRingToday: state.TimesRingToday,
+          timesRingDay: state.TimesRingDay,
+          now: DateTime.now(),
+          dayStartSeconds: routine.DayStartSeconds,
+        );
+      }),
+    );
+
+    final label = count == 1 ? '1 time today' : '$count times today';
+    return Text(
+      label,
+      style: RA_TextStyles.tinyFont.copyWith(
+        color: RA_ColourStyles.mutedPrimary,
+      ),
+    );
+  }
+}
 
 /// Status region only. Phase changes animate here; countdown ticks stay inside
 /// [RA_Countdown] so this widget does not rebuild every second.

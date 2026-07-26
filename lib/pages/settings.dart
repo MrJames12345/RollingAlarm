@@ -57,8 +57,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final db = ref.read(RA_DatabaseProvider);
+    final routines = await db.watchAllRoutines().first;
+    if (!context.mounted) return;
+    if (routines.isEmpty) {
+      RA_showNoRoutinesToExportWarning(context);
+      return;
+    }
+
     final exportStr = await RA_tryAsync(
-      () => RA_ExportService.exportToBase64(ref.read(RA_DatabaseProvider)),
+      () => RA_ExportService.exportToBase64(db),
     );
     if (exportStr != null && context.mounted) {
       unawaited(RA_showExportDialog(context, exportStr));
