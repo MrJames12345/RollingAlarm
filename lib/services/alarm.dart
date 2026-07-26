@@ -80,7 +80,7 @@ class RA_AlarmService {
             routine.Id,
           );
 
-            if (state.IsRinging) {
+          if (state.IsRinging) {
             await RA_NotificationService.showAlarmNotification(
               routineId: routine.Id,
               routineName: routine.Name,
@@ -214,6 +214,21 @@ class RA_AlarmService {
         'routineId': routineId,
       });
     } catch (_) {}
+  }
+
+  static const String _alarmSoundChannel =
+      'com.example.rolling_alarm/alarm_sound';
+
+  /// Clears lock-screen overlay flags and sends the Flutter activity to the
+  /// background via [moveTaskToBack], restoring the keyguard without killing
+  /// the engine. Call after Snooze / Dismiss ends a live ring.
+  static Future<void> dismissAlarmUI() async {
+    try {
+      const channel = MethodChannel(_alarmSoundChannel);
+      await channel.invokeMethod<void>('dismissAlarmUI');
+    } catch (_) {
+      // Channel absent in tests / headless isolates.
+    }
   }
 
   /// Whether the OS has exempted this app from battery optimizations.
@@ -611,8 +626,9 @@ class RA_AlarmService {
           CurrentSnoozeCount: Value(
             isEffectiveDismiss ? 0 : fresh.CurrentSnoozeCount + 1,
           ),
-          LastDismissedAt:
-              isEffectiveDismiss ? Value(now) : const Value.absent(),
+          LastDismissedAt: isEffectiveDismiss
+              ? Value(now)
+              : const Value.absent(),
           TimesRingToday: shouldCountSkip
               ? Value(timesRingToday)
               : const Value.absent(),
@@ -628,8 +644,9 @@ class RA_AlarmService {
 
       int? timeSinceLastDismissal;
       if (isEffectiveDismiss && fresh.LastDismissedAt != null) {
-        timeSinceLastDismissal =
-            now.difference(fresh.LastDismissedAt!).inSeconds;
+        timeSinceLastDismissal = now
+            .difference(fresh.LastDismissedAt!)
+            .inSeconds;
       }
 
       final logAction = _mapToLogAction(action);
@@ -656,6 +673,14 @@ class RA_AlarmService {
     await _cancelWatchdog(routineId);
     await RA_NotificationService.cancelNotification(routineId);
 
+    // Drop lock-screen overlay and minimize so the keyguard returns. Must run
+    // after IsRinging is cleared so the ring presenter cannot re-foreground.
+    if (action == RA_AlarmActionTypeCodeEnum.Dismiss ||
+        action == RA_AlarmActionTypeCodeEnum.Snooze ||
+        action == RA_AlarmActionTypeCodeEnum.AutoSnooze) {
+      await dismissAlarmUI();
+    }
+
     // Reschedule
     final dbPath = (await SharedPreferences.getInstance()).getString(
       _dbPathKey,
@@ -674,8 +699,7 @@ class RA_AlarmService {
 
   static LogActionTypeCodeEnum _mapToLogAction(
     RA_AlarmActionTypeCodeEnum action,
-  ) =>
-      LogActionTypeCodeEnum.values[action.index];
+  ) => LogActionTypeCodeEnum.values[action.index];
 
   /// Sends a ping to the UI isolate via IsolateNameServer.
   static void _pingUiIsolate(int routineId) {

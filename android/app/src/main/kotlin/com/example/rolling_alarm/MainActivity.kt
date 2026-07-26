@@ -184,6 +184,30 @@ class MainActivity : FlutterActivity() {
                         applyLockScreenFlags(false)
                         result.success(null)
                     }
+                    "dismissAlarmUI" -> {
+                        // User snoozed/dismissed: drop lock-screen overlay privileges
+                        // and send the task to the background so the keyguard returns.
+                        // Do not finish(); that would tear down the Flutter engine.
+                        isAlarmRinging = false
+                        lockOverlayFromAlarmIntent = false
+                        writeRingingPref(false)
+                        alarmWakeElapsedMs = 0L
+                        intent?.removeExtra(EXTRA_ALARM_RINGING)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                            setShowWhenLocked(false)
+                            setTurnScreenOn(false)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            window.clearFlags(
+                                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                            )
+                        }
+                        // Also drop keep-screen-on / allow-lock leftovers from the ring.
+                        applyLockScreenFlags(false)
+                        moveTaskToBack(true)
+                        result.success(null)
+                    }
                     "listDeviceSounds" -> {
                         try {
                             result.success(listDeviceSounds())

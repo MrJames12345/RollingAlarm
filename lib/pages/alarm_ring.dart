@@ -86,6 +86,8 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       final state = await db.getRoutineState(widget.routineId);
       if (state == null) return;
 
+      // handleTransition invokes dismissAlarmUI after IsRinging clears so the
+      // activity leaves the lock-screen overlay without killing the engine.
       await RA_AlarmService.handleTransition(
         action: action,
         routineId: widget.routineId,

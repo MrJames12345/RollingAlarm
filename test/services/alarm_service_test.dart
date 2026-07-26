@@ -58,7 +58,9 @@ void main() {
       'com.example.rolling_alarm/alarm_ui_scheduler',
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(uiSchedulerChannel, (MethodCall methodCall) async {
+        .setMockMethodCallHandler(uiSchedulerChannel, (
+          MethodCall methodCall,
+        ) async {
           if (methodCall.method == 'isIgnoringBatteryOptimizations') {
             return true;
           }
@@ -89,6 +91,15 @@ void main() {
         .setMockMethodCallHandler(
           homeWidgetChannel,
           (MethodCall methodCall) async => true,
+        );
+
+    const alarmSoundChannel = MethodChannel(
+      'com.example.rolling_alarm/alarm_sound',
+    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          alarmSoundChannel,
+          (MethodCall methodCall) async => null,
         );
   });
 
@@ -140,7 +151,9 @@ void main() {
           Deleted: false,
         );
 
-        when(() => mockDb.getRoutineState(routine.Id)).thenAnswer((_) async => state);
+        when(
+          () => mockDb.getRoutineState(routine.Id),
+        ).thenAnswer((_) async => state);
         when(
           () => mockDb.updateRoutineState(
             any(),
@@ -229,7 +242,9 @@ void main() {
           Deleted: false,
         );
 
-        when(() => mockDb.getRoutineState(routine.Id)).thenAnswer((_) async => state);
+        when(
+          () => mockDb.getRoutineState(routine.Id),
+        ).thenAnswer((_) async => state);
         when(
           () => mockDb.updateRoutineState(
             any(),
@@ -388,9 +403,9 @@ void main() {
         Name: 'Skip Alarm',
         SnoozeSeconds: 540,
         IntervalSeconds: 16200,
-          MaxTimesPerDayEnabled: false,
-          MaxTimesPerDay: 0,
-          DayStartSeconds: 0,
+        MaxTimesPerDayEnabled: false,
+        MaxTimesPerDay: 0,
+        DayStartSeconds: 0,
         DriftCompensationTypeCode:
             DriftCompensationTypeCodeEnum.InitialRing.index,
         ShowPreview: true,
@@ -409,15 +424,17 @@ void main() {
         InitialRingTime: now.subtract(const Duration(minutes: 5)),
         IsRinging: false,
         CurrentSnoozeCount: 2,
-          TimesRingToday: 0,
-          TimesRingDay: null,
+        TimesRingToday: 0,
+        TimesRingDay: null,
         LastDismissedAt: now.subtract(const Duration(hours: 4)),
         CreatedAt: now,
         ModifiedAt: null,
         Deleted: false,
       );
 
-      when(() => mockDb.getRoutineState(routine.Id)).thenAnswer((_) async => state);
+      when(
+        () => mockDb.getRoutineState(routine.Id),
+      ).thenAnswer((_) async => state);
       when(
         () => mockDb.updateRoutineState(
           any(),
@@ -468,81 +485,84 @@ void main() {
       ).called(1);
     });
 
-    test('handleTransition Skip with countSkipTowardsDaily increments TimesRingToday',
-        () async {
-      final now = DateTime.now();
-      final routine = RoutineModel(
-        Id: 4,
-        Name: 'Count Skip',
-        SnoozeSeconds: 300,
-        IntervalSeconds: 7200,
-        MaxTimesPerDayEnabled: false,
-        MaxTimesPerDay: 0,
-        DayStartSeconds: 0,
-        DriftCompensationTypeCode:
-            DriftCompensationTypeCodeEnum.ActualDismissal.index,
-        ShowPreview: true,
-        Vibrate: true,
-        AudioUri: null,
-        IsActive: true,
-        CreatedAt: now,
-        ModifiedAt: null,
-        Deleted: false,
-      );
+    test(
+      'handleTransition Skip with countSkipTowardsDaily increments TimesRingToday',
+      () async {
+        final now = DateTime.now();
+        final routine = RoutineModel(
+          Id: 4,
+          Name: 'Count Skip',
+          SnoozeSeconds: 300,
+          IntervalSeconds: 7200,
+          MaxTimesPerDayEnabled: false,
+          MaxTimesPerDay: 0,
+          DayStartSeconds: 0,
+          DriftCompensationTypeCode:
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+          ShowPreview: true,
+          Vibrate: true,
+          AudioUri: null,
+          IsActive: true,
+          CreatedAt: now,
+          ModifiedAt: null,
+          Deleted: false,
+        );
 
-      final state = RoutineStateModel(
-        Id: 40,
-        RoutineId: 4,
-        NextTriggerTime: now.add(const Duration(minutes: 10)),
-        InitialRingTime: null,
-        IsRinging: false,
-        CurrentSnoozeCount: 0,
-        TimesRingToday: 2,
-        TimesRingDay: RA_DailyRingLimit.periodStart(now, 0),
-        LastDismissedAt: null,
-        CreatedAt: now,
-        ModifiedAt: null,
-        Deleted: false,
-      );
+        final state = RoutineStateModel(
+          Id: 40,
+          RoutineId: 4,
+          NextTriggerTime: now.add(const Duration(minutes: 10)),
+          InitialRingTime: null,
+          IsRinging: false,
+          CurrentSnoozeCount: 0,
+          TimesRingToday: 2,
+          TimesRingDay: RA_DailyRingLimit.periodStart(now, 0),
+          LastDismissedAt: null,
+          CreatedAt: now,
+          ModifiedAt: null,
+          Deleted: false,
+        );
 
-      when(() => mockDb.getRoutineState(routine.Id))
-          .thenAnswer((_) async => state);
-      when(
-        () => mockDb.updateRoutineState(
-          any(),
-          any(),
-          requireIsRinging: any(named: 'requireIsRinging'),
-          matchNextTriggerTime: any(named: 'matchNextTriggerTime'),
-          nextTriggerTimeToMatch: any(named: 'nextTriggerTimeToMatch'),
-        ),
-      ).thenAnswer((_) async => 1);
-      when(() => mockDb.insertLogEntry(any())).thenAnswer((_) async => 1);
-
-      await RA_AlarmService.handleTransition(
-        action: RA_AlarmActionTypeCodeEnum.Skip,
-        routineId: routine.Id,
-        db: mockDb,
-        routine: routine,
-        state: state,
-        countSkipTowardsDaily: true,
-      );
-
-      verify(
-        () => mockDb.updateRoutineState(
-          routine.Id,
-          any(
-            that: predicate<RoutineStatesCompanion>((companion) {
-              return companion.TimesRingToday.present &&
-                  companion.TimesRingToday.value == 3 &&
-                  companion.TimesRingDay.present;
-            }),
+        when(
+          () => mockDb.getRoutineState(routine.Id),
+        ).thenAnswer((_) async => state);
+        when(
+          () => mockDb.updateRoutineState(
+            any(),
+            any(),
+            requireIsRinging: any(named: 'requireIsRinging'),
+            matchNextTriggerTime: any(named: 'matchNextTriggerTime'),
+            nextTriggerTimeToMatch: any(named: 'nextTriggerTimeToMatch'),
           ),
-          requireIsRinging: null,
-          matchNextTriggerTime: true,
-          nextTriggerTimeToMatch: state.NextTriggerTime,
-        ),
-      ).called(1);
-    });
+        ).thenAnswer((_) async => 1);
+        when(() => mockDb.insertLogEntry(any())).thenAnswer((_) async => 1);
+
+        await RA_AlarmService.handleTransition(
+          action: RA_AlarmActionTypeCodeEnum.Skip,
+          routineId: routine.Id,
+          db: mockDb,
+          routine: routine,
+          state: state,
+          countSkipTowardsDaily: true,
+        );
+
+        verify(
+          () => mockDb.updateRoutineState(
+            routine.Id,
+            any(
+              that: predicate<RoutineStatesCompanion>((companion) {
+                return companion.TimesRingToday.present &&
+                    companion.TimesRingToday.value == 3 &&
+                    companion.TimesRingDay.present;
+              }),
+            ),
+            requireIsRinging: null,
+            matchNextTriggerTime: true,
+            nextTriggerTimeToMatch: state.NextTriggerTime,
+          ),
+        ).called(1);
+      },
+    );
 
     test(
       'RA_NotificationService showAlarmNotification posts full-screen intent alarm',
@@ -720,8 +740,7 @@ void main() {
     test(
       'handleTransition CAS on a second connection loses after the first clears IsRinging',
       () async {
-        final tempDir =
-            await Directory.systemTemp.createTemp('ra_cross_conn_');
+        final tempDir = await Directory.systemTemp.createTemp('ra_cross_conn_');
         final dbPath = p.join(tempDir.path, 'test.db');
         SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
 
@@ -990,8 +1009,9 @@ void main() {
       'reconcileAlarmsOnStartup while IsRinging cancels then re-arms watchdog',
       () async {
         alarmChannelCalls.clear();
-        final tempDir =
-            await Directory.systemTemp.createTemp('ra_reconcile_ring_');
+        final tempDir = await Directory.systemTemp.createTemp(
+          'ra_reconcile_ring_',
+        );
         final dbPath = p.join(tempDir.path, 'test.db');
         SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
 
