@@ -7,18 +7,21 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.core.app.AlarmManagerCompat
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Schedules a parallel [AlarmManager.setAlarmClock] PendingIntent that fires
- * [AlarmReceiver], which escalates to [AlarmRingingService] with a full-screen
- * intent. Complements the Dart isolate callback from android_alarm_manager_plus
- * so the ring UI still appears if the Flutter engine was killed.
+ * Schedules alarms exclusively via [AlarmManager.setAlarmClock] so the OS
+ * treats them like the system Clock app (Doze / OEM idle exempt, status bar
+ * upcoming-alarm affordance).
  *
- * Also exposes battery-optimization exemption checks required on aggressive OEMs.
+ * Fire path: [AlarmReceiver] -> [AlarmRingingService] FGS + full-screen intent.
+ * Complements the Dart isolate callback from android_alarm_manager_plus so the
+ * ring UI still appears if the Flutter engine was killed.
+ *
+ * Also exposes aggressive battery-optimization exemption checks required on
+ * Samsung / Xiaomi and similar OEMs.
  */
 class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private var channel: MethodChannel? = null
@@ -74,6 +77,10 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "requestIgnoreBatteryOptimizations" -> {
                 result.success(requestIgnoreBatteryOptimizations(context))
             }
+            "ensureIgnoringBatteryOptimizations" -> {
+                // Combined check + forceful prompt for create / toggle paths.
+                result.success(ensureIgnoringBatteryOptimizations(context))
+            }
             "startVibration" -> {
                 try {
                     AlarmVibrator.start(context)
@@ -98,15 +105,20 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         const val CHANNEL = "com.example.rolling_alarm/alarm_ui_scheduler"
         private const val REQUEST_BASE = 20000
 
+        /**
+         * Arms a system-level alarm-clock timer. Uses
+         * [AlarmManager.setAlarmClock] with an explicit [AlarmManager.AlarmClockInfo]
+         * (never setExact / setExactAndAllowWhileIdle).
+         */
         fun schedule(context: Context, triggerAtMillis: Long, routineId: Int) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
-            // Fire path: BroadcastReceiver -> ForegroundService -> FSI Activity.
-            // Never start MainActivity directly from the AlarmManager operation.
+            // Operation PI: BroadcastReceiver -> ForegroundService -> FSI Activity.
+            // Never start MainActivity directly from the AlarmManager fire path.
             val receiverIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra(AlarmReceiver.EXTRA_ROUTINE_ID, routineId)
             }
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             val operation = PendingIntent.getBroadcast(
                 context,
                 REQUEST_BASE + routineId,
@@ -114,7 +126,7 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 flags
             )
 
-            // Status-bar / lock clock affordance still needs an Activity PI.
+            // Show PI: system status-bar / lock clock tap opens the app.
             val showLaunch = Intent(context, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -133,12 +145,8 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             )
 
             val fireAt = triggerAtMillis.coerceAtLeast(System.currentTimeMillis() + 500L)
-            AlarmManagerCompat.setAlarmClock(
-                alarmManager,
-                fireAt,
-                showIntent,
-                operation
-            )
+            val clockInfo = AlarmManager.AlarmClockInfo(fireAt, showIntent)
+            alarmManager.setAlarmClock(clockInfo, operation)
         }
 
         fun cancel(context: Context, routineId: Int) {
@@ -162,8 +170,11 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
 
         /**
-         * Opens the system battery-exemption dialog. Required on Samsung / Xiaomi
-         * so AlarmManager receivers and Drift isolates are not killed in Doze.
+         * Forcefully opens [Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS]
+         * when the app is still subject to Doze / OEM battery throttling.
+         *
+         * Returns true if already exempt or the system dialog / settings page
+         * was launched successfully.
          */
         fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
             if (isIgnoringBatteryOptimizations(context)) {
@@ -191,6 +202,17 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     false
                 }
             }
+        }
+
+        /**
+         * Check then prompt. Used by Dart create / toggle / schedule paths so
+         * the user cannot silently remain under battery restrictions.
+         */
+        fun ensureIgnoringBatteryOptimizations(context: Context): Boolean {
+            if (isIgnoringBatteryOptimizations(context)) {
+                return true
+            }
+            return requestIgnoreBatteryOptimizations(context)
         }
     }
 }

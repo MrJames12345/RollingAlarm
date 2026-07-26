@@ -6,9 +6,13 @@ import android.content.Intent
 import android.os.PowerManager
 
 /**
- * Exact-alarm fire entry point. Must not start [MainActivity] directly from the
- * background; Android will kill or defer that path under Doze / OEM limits.
- * Immediately escalates to [AlarmRingingService] under a short wake lock.
+ * Exact-alarm fire entry point from [AlarmManager.setAlarmClock].
+ *
+ * Must not start [MainActivity] directly from the background; Android will kill
+ * or defer that path under Doze / OEM limits. Immediately acquires a
+ * [PowerManager.PARTIAL_WAKE_LOCK], then escalates to [AlarmRingingService]
+ * which posts the full-screen-intent foreground notification while the lock
+ * is still held.
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -21,20 +25,16 @@ class AlarmReceiver : BroadcastReceiver() {
             WAKE_LOCK_TAG
         )
         wakeLock.setReferenceCounted(false)
-        wakeLock.acquire(60_000L)
+        // Keep CPU awake across the FGS handoff (service acquires its own lock).
+        // Timeout is the safety release; do not drop the lock before startForeground.
+        wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
 
-        try {
-            AlarmRingingService.start(context, routineId)
-        } finally {
-            // Service acquires its own lock; release the receiver hold promptly.
-            if (wakeLock.isHeld) {
-                wakeLock.release()
-            }
-        }
+        AlarmRingingService.start(context, routineId)
     }
 
     companion object {
         const val EXTRA_ROUTINE_ID = "routineId"
         private const val WAKE_LOCK_TAG = "rolling_alarm:alarm_receiver"
+        private const val WAKE_LOCK_TIMEOUT_MS = 60_000L
     }
 }
