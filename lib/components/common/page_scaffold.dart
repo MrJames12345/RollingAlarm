@@ -1,0 +1,34 @@
+import 'package:flutter/material.dart';
+import 'package:rolling_alarm/styles.dart';
+
+/// Standard app chrome: OLED scaffold and flat AppBar.
+///
+/// Text scale is clamped so countdown and dense rows stay readable on small
+/// screens without blowing past the 8/16dp layout grid.
+Widget RA_PageScaffold({
+  required String title,
+  required Widget body,
+  List<Widget>? actions,
+  Widget? leading,
+  Widget? floatingActionButton,
+}) {
+  return MediaQuery.withClampedTextScaling(
+    minScaleFactor: 0.9,
+    maxScaleFactor: 1.25,
+    child: Scaffold(
+      backgroundColor: RA_ColourStyles.offBlack,
+      appBar: AppBar(
+        title: Text(
+          title,
+          style: RA_TextStyles.largeFont,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        leading: leading,
+        actions: actions,
+      ),
+      body: body,
+      floatingActionButton: floatingActionButton,
+    ),
+  );
+}
