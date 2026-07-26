@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#FF1A1A1A">
+
+    <TextView
+        android:id="@+id/widget_routine_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No Routine"
+        android:textColor="#FFE2E2E2"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_next_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="--:--:--"
+        android:textColor="#FF2EC4B6"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginTop="4dp" />
+
+    <Button
+        android:id="@+id/widget_skip_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Dismiss upcoming"
+        android:textAllCaps="false"
+        android:textColor="#FF000000"
+        android:background="#FF2EC4B6"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp" />
+
+</LinearLayout>
