@@ -101,6 +101,7 @@ class RA_NotificationService {
   static Future<void> showAlarmNotification({
     required int routineId,
     required String routineName,
+    bool vibrate = true,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -110,7 +111,7 @@ class RA_NotificationService {
         DateTime.now().millisecondsSinceEpoch,
       );
 
-      const androidDetails = AndroidNotificationDetails(
+      final androidDetails = AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: _channelDesc,
@@ -122,7 +123,7 @@ class RA_NotificationService {
         ongoing: true,
         autoCancel: false,
         playSound: false,
-        enableVibration: true,
+        enableVibration: vibrate,
         actions: <AndroidNotificationAction>[
           AndroidNotificationAction(
             _actionSnooze,
@@ -143,7 +144,7 @@ class RA_NotificationService {
         id: routineId,
         title: routineName,
         body: 'Alarm is ringing',
-        notificationDetails: const NotificationDetails(android: androidDetails),
+        notificationDetails: NotificationDetails(android: androidDetails),
         payload: '$routineId',
       );
     } catch (_) {

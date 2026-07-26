@@ -18,7 +18,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +111,9 @@ class RA_Database extends _$RA_Database {
           'UPDATE routines SET snooze_seconds = COALESCE(snooze_minutes, 5) * 60;',
         );
         await m.alterTable(TableMigration(routines));
+      }
+      if (from < 10) {
+        await m.addColumn(routines, routines.Vibrate);
       }
     },
   );

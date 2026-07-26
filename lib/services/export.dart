@@ -9,7 +9,7 @@ class RA_ExportService {
   RA_ExportService._();
 
   static const String _versionPrefix = 'RA1:';
-  static const int _currentVersion = 8;
+  static const int _currentVersion = 9;
   static const int _minSupportedVersion = 1;
 
   /// Exports all routines to a versioned base64 string.
@@ -32,6 +32,7 @@ class RA_ExportService {
               'DayStartSeconds': r.DayStartSeconds,
               'DriftCompensationTypeCode': r.DriftCompensationTypeCode,
               'ShowPreview': r.ShowPreview,
+              'Vibrate': r.Vibrate,
               'AudioUri': r.AudioUri,
               'IsActive': r.IsActive,
             },
@@ -150,6 +151,7 @@ class RA_ExportService {
             r['DriftCompensationTypeCode'] as int,
           ),
           ShowPreview: Value(r['ShowPreview'] as bool),
+          Vibrate: Value((r['Vibrate'] as bool?) ?? true),
           AudioUri: Value(r['AudioUri'] as String?),
           IsActive: Value((r['IsActive'] as bool?) ?? true),
         ),

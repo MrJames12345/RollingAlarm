@@ -172,7 +172,7 @@ void main() {
         Id: Value(routineId),
         Name: const Value('Renamed'),
         IntervalSeconds: const Value(22500),
-        SnoozeMinutes: const Value(9),
+        SnoozeSeconds: const Value(540),
         DriftCompensationTypeCode:
             Value(DriftCompensationTypeCodeEnum.ActualDismissal.index),
         ShowPreview: const Value(true),
@@ -181,8 +181,10 @@ void main() {
       final after = await db.getRoutineById(routineId);
       expect(after.Name, equals('Renamed'));
       expect(after.IntervalSeconds, equals(6 * 3600 + 15 * 60));
+      expect(after.SnoozeSeconds, equals(540));
       expect(after.AudioUri, equals('file:///custom.mp3'));
       expect(after.IsActive, isTrue);
+      expect(after.Vibrate, isTrue);
       expect(after.CreatedAt, equals(before.CreatedAt));
       expect(after.Deleted, isFalse);
       expect(after.ModifiedAt, isNotNull);

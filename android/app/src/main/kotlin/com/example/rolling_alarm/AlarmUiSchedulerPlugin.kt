@@ -74,6 +74,22 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "requestIgnoreBatteryOptimizations" -> {
                 result.success(requestIgnoreBatteryOptimizations(context))
             }
+            "startVibration" -> {
+                try {
+                    AlarmVibrator.start(context)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("vibrate_failed", e.message, null)
+                }
+            }
+            "stopVibration" -> {
+                try {
+                    AlarmVibrator.stop(context)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("vibrate_stop_failed", e.message, null)
+                }
+            }
             else -> result.notImplemented()
         }
     }

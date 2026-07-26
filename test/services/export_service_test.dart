@@ -28,9 +28,10 @@ void main() {
       await db.insertRoutine(RoutinesCompanion(
         Name: const Value('Morning Routine'),
         IntervalSeconds: const Value(16200),
-        SnoozeMinutes: const Value(10),
+        SnoozeSeconds: const Value(600),
         DriftCompensationTypeCode: Value(DriftCompensationTypeCodeEnum.ActualDismissal.index),
         ShowPreview: const Value(true),
+        Vibrate: const Value(false),
         AudioUri: const Value('default_ringtone'),
         IsActive: const Value(true),
       ));
@@ -56,9 +57,10 @@ void main() {
         final r = routines.first;
         expect(r.Name, equals('Morning Routine'));
         expect(r.IntervalSeconds, equals(4 * 3600 + 30 * 60));
-        expect(r.SnoozeMinutes, equals(10));
+        expect(r.SnoozeSeconds, equals(600));
         expect(r.DriftCompensationTypeCode, equals(DriftCompensationTypeCodeEnum.ActualDismissal.index));
         expect(r.ShowPreview, isTrue);
+        expect(r.Vibrate, isFalse);
         expect(r.AudioUri, equals('default_ringtone'));
         expect(r.IsActive, isTrue);
       } finally {

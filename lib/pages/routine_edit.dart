@@ -49,6 +49,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   DriftCompensationTypeCodeEnum _compensation =
       DriftCompensationTypeCodeEnum.ActualDismissal;
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
+  bool _vibrate = true;
   bool _showValidationErrors = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
@@ -98,6 +99,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       _compensation =
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
+      _vibrate = r.Vibrate;
     }
   }
 
@@ -123,6 +125,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       ),
       DriftCompensationTypeCode: Value(_compensation.index),
       ShowPreview: const Value(true),
+      Vibrate: Value(_vibrate),
       AudioUri: Value(encoded.isEmpty ? null : encoded),
     );
   }
@@ -259,9 +262,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             const SizedBox(height: RA_ShapeStyles.space24),
             RA_FormSection(
               label: 'Alarm sound',
-              child: RA_SoundField(
-                value: _sound,
-                onTap: () => unawaited(_pickSound()),
+              child: Column(
+                children: [
+                  RA_SoundField(
+                    value: _sound,
+                    onTap: () => unawaited(_pickSound()),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  RA_Toggle(
+                    label: 'Vibrate',
+                    value: _vibrate,
+                    onChanged: (v) => setState(() => _vibrate = v),
+                  ),
+                ],
               ),
             ),
             KeyedSubtree(
@@ -320,14 +333,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                     value: _dayStart,
                     onChanged: (v) => setState(() => _dayStart = v),
                     enabled: _maxTimesPerDayEnabled,
-                  ),
-                  const SizedBox(height: RA_ShapeStyles.space8),
-                  Text(
-                    'When enabled, the counter resets at the start time.',
-                    style: RA_TextStyles.tinyFont.copyWith(
-                      color: RA_ColourStyles.mutedPrimary,
-                      height: 1.35,
-                    ),
                   ),
                 ],
               ),

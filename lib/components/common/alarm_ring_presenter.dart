@@ -184,6 +184,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
             routineId: routine.Id,
             routineName: routine.Name,
             audioUri: routine.AudioUri,
+            vibrate: routine.Vibrate,
           ),
         ),
       );
