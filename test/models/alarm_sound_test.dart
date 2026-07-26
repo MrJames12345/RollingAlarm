@@ -16,6 +16,17 @@ void main() {
       );
     });
 
+    test('silent round trips and skips playable audio', () {
+      final encoded = RA_AlarmSound.silent.encode();
+      expect(encoded, isNotEmpty);
+      final decoded = RA_AlarmSound.decode(encoded);
+      expect(decoded.source, RA_AlarmSoundSource.silent);
+      expect(decoded.isSilent, isTrue);
+      expect(decoded.hasPlayableUri, isFalse);
+      expect(decoded.usesNativeRingtone, isFalse);
+      expect(decoded.displayLabel, 'Silent');
+    });
+
     test('round trips device sound json', () {
       const sound = RA_AlarmSound(
         source: RA_AlarmSoundSource.deviceSounds,

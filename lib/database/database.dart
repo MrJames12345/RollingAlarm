@@ -18,7 +18,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -117,6 +117,9 @@ class RA_Database extends _$RA_Database {
       }
       if (from < 11) {
         await m.addColumn(routines, routines.Volume);
+      }
+      if (from < 12) {
+        await m.addColumn(routines, routines.FadeIn);
       }
     },
   );
@@ -359,10 +362,7 @@ class RA_Database extends _$RA_Database {
   static RA_Database openForIsolate(String dbPath) {
     _resolvedDbPath = dbPath;
     return RA_Database.forTesting(
-      NativeDatabase(
-        File(dbPath),
-        setup: _applyConcurrencyPragmas,
-      ),
+      NativeDatabase(File(dbPath), setup: _applyConcurrencyPragmas),
     );
   }
 

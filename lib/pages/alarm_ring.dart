@@ -18,6 +18,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
   final String? audioUri;
   final bool vibrate;
   final int volume;
+  final bool fadeIn;
 
   const AlarmRingPage({
     super.key,
@@ -26,6 +27,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
     this.audioUri,
     this.vibrate = true,
     this.volume = 100,
+    this.fadeIn = false,
   });
 
   @override
@@ -74,6 +76,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
         audioUri: widget.audioUri,
         vibrate: widget.vibrate,
         volume: widget.volume,
+        fadeIn: widget.fadeIn,
       ),
     );
   }

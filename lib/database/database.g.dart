@@ -148,6 +148,19 @@ class $RoutinesTable extends Routines
     requiredDuringInsert: false,
     defaultValue: const Constant(100),
   );
+  static const VerificationMeta _FadeInMeta = const VerificationMeta('FadeIn');
+  @override
+  late final GeneratedColumn<bool> FadeIn = GeneratedColumn<bool>(
+    'fade_in',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("fade_in" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _AudioUriMeta = const VerificationMeta(
     'AudioUri',
   );
@@ -225,6 +238,7 @@ class $RoutinesTable extends Routines
     ShowPreview,
     Vibrate,
     Volume,
+    FadeIn,
     AudioUri,
     IsActive,
     CreatedAt,
@@ -333,6 +347,12 @@ class $RoutinesTable extends Routines
         Volume.isAcceptableOrUnknown(data['volume']!, _VolumeMeta),
       );
     }
+    if (data.containsKey('fade_in')) {
+      context.handle(
+        _FadeInMeta,
+        FadeIn.isAcceptableOrUnknown(data['fade_in']!, _FadeInMeta),
+      );
+    }
     if (data.containsKey('audio_uri')) {
       context.handle(
         _AudioUriMeta,
@@ -416,6 +436,10 @@ class $RoutinesTable extends Routines
         DriftSqlType.int,
         data['${effectivePrefix}volume'],
       )!,
+      FadeIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}fade_in'],
+      )!,
       AudioUri: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}audio_uri'],
@@ -471,6 +495,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
 
   /// Alarm playback volume from 0 (silent) to 100 (full).
   final int Volume;
+
+  /// When true, alarm audio fades from silent up to [Volume] on trigger.
+  final bool FadeIn;
   final String? AudioUri;
   final bool IsActive;
   final DateTime CreatedAt;
@@ -488,6 +515,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     required this.ShowPreview,
     required this.Vibrate,
     required this.Volume,
+    required this.FadeIn,
     this.AudioUri,
     required this.IsActive,
     required this.CreatedAt,
@@ -510,6 +538,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     map['show_preview'] = Variable<bool>(ShowPreview);
     map['vibrate'] = Variable<bool>(Vibrate);
     map['volume'] = Variable<int>(Volume);
+    map['fade_in'] = Variable<bool>(FadeIn);
     if (!nullToAbsent || AudioUri != null) {
       map['audio_uri'] = Variable<String>(AudioUri);
     }
@@ -535,6 +564,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       ShowPreview: Value(ShowPreview),
       Vibrate: Value(Vibrate),
       Volume: Value(Volume),
+      FadeIn: Value(FadeIn),
       AudioUri: AudioUri == null && nullToAbsent
           ? const Value.absent()
           : Value(AudioUri),
@@ -568,6 +598,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       ShowPreview: serializer.fromJson<bool>(json['ShowPreview']),
       Vibrate: serializer.fromJson<bool>(json['Vibrate']),
       Volume: serializer.fromJson<int>(json['Volume']),
+      FadeIn: serializer.fromJson<bool>(json['FadeIn']),
       AudioUri: serializer.fromJson<String?>(json['AudioUri']),
       IsActive: serializer.fromJson<bool>(json['IsActive']),
       CreatedAt: serializer.fromJson<DateTime>(json['CreatedAt']),
@@ -592,6 +623,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       'ShowPreview': serializer.toJson<bool>(ShowPreview),
       'Vibrate': serializer.toJson<bool>(Vibrate),
       'Volume': serializer.toJson<int>(Volume),
+      'FadeIn': serializer.toJson<bool>(FadeIn),
       'AudioUri': serializer.toJson<String?>(AudioUri),
       'IsActive': serializer.toJson<bool>(IsActive),
       'CreatedAt': serializer.toJson<DateTime>(CreatedAt),
@@ -612,6 +644,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     bool? ShowPreview,
     bool? Vibrate,
     int? Volume,
+    bool? FadeIn,
     Value<String?> AudioUri = const Value.absent(),
     bool? IsActive,
     DateTime? CreatedAt,
@@ -630,6 +663,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     ShowPreview: ShowPreview ?? this.ShowPreview,
     Vibrate: Vibrate ?? this.Vibrate,
     Volume: Volume ?? this.Volume,
+    FadeIn: FadeIn ?? this.FadeIn,
     AudioUri: AudioUri.present ? AudioUri.value : this.AudioUri,
     IsActive: IsActive ?? this.IsActive,
     CreatedAt: CreatedAt ?? this.CreatedAt,
@@ -663,6 +697,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           : this.ShowPreview,
       Vibrate: data.Vibrate.present ? data.Vibrate.value : this.Vibrate,
       Volume: data.Volume.present ? data.Volume.value : this.Volume,
+      FadeIn: data.FadeIn.present ? data.FadeIn.value : this.FadeIn,
       AudioUri: data.AudioUri.present ? data.AudioUri.value : this.AudioUri,
       IsActive: data.IsActive.present ? data.IsActive.value : this.IsActive,
       CreatedAt: data.CreatedAt.present ? data.CreatedAt.value : this.CreatedAt,
@@ -687,6 +722,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
           ..write('Volume: $Volume, ')
+          ..write('FadeIn: $FadeIn, ')
           ..write('AudioUri: $AudioUri, ')
           ..write('IsActive: $IsActive, ')
           ..write('CreatedAt: $CreatedAt, ')
@@ -709,6 +745,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     ShowPreview,
     Vibrate,
     Volume,
+    FadeIn,
     AudioUri,
     IsActive,
     CreatedAt,
@@ -730,6 +767,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           other.ShowPreview == this.ShowPreview &&
           other.Vibrate == this.Vibrate &&
           other.Volume == this.Volume &&
+          other.FadeIn == this.FadeIn &&
           other.AudioUri == this.AudioUri &&
           other.IsActive == this.IsActive &&
           other.CreatedAt == this.CreatedAt &&
@@ -749,6 +787,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
   final Value<bool> ShowPreview;
   final Value<bool> Vibrate;
   final Value<int> Volume;
+  final Value<bool> FadeIn;
   final Value<String?> AudioUri;
   final Value<bool> IsActive;
   final Value<DateTime> CreatedAt;
@@ -766,6 +805,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
     this.Volume = const Value.absent(),
+    this.FadeIn = const Value.absent(),
     this.AudioUri = const Value.absent(),
     this.IsActive = const Value.absent(),
     this.CreatedAt = const Value.absent(),
@@ -784,6 +824,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
     this.Volume = const Value.absent(),
+    this.FadeIn = const Value.absent(),
     this.AudioUri = const Value.absent(),
     this.IsActive = const Value.absent(),
     this.CreatedAt = const Value.absent(),
@@ -804,6 +845,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Expression<bool>? ShowPreview,
     Expression<bool>? Vibrate,
     Expression<int>? Volume,
+    Expression<bool>? FadeIn,
     Expression<String>? AudioUri,
     Expression<bool>? IsActive,
     Expression<DateTime>? CreatedAt,
@@ -824,6 +866,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       if (ShowPreview != null) 'show_preview': ShowPreview,
       if (Vibrate != null) 'vibrate': Vibrate,
       if (Volume != null) 'volume': Volume,
+      if (FadeIn != null) 'fade_in': FadeIn,
       if (AudioUri != null) 'audio_uri': AudioUri,
       if (IsActive != null) 'is_active': IsActive,
       if (CreatedAt != null) 'created_at': CreatedAt,
@@ -844,6 +887,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Value<bool>? ShowPreview,
     Value<bool>? Vibrate,
     Value<int>? Volume,
+    Value<bool>? FadeIn,
     Value<String?>? AudioUri,
     Value<bool>? IsActive,
     Value<DateTime>? CreatedAt,
@@ -864,6 +908,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       ShowPreview: ShowPreview ?? this.ShowPreview,
       Vibrate: Vibrate ?? this.Vibrate,
       Volume: Volume ?? this.Volume,
+      FadeIn: FadeIn ?? this.FadeIn,
       AudioUri: AudioUri ?? this.AudioUri,
       IsActive: IsActive ?? this.IsActive,
       CreatedAt: CreatedAt ?? this.CreatedAt,
@@ -912,6 +957,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     if (Volume.present) {
       map['volume'] = Variable<int>(Volume.value);
     }
+    if (FadeIn.present) {
+      map['fade_in'] = Variable<bool>(FadeIn.value);
+    }
     if (AudioUri.present) {
       map['audio_uri'] = Variable<String>(AudioUri.value);
     }
@@ -944,6 +992,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
           ..write('Volume: $Volume, ')
+          ..write('FadeIn: $FadeIn, ')
           ..write('AudioUri: $AudioUri, ')
           ..write('IsActive: $IsActive, ')
           ..write('CreatedAt: $CreatedAt, ')
@@ -2262,6 +2311,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
       Value<int> Volume,
+      Value<bool> FadeIn,
       Value<String?> AudioUri,
       Value<bool> IsActive,
       Value<DateTime> CreatedAt,
@@ -2281,6 +2331,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
       Value<int> Volume,
+      Value<bool> FadeIn,
       Value<String?> AudioUri,
       Value<bool> IsActive,
       Value<DateTime> CreatedAt,
@@ -2349,6 +2400,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<int> get Volume => $composableBuilder(
     column: $table.Volume,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get FadeIn => $composableBuilder(
+    column: $table.FadeIn,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2442,6 +2498,11 @@ class $$RoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get FadeIn => $composableBuilder(
+    column: $table.FadeIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get AudioUri => $composableBuilder(
     column: $table.AudioUri,
     builder: (column) => ColumnOrderings(column),
@@ -2524,6 +2585,9 @@ class $$RoutinesTableAnnotationComposer
   GeneratedColumn<int> get Volume =>
       $composableBuilder(column: $table.Volume, builder: (column) => column);
 
+  GeneratedColumn<bool> get FadeIn =>
+      $composableBuilder(column: $table.FadeIn, builder: (column) => column);
+
   GeneratedColumn<String> get AudioUri =>
       $composableBuilder(column: $table.AudioUri, builder: (column) => column);
 
@@ -2584,6 +2648,7 @@ class $$RoutinesTableTableManager
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
                 Value<int> Volume = const Value.absent(),
+                Value<bool> FadeIn = const Value.absent(),
                 Value<String?> AudioUri = const Value.absent(),
                 Value<bool> IsActive = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
@@ -2601,6 +2666,7 @@ class $$RoutinesTableTableManager
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
                 Volume: Volume,
+                FadeIn: FadeIn,
                 AudioUri: AudioUri,
                 IsActive: IsActive,
                 CreatedAt: CreatedAt,
@@ -2620,6 +2686,7 @@ class $$RoutinesTableTableManager
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
                 Value<int> Volume = const Value.absent(),
+                Value<bool> FadeIn = const Value.absent(),
                 Value<String?> AudioUri = const Value.absent(),
                 Value<bool> IsActive = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
@@ -2637,6 +2704,7 @@ class $$RoutinesTableTableManager
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
                 Volume: Volume,
+                FadeIn: FadeIn,
                 AudioUri: AudioUri,
                 IsActive: IsActive,
                 CreatedAt: CreatedAt,

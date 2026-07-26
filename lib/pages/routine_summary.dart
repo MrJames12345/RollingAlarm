@@ -169,13 +169,20 @@ class _SummaryTab extends ConsumerWidget {
               _SummaryRow(label: 'Sound', value: sound.displayLabel),
               const SizedBox(height: RA_ShapeStyles.space8),
               _SummaryRow(
-                label: 'Vibrate',
-                value: routine.Vibrate ? 'On' : 'Off',
+                label: 'Volume',
+                value: sound.isSilent
+                    ? 'N/A'
+                    : '${routine.Volume.clamp(0, 100)}%',
               ),
               const SizedBox(height: RA_ShapeStyles.space8),
               _SummaryRow(
-                label: 'Volume',
-                value: '${routine.Volume.clamp(0, 100)}%',
+                label: 'Fade in',
+                value: sound.isSilent ? 'N/A' : (routine.FadeIn ? 'On' : 'Off'),
+              ),
+              const SizedBox(height: RA_ShapeStyles.space8),
+              _SummaryRow(
+                label: 'Vibrate',
+                value: routine.Vibrate ? 'On' : 'Off',
               ),
             ],
           ),

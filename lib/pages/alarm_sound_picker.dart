@@ -61,7 +61,7 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
   Future<void> _preview(RA_AlarmSound sound) async {
     setState(() {
       _selected = sound;
-      _previewReady = true;
+      _previewReady = !sound.isSilent;
     });
     await RA_AudioService.stopAlarm();
     await RA_SoundPreviewService.play(sound);
@@ -163,6 +163,7 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
         loading: _loadingDevice,
         sounds: _deviceSounds,
         selected: _selected,
+        onSelectSilent: () => unawaited(_preview(RA_AlarmSound.silent)),
         onSelectDefault: () => unawaited(_preview(RA_AlarmSound.deviceDefault)),
         onSelectSound: (sound) => unawaited(_preview(sound)),
         onPickLocal: () => unawaited(_pickLocalFile()),
@@ -175,6 +176,7 @@ class _DeviceSoundsBody extends StatelessWidget {
   final bool loading;
   final List<RA_AlarmSound> sounds;
   final RA_AlarmSound selected;
+  final VoidCallback onSelectSilent;
   final VoidCallback onSelectDefault;
   final ValueChanged<RA_AlarmSound> onSelectSound;
   final VoidCallback onPickLocal;
@@ -183,6 +185,7 @@ class _DeviceSoundsBody extends StatelessWidget {
     required this.loading,
     required this.sounds,
     required this.selected,
+    required this.onSelectSilent,
     required this.onSelectDefault,
     required this.onSelectSound,
     required this.onPickLocal,
@@ -193,6 +196,13 @@ class _DeviceSoundsBody extends StatelessWidget {
     return ListView(
       padding: RA_ShapeStyles.bodyPaddingWithFab,
       children: [
+        _SoundTile(
+          title: 'Silent',
+          subtitle: 'No audio',
+          selected: selected.source == RA_AlarmSoundSource.silent,
+          onTap: onSelectSilent,
+        ),
+        const SizedBox(height: RA_ShapeStyles.space8),
         _SoundTile(
           title: 'Default',
           subtitle: 'Rolling Alarm tone',

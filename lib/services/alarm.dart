@@ -495,6 +495,7 @@ class RA_AlarmService {
           audioUri: routine.AudioUri,
           vibrate: routine.Vibrate,
           volume: routine.Volume,
+          fadeIn: routine.FadeIn,
         );
       } catch (_) {
         // Ring UI wake prefs already set; audio can retry on ring page.

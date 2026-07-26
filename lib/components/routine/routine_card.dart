@@ -102,6 +102,7 @@ class RA_RoutineCard extends ConsumerWidget {
                               audioUri: routine.AudioUri,
                               vibrate: routine.Vibrate,
                               volume: routine.Volume,
+                              fadeIn: routine.FadeIn,
                             ),
                           )
                         : RA_Routes.fade(

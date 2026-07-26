@@ -13,10 +13,18 @@ class RA_AlarmSound {
 
   const RA_AlarmSound({required this.source, this.uri, this.label});
 
+  static const RA_AlarmSound silent = RA_AlarmSound(
+    source: RA_AlarmSoundSource.silent,
+    label: 'Silent',
+  );
+
   static const RA_AlarmSound deviceDefault = RA_AlarmSound(
     source: RA_AlarmSoundSource.deviceDefault,
     label: 'Default',
   );
+
+  /// True when this selection should play no audio.
+  bool get isSilent => source == RA_AlarmSoundSource.silent;
 
   String get displayLabel {
     final named = label?.trim();

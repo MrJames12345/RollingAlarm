@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:flutter/foundation.dart';
@@ -134,6 +134,7 @@ void main() {
           ShowPreview: true,
           Vibrate: true,
           Volume: 100,
+          FadeIn: false,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -226,6 +227,7 @@ void main() {
           ShowPreview: true,
           Vibrate: true,
           Volume: 100,
+          FadeIn: false,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -315,6 +317,7 @@ void main() {
           ShowPreview: true,
           Vibrate: true,
           Volume: 100,
+          FadeIn: false,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -418,6 +421,7 @@ void main() {
         ShowPreview: true,
         Vibrate: true,
         Volume: 100,
+        FadeIn: false,
         AudioUri: null,
         IsActive: true,
         CreatedAt: now,
@@ -510,6 +514,7 @@ void main() {
           ShowPreview: true,
           Vibrate: true,
           Volume: 100,
+          FadeIn: false,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,

@@ -50,6 +50,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
   bool _vibrate = true;
   int _volume = 100;
+  bool _fadeIn = false;
   bool _showValidationErrors = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
@@ -101,6 +102,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       _sound = RA_AlarmSound.decode(r.AudioUri);
       _vibrate = r.Vibrate;
       _volume = r.Volume.clamp(0, 100);
+      _fadeIn = r.FadeIn;
     } else {
       unawaited(_seedVolumeFromSystem());
     }
@@ -143,6 +145,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       ShowPreview: const Value(true),
       Vibrate: Value(_vibrate),
       Volume: Value(_volume.clamp(0, 100)),
+      FadeIn: Value(_fadeIn),
       AudioUri: Value(encoded.isEmpty ? null : encoded),
     );
   }
@@ -288,13 +291,29 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                     onTap: () => unawaited(_pickSound()),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
+                  RA_VolumeField(
+                    value: _volume,
+                    onChanged: _onVolumeChanged,
+                    enabled: !_sound.isSilent,
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  Opacity(
+                    opacity: _sound.isSilent ? 0.72 : 1,
+                    child: IgnorePointer(
+                      ignoring: _sound.isSilent,
+                      child: RA_Toggle(
+                        label: 'Fade in',
+                        value: _sound.isSilent ? false : _fadeIn,
+                        onChanged: (v) => setState(() => _fadeIn = v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
                   RA_Toggle(
                     label: 'Vibrate',
                     value: _vibrate,
                     onChanged: (v) => setState(() => _vibrate = v),
                   ),
-                  const SizedBox(height: RA_ShapeStyles.space16),
-                  RA_VolumeField(value: _volume, onChanged: _onVolumeChanged),
                 ],
               ),
             ),

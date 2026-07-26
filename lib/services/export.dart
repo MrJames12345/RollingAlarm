@@ -40,6 +40,7 @@ class RA_ExportService {
               'ShowPreview': r.ShowPreview,
               'Vibrate': r.Vibrate,
               'Volume': r.Volume,
+              'FadeIn': r.FadeIn,
               'AudioUri': r.AudioUri,
               'IsActive': r.IsActive,
             },
@@ -151,6 +152,7 @@ class RA_ExportService {
       ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
       Vibrate: Value((r['Vibrate'] as bool?) ?? true),
       Volume: Value(((r['Volume'] as int?) ?? 100).clamp(0, 100)),
+      FadeIn: Value((r['FadeIn'] as bool?) ?? false),
       AudioUri: Value(r['AudioUri'] as String?),
       IsActive: Value((r['IsActive'] as bool?) ?? true),
     );

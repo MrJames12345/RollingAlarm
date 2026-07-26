@@ -14,11 +14,15 @@ class RA_DeviceRingtone {
     'com.example.rolling_alarm/alarm_sound',
   );
 
-  /// Plays [uri] via the platform Ringtone API at full internal gain.
+  /// Plays [uri] via the platform Ringtone API.
   ///
   /// Returns `true` when playback started, `false` when the URI failed to
   /// play, and `null` when the platform channel is unavailable (headless
   /// isolate without MainActivity).
+  ///
+  /// [volume] is internal Ringtone gain (0.0 to 1.0). Peak loudness still
+  /// comes from [AudioManager.STREAM_ALARM]. When [fadeInMs] is positive,
+  /// gain ramps from 0 to [volume].
   static Future<bool?> play({
     required String uri,
     bool loop = true,
@@ -33,17 +37,14 @@ class RA_DeviceRingtone {
       return false;
     }
     try {
-      final started = await _channel.invokeMethod<bool>(
-        'playDeviceSound',
-        <String, dynamic>{
-          'uri': uri,
-          'loop': loop,
-          'asAlarm': asAlarm,
-          'fadeInMs': fadeInMs,
-          // Always full internal gain; STREAM_ALARM owns loudness.
-          'volume': 1.0,
-        },
-      );
+      final started = await _channel
+          .invokeMethod<bool>('playDeviceSound', <String, dynamic>{
+            'uri': uri,
+            'loop': loop,
+            'asAlarm': asAlarm,
+            'fadeInMs': fadeInMs,
+            'volume': volume.clamp(0.0, 1.0),
+          });
       return started ?? false;
     } on MissingPluginException {
       return null;

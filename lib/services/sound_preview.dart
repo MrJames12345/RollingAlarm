@@ -45,6 +45,10 @@ class RA_SoundPreviewService {
     try {
       await stop();
 
+      if (sound.isSilent) {
+        return;
+      }
+
       if (sound.usesNativeRingtone) {
         final started = await RA_DeviceRingtone.play(
           uri: sound.uri!.trim(),
