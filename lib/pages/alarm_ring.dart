@@ -9,7 +9,6 @@ import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/notification.dart';
-import 'package:rolling_alarm/services/tts.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -17,12 +16,14 @@ class AlarmRingPage extends ConsumerStatefulWidget {
   final int routineId;
   final String routineName;
   final String? audioUri;
+  final bool vibrate;
 
   const AlarmRingPage({
     super.key,
     required this.routineId,
     required this.routineName,
     this.audioUri,
+    this.vibrate = true,
   });
 
   @override
@@ -35,6 +36,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   late final Animation<double> _pulse;
   late final ValueNotifier<double> _escalation;
   Timer? _escalationTimer;
+
   /// 0.0 at open, climbs toward 1.0 so the coral pulse grows more aggressive.
   bool _busy = false;
 
@@ -66,7 +68,10 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
 
   Future<void> _startAlarmAudio() async {
     await RA_tryAsync(
-      () => RA_AudioService.startAlarm(audioUri: widget.audioUri),
+      () => RA_AudioService.startAlarm(
+        audioUri: widget.audioUri,
+        vibrate: widget.vibrate,
+      ),
     );
   }
 
@@ -90,20 +95,8 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       );
 
       await RA_NotificationService.cancelNotification(widget.routineId);
-
-      if (action == RA_AlarmActionTypeCodeEnum.Dismiss ||
-          action == RA_AlarmActionTypeCodeEnum.Skip) {
-        final next =
-            (await db.getRoutineState(widget.routineId))?.NextTriggerTime;
-        if (next != null) {
-          await RA_TtsService.speakDismissalBriefing(
-            routineName: widget.routineName,
-            nextTriggerTime: next,
-          );
-        }
-      }
     } catch (_) {
-      // Transition / TTS failures still dismiss the ring page.
+      // Transition failures still dismiss the ring page.
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -162,75 +155,75 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                       ),
                       child: RA_FittedText(
                         widget.routineName,
-                      alignment: Alignment.center,
-                      style: RA_TextStyles.giantFont.copyWith(
-                        color: RA_ColourStyles.softCoral,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: RA_ShapeStyles.space8),
-                  Text(
-                    'ALARM RINGING',
-                    style: RA_TextStyles.mediumFont.copyWith(
-                      color: RA_ColourStyles.softCoral.withValues(
-                        alpha: 0.85,
-                      ),
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: RA_ShapeStyles.space16),
-                  const _LiveClock(),
-                  const Spacer(flex: 2),
-                  AnimatedOpacity(
-                    duration: RA_ShapeStyles.stateTransitionDuration,
-                    opacity: _busy ? 0.45 : 1,
-                    child: IgnorePointer(
-                      ignoring: _busy,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: RA_ShapeStyles.space16,
-                        ),
-                        child: Column(
-                          children: [
-                            _SlideToAction(
-                              key: const Key('ra_ring_snooze'),
-                              label: 'Slide to snooze',
-                              semanticsLabel: 'Slide to snooze alarm',
-                              accent: RA_ColourStyles.secondary,
-                              glow: RA_ShapeStyles.tealGlow,
-                              thumbIcon: Icons.snooze,
-                              onComplete: () => unawaited(
-                                _handleAction(
-                                  RA_AlarmActionTypeCodeEnum.Snooze,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: RA_ShapeStyles.space16),
-                            _SlideToAction(
-                              key: const Key('ra_ring_dismiss'),
-                              label: 'Slide to dismiss',
-                              semanticsLabel: 'Slide to dismiss alarm',
-                              accent: RA_ColourStyles.softCoral,
-                              glow: RA_ShapeStyles.softCoralGlow,
-                              thumbIcon: Icons.alarm_off,
-                              onComplete: () => unawaited(
-                                _handleAction(
-                                  RA_AlarmActionTypeCodeEnum.Dismiss,
-                                ),
-                              ),
-                            ),
-                          ],
+                        alignment: Alignment.center,
+                        style: RA_TextStyles.giantFont.copyWith(
+                          color: RA_ColourStyles.softCoral,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: RA_ShapeStyles.space48),
-                ],
+                    const SizedBox(height: RA_ShapeStyles.space8),
+                    Text(
+                      'ALARM RINGING',
+                      style: RA_TextStyles.mediumFont.copyWith(
+                        color: RA_ColourStyles.softCoral.withValues(
+                          alpha: 0.85,
+                        ),
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: RA_ShapeStyles.space16),
+                    const _LiveClock(),
+                    const Spacer(flex: 2),
+                    AnimatedOpacity(
+                      duration: RA_ShapeStyles.stateTransitionDuration,
+                      opacity: _busy ? 0.45 : 1,
+                      child: IgnorePointer(
+                        ignoring: _busy,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: RA_ShapeStyles.space16,
+                          ),
+                          child: Column(
+                            children: [
+                              _SlideToAction(
+                                key: const Key('ra_ring_snooze'),
+                                label: 'Slide to snooze',
+                                semanticsLabel: 'Slide to snooze alarm',
+                                accent: RA_ColourStyles.secondary,
+                                glow: RA_ShapeStyles.tealGlow,
+                                thumbIcon: Icons.snooze,
+                                onComplete: () => unawaited(
+                                  _handleAction(
+                                    RA_AlarmActionTypeCodeEnum.Snooze,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: RA_ShapeStyles.space16),
+                              _SlideToAction(
+                                key: const Key('ra_ring_dismiss'),
+                                label: 'Slide to dismiss',
+                                semanticsLabel: 'Slide to dismiss alarm',
+                                accent: RA_ColourStyles.softCoral,
+                                glow: RA_ShapeStyles.softCoralGlow,
+                                thumbIcon: Icons.alarm_off,
+                                onComplete: () => unawaited(
+                                  _handleAction(
+                                    RA_AlarmActionTypeCodeEnum.Dismiss,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: RA_ShapeStyles.space48),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -475,8 +468,10 @@ class _SlideToActionState extends State<_SlideToAction>
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final travel = (width - _thumbSize - (_horizontalPadding * 2))
-            .clamp(0.0, double.infinity);
+        final travel = (width - _thumbSize - (_horizontalPadding * 2)).clamp(
+          0.0,
+          double.infinity,
+        );
 
         return Semantics(
           button: true,
@@ -517,7 +512,10 @@ class _SlideToActionState extends State<_SlideToAction>
                     ),
                   ),
                   Transform.translate(
-                    offset: Offset(_horizontalPadding + (travel * _progress), 0),
+                    offset: Offset(
+                      _horizontalPadding + (travel * _progress),
+                      0,
+                    ),
                     child: SizedBox(
                       width: _thumbSize,
                       height: _thumbSize,

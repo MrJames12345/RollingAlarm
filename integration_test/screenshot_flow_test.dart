@@ -353,7 +353,7 @@ void main() {
     expect(ringing?.IsRinging, isTrue);
 
     await slideToDismiss(tester);
-    // TTS briefing + pop can take a few seconds on emulators.
+    // Ring dismiss + pop can take a few seconds on emulators.
     await _waitForRingDismissed(tester, database, routine.Id);
     expect(find.text('Rolling Alarm'), findsOneWidget);
 

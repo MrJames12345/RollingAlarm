@@ -16,7 +16,6 @@ dependencies:
   android_alarm_manager_plus:
   flutter_local_notifications:
   permission_handler:
-  flutter_tts:
   just_audio:
   audio_session:
   home_widget:
