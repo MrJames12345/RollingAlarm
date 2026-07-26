@@ -13,6 +13,7 @@ import 'package:rolling_alarm/components/field/sound_field.dart';
 import 'package:rolling_alarm/components/field/text_field.dart';
 import 'package:rolling_alarm/components/field/time_of_day_field.dart';
 import 'package:rolling_alarm/components/field/toggle.dart';
+import 'package:rolling_alarm/components/field/volume_field.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
@@ -48,6 +49,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       DriftCompensationTypeCodeEnum.ActualDismissal;
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
   bool _vibrate = true;
+  int _volume = 100;
   bool _showValidationErrors = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
@@ -98,7 +100,23 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
       _vibrate = r.Vibrate;
+      _volume = r.Volume.clamp(0, 100);
+    } else {
+      unawaited(_seedVolumeFromSystem());
     }
+  }
+
+  /// Seeds a new routine's slider from the live STREAM_ALARM hardware level.
+  Future<void> _seedVolumeFromSystem() async {
+    final ratio = await RA_AlarmService.getSystemAlarmVolume();
+    if (!mounted) return;
+    setState(() => _volume = (ratio * 100).round().clamp(0, 100));
+  }
+
+  void _onVolumeChanged(int value) {
+    final clamped = value.clamp(0, 100);
+    setState(() => _volume = clamped);
+    unawaited(RA_AlarmService.setSystemAlarmVolume(clamped / 100.0));
   }
 
   @override
@@ -124,6 +142,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       DriftCompensationTypeCode: Value(_compensation.index),
       ShowPreview: const Value(true),
       Vibrate: Value(_vibrate),
+      Volume: Value(_volume.clamp(0, 100)),
       AudioUri: Value(encoded.isEmpty ? null : encoded),
     );
   }
@@ -274,6 +293,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                     value: _vibrate,
                     onChanged: (v) => setState(() => _vibrate = v),
                   ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  RA_VolumeField(value: _volume, onChanged: _onVolumeChanged),
                 ],
               ),
             ),

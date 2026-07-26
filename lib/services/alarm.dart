@@ -233,6 +233,34 @@ class RA_AlarmService {
     }
   }
 
+  /// Sets the device hardware alarm stream volume.
+  ///
+  /// [volumePercentage] is 0.0 (silent) to 1.0 (full STREAM_ALARM max).
+  /// Moves the OS alarm volume in real time.
+  static Future<void> setSystemAlarmVolume(double volumePercentage) async {
+    try {
+      const channel = MethodChannel(_alarmSoundChannel);
+      await channel.invokeMethod<void>(
+        'setSystemAlarmVolume',
+        volumePercentage.clamp(0.0, 1.0),
+      );
+    } catch (_) {
+      // Channel absent in tests / headless isolates / non-Android.
+    }
+  }
+
+  /// Reads the current hardware alarm stream volume as 0.0 to 1.0.
+  static Future<double> getSystemAlarmVolume() async {
+    try {
+      const channel = MethodChannel(_alarmSoundChannel);
+      final result = await channel.invokeMethod<num>('getSystemAlarmVolume');
+      if (result == null) return 1.0;
+      return result.toDouble().clamp(0.0, 1.0);
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
   /// Whether the OS has exempted this app from battery optimizations.
   ///
   /// Without exemption, Samsung / Xiaomi routinely kill alarm receivers and
@@ -465,6 +493,7 @@ class RA_AlarmService {
         await RA_AudioService.startAlarm(
           audioUri: routine.AudioUri,
           vibrate: routine.Vibrate,
+          volume: routine.Volume,
         );
       } catch (_) {
         // Ring UI + FSI notification already posted; audio can retry on ring page.

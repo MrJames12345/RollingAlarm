@@ -3,6 +3,7 @@ package com.example.rolling_alarm
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -235,6 +236,8 @@ class MainActivity : FlutterActivity() {
                         val loop = call.argument<Boolean>("loop") ?: true
                         val fadeInMs = call.argument<Number>("fadeInMs")?.toLong() ?: 0L
                         val asAlarm = call.argument<Boolean>("asAlarm") ?: true
+                        val volume = (call.argument<Number>("volume")?.toFloat() ?: 1f)
+                            .coerceIn(0f, 1f)
                         val usage = if (asAlarm) {
                             AudioAttributes.USAGE_ALARM
                         } else {
@@ -247,6 +250,7 @@ class MainActivity : FlutterActivity() {
                                 loop = loop,
                                 usage = usage,
                                 fadeInMs = fadeInMs,
+                                targetVolume = volume,
                             )
                             result.success(started)
                         } catch (e: Exception) {
@@ -259,6 +263,50 @@ class MainActivity : FlutterActivity() {
                             result.success(null)
                         } catch (e: Exception) {
                             result.error("stop_failed", e.message, null)
+                        }
+                    }
+                    "setSystemAlarmVolume" -> {
+                        val percentage = (call.arguments as? Number)?.toDouble()
+                            ?: call.argument<Number>("volumePercentage")?.toDouble()
+                        if (percentage == null) {
+                            result.error("bad_args", "volumePercentage required", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val audioManager =
+                                getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                            val maxVolume =
+                                audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                            val calculatedVolume =
+                                (maxVolume * percentage.coerceIn(0.0, 1.0)).toInt()
+                                    .coerceIn(0, maxVolume)
+                            audioManager.setStreamVolume(
+                                AudioManager.STREAM_ALARM,
+                                calculatedVolume,
+                                0,
+                            )
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("volume_failed", e.message, null)
+                        }
+                    }
+                    "getSystemAlarmVolume" -> {
+                        try {
+                            val audioManager =
+                                getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                            val maxVolume =
+                                audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                            val currentVolume =
+                                audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                            val ratio =
+                                if (maxVolume > 0) {
+                                    currentVolume.toDouble() / maxVolume.toDouble()
+                                } else {
+                                    0.0
+                                }
+                            result.success(ratio)
+                        } catch (e: Exception) {
+                            result.error("volume_failed", e.message, null)
                         }
                     }
                     "pickDeviceSound" -> {

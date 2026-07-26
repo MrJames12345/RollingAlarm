@@ -4,42 +4,47 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/services/device_ringtone.dart';
 import 'package:rolling_alarm/services/sound_preview.dart';
 import 'package:rolling_alarm/services/vibration.dart';
 
-/// Manages alarm audio playback with gradual volume fade-in
-/// on the alarm audio stream.
+/// Manages alarm audio playback on the Android alarm stream.
+///
+/// Loudness is controlled only via [AudioManager.STREAM_ALARM]. The internal
+/// media player always runs at full gain (1.0).
 class RA_AudioService {
   RA_AudioService._();
 
   static AudioPlayer? _player;
-  static Timer? _fadeTimer;
   static ReceivePort? _controlPort;
   static StreamSubscription<dynamic>? _controlSub;
 
   static const String _audioPortName = 'ra_audio_control_port';
+  static const String _alarmSoundChannel =
+      'com.example.rolling_alarm/alarm_sound';
 
   /// Bundled fallback tone when a routine has no custom playable URI.
   static const String defaultAlarmAsset = 'assets/audio/default_alarm.wav';
 
-  /// Duration over which the alarm volume fades from 0 to 1.
-  static const Duration fadeDuration = Duration(seconds: 10);
-  static const int _fadeSteps = 20;
-
-  /// Starts playing the alarm sound with a gradual volume ramp.
+  /// Starts playing the alarm sound at full internal player volume.
   ///
   /// [audioUri] may be a legacy plain URI or an encoded [RA_AlarmSound].
   /// When [vibrate] is true, starts repeating device vibration as well.
+  /// [volume] is 0 to 100 and is applied to the OS alarm stream only.
   static Future<void> startAlarm({
     String? audioUri,
     bool vibrate = true,
+    int volume = 100,
   }) async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return;
     }
+
+    final systemVolume = (volume.clamp(0, 100) / 100.0);
+    await _applySystemAlarmVolume(systemVolume);
 
     // If another isolate claimed audio but may be stuck (e.g. hung setUrl),
     // ask it to stop so this isolate (usually the ring UI) can take over.
@@ -64,7 +69,6 @@ class RA_AudioService {
           uri: sound.uri!.trim(),
           loop: true,
           asAlarm: true,
-          fadeInMs: fadeDuration.inMilliseconds,
         );
         if (started == true) {
           _registerControlPort();
@@ -88,10 +92,8 @@ class RA_AudioService {
         await _player!.setAsset(defaultAlarmAsset);
       }
       await _player!.setLoopMode(LoopMode.one);
-      await _player!.setVolume(0.0);
+      await _player!.setVolume(1.0);
       await _player!.play();
-
-      _startFadeIn();
     } catch (_) {
       // Primary source failed; try bundled default so the visual alarm still
       // has audio when possible.
@@ -112,9 +114,6 @@ class RA_AudioService {
 
   /// Stops the alarm audio and cleans up.
   static Future<void> stopAlarm() async {
-    _fadeTimer?.cancel();
-    _fadeTimer = null;
-
     await RA_VibrationService.stop();
 
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
@@ -159,7 +158,7 @@ class RA_AudioService {
     });
   }
 
-  /// Configures the audio session for alarm playback.
+  /// Routes just_audio through Android USAGE_ALARM (STREAM_ALARM), not media.
   static Future<void> _configureSession() async {
     final session = await AudioSession.instance;
     await session.configure(
@@ -167,7 +166,7 @@ class RA_AudioService {
         avAudioSessionCategory: AVAudioSessionCategory.playback,
         avAudioSessionMode: AVAudioSessionMode.defaultMode,
         androidAudioAttributes: AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
+          contentType: AndroidAudioContentType.sonification,
           usage: AndroidAudioUsage.alarm,
         ),
         androidAudioFocusGainType:
@@ -177,23 +176,17 @@ class RA_AudioService {
     );
   }
 
-  /// Gradually increases volume from 0 to 1 over [fadeDuration].
-  static void _startFadeIn() {
-    final stepDuration = fadeDuration ~/ _fadeSteps;
-    int currentStep = 0;
-
-    _fadeTimer = Timer.periodic(stepDuration, (timer) {
-      currentStep++;
-      final volume = currentStep / _fadeSteps;
-      final player = _player;
-      if (player != null) {
-        unawaited(player.setVolume(volume.clamp(0.0, 1.0)));
-      }
-
-      if (currentStep >= _fadeSteps) {
-        timer.cancel();
-        _fadeTimer = null;
-      }
-    });
+  /// Applies [volumePercentage] (0.0 to 1.0) to [AudioManager.STREAM_ALARM].
+  static Future<void> _applySystemAlarmVolume(double volumePercentage) async {
+    if (!Platform.isAndroid) return;
+    try {
+      const channel = MethodChannel(_alarmSoundChannel);
+      await channel.invokeMethod<void>(
+        'setSystemAlarmVolume',
+        volumePercentage.clamp(0.0, 1.0),
+      );
+    } catch (_) {
+      // Channel may be absent in headless isolates or tests.
+    }
   }
 }

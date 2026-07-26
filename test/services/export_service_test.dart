@@ -34,6 +34,7 @@ void main() {
           ),
           ShowPreview: const Value(true),
           Vibrate: const Value(false),
+          Volume: const Value(60),
           AudioUri: const Value('default_ringtone'),
           IsActive: const Value(true),
         ),
@@ -70,6 +71,7 @@ void main() {
         );
         expect(r.ShowPreview, isTrue);
         expect(r.Vibrate, isFalse);
+        expect(r.Volume, equals(60));
         expect(r.AudioUri, equals('default_ringtone'));
         expect(r.IsActive, isTrue);
       } finally {
@@ -184,6 +186,7 @@ void main() {
         );
         expect(r.ShowPreview, isTrue);
         expect(r.Vibrate, isTrue);
+        expect(r.Volume, equals(100));
         expect(r.AudioUri, isNull);
         expect(r.IsActive, isTrue);
       },

@@ -17,6 +17,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
   final String routineName;
   final String? audioUri;
   final bool vibrate;
+  final int volume;
 
   const AlarmRingPage({
     super.key,
@@ -24,6 +25,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
     required this.routineName,
     this.audioUri,
     this.vibrate = true,
+    this.volume = 100,
   });
 
   @override
@@ -71,6 +73,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       () => RA_AudioService.startAlarm(
         audioUri: widget.audioUri,
         vibrate: widget.vibrate,
+        volume: widget.volume,
       ),
     );
   }

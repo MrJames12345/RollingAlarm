@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 ///
 /// RingtoneManager content:// URIs are not reliable through just_audio setUrl;
 /// this channel plays them with Android Ringtone + USAGE_ALARM.
+/// Loudness is controlled by [AudioManager.STREAM_ALARM], not Ringtone gain.
 class RA_DeviceRingtone {
   RA_DeviceRingtone._();
 
@@ -13,7 +14,7 @@ class RA_DeviceRingtone {
     'com.example.rolling_alarm/alarm_sound',
   );
 
-  /// Plays [uri] via the platform Ringtone API.
+  /// Plays [uri] via the platform Ringtone API at full internal gain.
   ///
   /// Returns `true` when playback started, `false` when the URI failed to
   /// play, and `null` when the platform channel is unavailable (headless
@@ -23,6 +24,7 @@ class RA_DeviceRingtone {
     bool loop = true,
     bool asAlarm = true,
     int fadeInMs = 0,
+    double volume = 1.0,
   }) async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return true;
@@ -38,6 +40,8 @@ class RA_DeviceRingtone {
           'loop': loop,
           'asAlarm': asAlarm,
           'fadeInMs': fadeInMs,
+          // Always full internal gain; STREAM_ALARM owns loudness.
+          'volume': 1.0,
         },
       );
       return started ?? false;

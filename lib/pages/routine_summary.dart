@@ -172,6 +172,11 @@ class _SummaryTab extends ConsumerWidget {
                 label: 'Vibrate',
                 value: routine.Vibrate ? 'On' : 'Off',
               ),
+              const SizedBox(height: RA_ShapeStyles.space8),
+              _SummaryRow(
+                label: 'Volume',
+                value: '${routine.Volume.clamp(0, 100)}%',
+              ),
             ],
           ),
         ),

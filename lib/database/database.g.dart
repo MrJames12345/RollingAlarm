@@ -138,6 +138,16 @@ class $RoutinesTable extends Routines
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _VolumeMeta = const VerificationMeta('Volume');
+  @override
+  late final GeneratedColumn<int> Volume = GeneratedColumn<int>(
+    'volume',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(100),
+  );
   static const VerificationMeta _AudioUriMeta = const VerificationMeta(
     'AudioUri',
   );
@@ -214,6 +224,7 @@ class $RoutinesTable extends Routines
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
+    Volume,
     AudioUri,
     IsActive,
     CreatedAt,
@@ -316,6 +327,12 @@ class $RoutinesTable extends Routines
         Vibrate.isAcceptableOrUnknown(data['vibrate']!, _VibrateMeta),
       );
     }
+    if (data.containsKey('volume')) {
+      context.handle(
+        _VolumeMeta,
+        Volume.isAcceptableOrUnknown(data['volume']!, _VolumeMeta),
+      );
+    }
     if (data.containsKey('audio_uri')) {
       context.handle(
         _AudioUriMeta,
@@ -395,6 +412,10 @@ class $RoutinesTable extends Routines
         DriftSqlType.bool,
         data['${effectivePrefix}vibrate'],
       )!,
+      Volume: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}volume'],
+      )!,
       AudioUri: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}audio_uri'],
@@ -447,6 +468,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
 
   /// When true, the device vibrates while this routine's alarm is ringing.
   final bool Vibrate;
+
+  /// Alarm playback volume from 0 (silent) to 100 (full).
+  final int Volume;
   final String? AudioUri;
   final bool IsActive;
   final DateTime CreatedAt;
@@ -463,6 +487,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     required this.DriftCompensationTypeCode,
     required this.ShowPreview,
     required this.Vibrate,
+    required this.Volume,
     this.AudioUri,
     required this.IsActive,
     required this.CreatedAt,
@@ -484,6 +509,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     );
     map['show_preview'] = Variable<bool>(ShowPreview);
     map['vibrate'] = Variable<bool>(Vibrate);
+    map['volume'] = Variable<int>(Volume);
     if (!nullToAbsent || AudioUri != null) {
       map['audio_uri'] = Variable<String>(AudioUri);
     }
@@ -508,6 +534,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       DriftCompensationTypeCode: Value(DriftCompensationTypeCode),
       ShowPreview: Value(ShowPreview),
       Vibrate: Value(Vibrate),
+      Volume: Value(Volume),
       AudioUri: AudioUri == null && nullToAbsent
           ? const Value.absent()
           : Value(AudioUri),
@@ -540,6 +567,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       ),
       ShowPreview: serializer.fromJson<bool>(json['ShowPreview']),
       Vibrate: serializer.fromJson<bool>(json['Vibrate']),
+      Volume: serializer.fromJson<int>(json['Volume']),
       AudioUri: serializer.fromJson<String?>(json['AudioUri']),
       IsActive: serializer.fromJson<bool>(json['IsActive']),
       CreatedAt: serializer.fromJson<DateTime>(json['CreatedAt']),
@@ -563,6 +591,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       ),
       'ShowPreview': serializer.toJson<bool>(ShowPreview),
       'Vibrate': serializer.toJson<bool>(Vibrate),
+      'Volume': serializer.toJson<int>(Volume),
       'AudioUri': serializer.toJson<String?>(AudioUri),
       'IsActive': serializer.toJson<bool>(IsActive),
       'CreatedAt': serializer.toJson<DateTime>(CreatedAt),
@@ -582,6 +611,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     int? DriftCompensationTypeCode,
     bool? ShowPreview,
     bool? Vibrate,
+    int? Volume,
     Value<String?> AudioUri = const Value.absent(),
     bool? IsActive,
     DateTime? CreatedAt,
@@ -599,6 +629,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
         DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
     ShowPreview: ShowPreview ?? this.ShowPreview,
     Vibrate: Vibrate ?? this.Vibrate,
+    Volume: Volume ?? this.Volume,
     AudioUri: AudioUri.present ? AudioUri.value : this.AudioUri,
     IsActive: IsActive ?? this.IsActive,
     CreatedAt: CreatedAt ?? this.CreatedAt,
@@ -631,6 +662,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           ? data.ShowPreview.value
           : this.ShowPreview,
       Vibrate: data.Vibrate.present ? data.Vibrate.value : this.Vibrate,
+      Volume: data.Volume.present ? data.Volume.value : this.Volume,
       AudioUri: data.AudioUri.present ? data.AudioUri.value : this.AudioUri,
       IsActive: data.IsActive.present ? data.IsActive.value : this.IsActive,
       CreatedAt: data.CreatedAt.present ? data.CreatedAt.value : this.CreatedAt,
@@ -654,6 +686,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
+          ..write('Volume: $Volume, ')
           ..write('AudioUri: $AudioUri, ')
           ..write('IsActive: $IsActive, ')
           ..write('CreatedAt: $CreatedAt, ')
@@ -675,6 +708,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
+    Volume,
     AudioUri,
     IsActive,
     CreatedAt,
@@ -695,6 +729,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           other.DriftCompensationTypeCode == this.DriftCompensationTypeCode &&
           other.ShowPreview == this.ShowPreview &&
           other.Vibrate == this.Vibrate &&
+          other.Volume == this.Volume &&
           other.AudioUri == this.AudioUri &&
           other.IsActive == this.IsActive &&
           other.CreatedAt == this.CreatedAt &&
@@ -713,6 +748,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
   final Value<int> DriftCompensationTypeCode;
   final Value<bool> ShowPreview;
   final Value<bool> Vibrate;
+  final Value<int> Volume;
   final Value<String?> AudioUri;
   final Value<bool> IsActive;
   final Value<DateTime> CreatedAt;
@@ -729,6 +765,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.DriftCompensationTypeCode = const Value.absent(),
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
+    this.Volume = const Value.absent(),
     this.AudioUri = const Value.absent(),
     this.IsActive = const Value.absent(),
     this.CreatedAt = const Value.absent(),
@@ -746,6 +783,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     required int DriftCompensationTypeCode,
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
+    this.Volume = const Value.absent(),
     this.AudioUri = const Value.absent(),
     this.IsActive = const Value.absent(),
     this.CreatedAt = const Value.absent(),
@@ -765,6 +803,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Expression<int>? DriftCompensationTypeCode,
     Expression<bool>? ShowPreview,
     Expression<bool>? Vibrate,
+    Expression<int>? Volume,
     Expression<String>? AudioUri,
     Expression<bool>? IsActive,
     Expression<DateTime>? CreatedAt,
@@ -784,6 +823,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
         'drift_compensation_type_code': DriftCompensationTypeCode,
       if (ShowPreview != null) 'show_preview': ShowPreview,
       if (Vibrate != null) 'vibrate': Vibrate,
+      if (Volume != null) 'volume': Volume,
       if (AudioUri != null) 'audio_uri': AudioUri,
       if (IsActive != null) 'is_active': IsActive,
       if (CreatedAt != null) 'created_at': CreatedAt,
@@ -803,6 +843,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Value<int>? DriftCompensationTypeCode,
     Value<bool>? ShowPreview,
     Value<bool>? Vibrate,
+    Value<int>? Volume,
     Value<String?>? AudioUri,
     Value<bool>? IsActive,
     Value<DateTime>? CreatedAt,
@@ -822,6 +863,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
           DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
       ShowPreview: ShowPreview ?? this.ShowPreview,
       Vibrate: Vibrate ?? this.Vibrate,
+      Volume: Volume ?? this.Volume,
       AudioUri: AudioUri ?? this.AudioUri,
       IsActive: IsActive ?? this.IsActive,
       CreatedAt: CreatedAt ?? this.CreatedAt,
@@ -867,6 +909,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     if (Vibrate.present) {
       map['vibrate'] = Variable<bool>(Vibrate.value);
     }
+    if (Volume.present) {
+      map['volume'] = Variable<int>(Volume.value);
+    }
     if (AudioUri.present) {
       map['audio_uri'] = Variable<String>(AudioUri.value);
     }
@@ -898,6 +943,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
+          ..write('Volume: $Volume, ')
           ..write('AudioUri: $AudioUri, ')
           ..write('IsActive: $IsActive, ')
           ..write('CreatedAt: $CreatedAt, ')
@@ -2215,6 +2261,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       required int DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
+      Value<int> Volume,
       Value<String?> AudioUri,
       Value<bool> IsActive,
       Value<DateTime> CreatedAt,
@@ -2233,6 +2280,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<int> DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
+      Value<int> Volume,
       Value<String?> AudioUri,
       Value<bool> IsActive,
       Value<DateTime> CreatedAt,
@@ -2296,6 +2344,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<bool> get Vibrate => $composableBuilder(
     column: $table.Vibrate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get Volume => $composableBuilder(
+    column: $table.Volume,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2384,6 +2437,11 @@ class $$RoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get Volume => $composableBuilder(
+    column: $table.Volume,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get AudioUri => $composableBuilder(
     column: $table.AudioUri,
     builder: (column) => ColumnOrderings(column),
@@ -2463,6 +2521,9 @@ class $$RoutinesTableAnnotationComposer
   GeneratedColumn<bool> get Vibrate =>
       $composableBuilder(column: $table.Vibrate, builder: (column) => column);
 
+  GeneratedColumn<int> get Volume =>
+      $composableBuilder(column: $table.Volume, builder: (column) => column);
+
   GeneratedColumn<String> get AudioUri =>
       $composableBuilder(column: $table.AudioUri, builder: (column) => column);
 
@@ -2522,6 +2583,7 @@ class $$RoutinesTableTableManager
                 Value<int> DriftCompensationTypeCode = const Value.absent(),
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
+                Value<int> Volume = const Value.absent(),
                 Value<String?> AudioUri = const Value.absent(),
                 Value<bool> IsActive = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
@@ -2538,6 +2600,7 @@ class $$RoutinesTableTableManager
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
+                Volume: Volume,
                 AudioUri: AudioUri,
                 IsActive: IsActive,
                 CreatedAt: CreatedAt,
@@ -2556,6 +2619,7 @@ class $$RoutinesTableTableManager
                 required int DriftCompensationTypeCode,
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
+                Value<int> Volume = const Value.absent(),
                 Value<String?> AudioUri = const Value.absent(),
                 Value<bool> IsActive = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
@@ -2572,6 +2636,7 @@ class $$RoutinesTableTableManager
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
+                Volume: Volume,
                 AudioUri: AudioUri,
                 IsActive: IsActive,
                 CreatedAt: CreatedAt,

@@ -185,6 +185,7 @@ void main() {
       expect(after.AudioUri, equals('file:///custom.mp3'));
       expect(after.IsActive, isTrue);
       expect(after.Vibrate, isTrue);
+      expect(after.Volume, equals(100));
       expect(after.CreatedAt, equals(before.CreatedAt));
       expect(after.Deleted, isFalse);
       expect(after.ModifiedAt, isNotNull);

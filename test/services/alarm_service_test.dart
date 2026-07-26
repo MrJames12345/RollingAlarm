@@ -97,10 +97,14 @@ void main() {
       'com.example.rolling_alarm/alarm_sound',
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-          alarmSoundChannel,
-          (MethodCall methodCall) async => null,
-        );
+        .setMockMethodCallHandler(alarmSoundChannel, (
+          MethodCall methodCall,
+        ) async {
+          if (methodCall.method == 'getSystemAlarmVolume') {
+            return 1.0;
+          }
+          return null;
+        });
   });
 
   group('RA_AlarmService Plugin Boundary Tests', () {
@@ -129,6 +133,7 @@ void main() {
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
           Vibrate: true,
+          Volume: 100,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -220,6 +225,7 @@ void main() {
               DriftCompensationTypeCodeEnum.InitialRing.index,
           ShowPreview: true,
           Vibrate: true,
+          Volume: 100,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -308,6 +314,7 @@ void main() {
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
           Vibrate: true,
+          Volume: 100,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,
@@ -410,6 +417,7 @@ void main() {
             DriftCompensationTypeCodeEnum.InitialRing.index,
         ShowPreview: true,
         Vibrate: true,
+        Volume: 100,
         AudioUri: null,
         IsActive: true,
         CreatedAt: now,
@@ -501,6 +509,7 @@ void main() {
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
           Vibrate: true,
+          Volume: 100,
           AudioUri: null,
           IsActive: true,
           CreatedAt: now,

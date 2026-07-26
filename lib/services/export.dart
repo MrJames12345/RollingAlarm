@@ -39,6 +39,7 @@ class RA_ExportService {
               'DriftCompensationTypeCode': r.DriftCompensationTypeCode,
               'ShowPreview': r.ShowPreview,
               'Vibrate': r.Vibrate,
+              'Volume': r.Volume,
               'AudioUri': r.AudioUri,
               'IsActive': r.IsActive,
             },
@@ -149,6 +150,7 @@ class RA_ExportService {
       ),
       ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
       Vibrate: Value((r['Vibrate'] as bool?) ?? true),
+      Volume: Value(((r['Volume'] as int?) ?? 100).clamp(0, 100)),
       AudioUri: Value(r['AudioUri'] as String?),
       IsActive: Value((r['IsActive'] as bool?) ?? true),
     );
