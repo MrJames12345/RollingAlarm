@@ -1,0 +1,57 @@
+name: rolling_alarm
+description: A rolling interval alarm app for Android.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod:
+  drift:
+  sqlite3_flutter_libs:
+  path_provider:
+  android_alarm_manager_plus:
+  flutter_local_notifications:
+  permission_handler:
+  flutter_tts:
+  just_audio:
+  audio_session:
+  home_widget:
+  pdf:
+  printing:
+  google_fonts:
+  intl:
+  shared_preferences:
+  path:
+  # Pinned: file_picker 11.0.x fails Android builds (Kotlin sources not compiled
+  # under AGP 9). Revisit when a fixed 11.x release is available.
+  file_picker: 10.3.10
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints:
+  drift_dev:
+  build_runner:
+  # E2E: Patrol native automation + Flutter integration_test screenshots.
+  patrol: ^4.8.0
+  integration_test:
+    sdk: flutter
+  mocktail:
+  sqlite3:
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/audio/default_alarm.wav
+    - assets/branding/
+
+patrol:
+  app_name: Rolling Alarm
+  android:
+    package_name: com.example.rolling_alarm
+    flavor: null
