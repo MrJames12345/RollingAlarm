@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/services/export.dart';
@@ -25,16 +24,20 @@ void main() {
     });
 
     test('base64 round trip exports and imports routines accurately', () async {
-      await db.insertRoutine(RoutinesCompanion(
-        Name: const Value('Morning Routine'),
-        IntervalSeconds: const Value(16200),
-        SnoozeSeconds: const Value(600),
-        DriftCompensationTypeCode: Value(DriftCompensationTypeCodeEnum.ActualDismissal.index),
-        ShowPreview: const Value(true),
-        Vibrate: const Value(false),
-        AudioUri: const Value('default_ringtone'),
-        IsActive: const Value(true),
-      ));
+      await db.insertRoutine(
+        RoutinesCompanion(
+          Name: const Value('Morning Routine'),
+          IntervalSeconds: const Value(16200),
+          SnoozeSeconds: const Value(600),
+          DriftCompensationTypeCode: Value(
+            DriftCompensationTypeCodeEnum.ActualDismissal.index,
+          ),
+          ShowPreview: const Value(true),
+          Vibrate: const Value(false),
+          AudioUri: const Value('default_ringtone'),
+          IsActive: const Value(true),
+        ),
+      );
 
       final exportString = await RA_ExportService.exportToBase64(db);
       expect(exportString, startsWith('RA1:'));
@@ -42,7 +45,10 @@ void main() {
       // Create a fresh database to import into
       final db2 = RA_Database.forTesting(NativeDatabase.memory());
       try {
-        final importedIds = await RA_ExportService.importFromBase64(db2, exportString);
+        final importedIds = await RA_ExportService.importFromBase64(
+          db2,
+          exportString,
+        );
         expect(importedIds.length, equals(1));
 
         // An imported routine must be schedulable straight away, which means it
@@ -58,7 +64,10 @@ void main() {
         expect(r.Name, equals('Morning Routine'));
         expect(r.IntervalSeconds, equals(4 * 3600 + 30 * 60));
         expect(r.SnoozeSeconds, equals(600));
-        expect(r.DriftCompensationTypeCode, equals(DriftCompensationTypeCodeEnum.ActualDismissal.index));
+        expect(
+          r.DriftCompensationTypeCode,
+          equals(DriftCompensationTypeCodeEnum.ActualDismissal.index),
+        );
         expect(r.ShowPreview, isTrue);
         expect(r.Vibrate, isFalse);
         expect(r.AudioUri, equals('default_ringtone'));
@@ -70,7 +79,8 @@ void main() {
 
     test('rejects malformed strings missing prefix', () {
       expect(
-        () => RA_ExportService.decodeExportString('INVALID_PREFIX_c29tZSBkYXRh'),
+        () =>
+            RA_ExportService.decodeExportString('INVALID_PREFIX_c29tZSBkYXRh'),
         throwsA(isA<FormatException>()),
       );
     });
@@ -85,7 +95,8 @@ void main() {
     test('rejects wrong version payload', () {
       // Valid base64 of {"version":999,"routines":[]} so the failure comes from
       // the version check rather than from decoding.
-      final encoded = 'RA1:${base64Encode(utf8.encode('{"version":999,"routines":[]}'))}';
+      final encoded =
+          'RA1:${base64Encode(utf8.encode('{"version":999,"routines":[]}'))}';
       expect(
         () => RA_ExportService.decodeExportString(encoded),
         throwsA(
@@ -112,28 +123,70 @@ void main() {
       );
     });
 
-    test('imports version 1 exports folding hours and minutes into IntervalSeconds', () async {
-      final v1Payload = {
-        'version': 1,
-        'routines': [
-          {
-            'Name': 'Legacy',
-            'SnoozeMinutes': 5,
-            'IntervalHours': 2,
-            'IntervalMinutes': 15,
-            'DriftCompensationTypeCode': 0,
-            'ShowPreview': true,
-            'AudioUri': null,
-            'IsActive': true,
-          },
-        ],
-      };
-      final encoded =
-          'RA1:${base64Encode(utf8.encode(jsonEncode(v1Payload)))}';
-      final ids = await RA_ExportService.importFromBase64(db, encoded);
-      expect(ids, hasLength(1));
-      final r = await db.getRoutineById(ids.single);
-      expect(r.IntervalSeconds, 2 * 3600 + 15 * 60);
-    });
+    test(
+      'imports version 1 exports folding hours and minutes into IntervalSeconds',
+      () async {
+        final v1Payload = {
+          'version': 1,
+          'routines': [
+            {
+              'Name': 'Legacy',
+              'SnoozeMinutes': 5,
+              'IntervalHours': 2,
+              'IntervalMinutes': 15,
+              'DriftCompensationTypeCode': 0,
+              'ShowPreview': true,
+              'AudioUri': null,
+              'IsActive': true,
+            },
+          ],
+        };
+        final encoded =
+            'RA1:${base64Encode(utf8.encode(jsonEncode(v1Payload)))}';
+        final ids = await RA_ExportService.importFromBase64(db, encoded);
+        expect(ids, hasLength(1));
+        final r = await db.getRoutineById(ids.single);
+        expect(r.IntervalSeconds, 2 * 3600 + 15 * 60);
+      },
+    );
+
+    test(
+      'imports sparse old payloads with defaults and ignores extra fields',
+      () async {
+        final sparsePayload = {
+          'version': 1,
+          'routines': [
+            {
+              'Name': 'Sparse',
+              'IntervalHours': 1,
+              'IntervalMinutes': 0,
+              // Removed / unknown keys must not break import.
+              'MaxSnoozes': 3,
+              'AutoSnoozeOnIgnore': true,
+              'FutureOnlyField': 'ignored',
+            },
+          ],
+        };
+        final encoded =
+            'RA1:${base64Encode(utf8.encode(jsonEncode(sparsePayload)))}';
+        final ids = await RA_ExportService.importFromBase64(db, encoded);
+        expect(ids, hasLength(1));
+        final r = await db.getRoutineById(ids.single);
+        expect(r.Name, 'Sparse');
+        expect(r.IntervalSeconds, 3600);
+        expect(r.SnoozeSeconds, 300);
+        expect(r.MaxTimesPerDayEnabled, isFalse);
+        expect(r.MaxTimesPerDay, 0);
+        expect(r.DayStartSeconds, 0);
+        expect(
+          r.DriftCompensationTypeCode,
+          DriftCompensationTypeCodeEnum.ActualDismissal.index,
+        );
+        expect(r.ShowPreview, isTrue);
+        expect(r.Vibrate, isTrue);
+        expect(r.AudioUri, isNull);
+        expect(r.IsActive, isTrue);
+      },
+    );
   });
 }

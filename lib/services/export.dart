@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:rolling_alarm/database/database.dart';
+import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 
 /// Versioned JSON-to-base64 export/import service.
 /// Format: `RA1:` followed by base64-encoded JSON.
@@ -11,6 +12,11 @@ class RA_ExportService {
   static const String _versionPrefix = 'RA1:';
   static const int _currentVersion = 9;
   static const int _minSupportedVersion = 1;
+
+  /// Matches the new-routine form default (2h 30m) when interval is absent.
+  static const int _defaultIntervalSeconds = 9000;
+  static const int _defaultSnoozeSeconds = 300;
+  static const String _defaultName = 'Imported Routine';
 
   /// Exports all routines to a versioned base64 string.
   static Future<String> exportToBase64(RA_Database db) async {
@@ -93,26 +99,59 @@ class RA_ExportService {
   /// Total interval seconds from a routine map.
   ///
   /// Version 4+ stores a single [IntervalSeconds] total. Older exports used
-  /// hours + minutes + remainder seconds.
+  /// hours + minutes + remainder seconds. Missing interval data uses
+  /// [_defaultIntervalSeconds].
   static int _intervalSecondsFromMap(Map<String, dynamic> r) {
     final hours = r['IntervalHours'] as int?;
     final minutes = r['IntervalMinutes'] as int?;
-    final seconds = (r['IntervalSeconds'] as int?) ?? 0;
-    if (hours != null || minutes != null) {
-      return ((hours ?? 0) * 3600) + ((minutes ?? 0) * 60) + seconds;
+    final seconds = r['IntervalSeconds'] as int?;
+    if (hours == null && minutes == null && seconds == null) {
+      return _defaultIntervalSeconds;
     }
-    return seconds;
+    if (hours != null || minutes != null) {
+      return ((hours ?? 0) * 3600) + ((minutes ?? 0) * 60) + (seconds ?? 0);
+    }
+    return seconds ?? _defaultIntervalSeconds;
   }
 
   /// Total snooze seconds from a routine map.
   ///
   /// Version 8+ stores [SnoozeSeconds]. Older exports used [SnoozeMinutes].
+  /// Missing snooze data uses [_defaultSnoozeSeconds].
   static int _snoozeSecondsFromMap(Map<String, dynamic> r) {
     final snoozeSecs = r['SnoozeSeconds'] as int?;
     if (snoozeSecs != null) return snoozeSecs;
     final snoozeMins = r['SnoozeMinutes'] as int?;
     if (snoozeMins != null) return snoozeMins * 60;
-    return 300;
+    return _defaultSnoozeSeconds;
+  }
+
+  /// Builds a [RoutinesCompanion] from one export map entry.
+  ///
+  /// Only known keys are read; any extra or legacy fields (for example
+  /// MaxSnoozes, AutoSnoozeOnIgnore, IntervalHours) are ignored or folded into
+  /// current columns. Absent fields receive the same defaults as a new routine.
+  static RoutinesCompanion _routineCompanionFromMap(Map<String, dynamic> r) {
+    final name = (r['Name'] as String?)?.trim();
+    final maxTimesPerDay = (r['MaxTimesPerDay'] as int?) ?? 0;
+    return RoutinesCompanion(
+      Name: Value((name == null || name.isEmpty) ? _defaultName : name),
+      IntervalSeconds: Value(_intervalSecondsFromMap(r)),
+      SnoozeSeconds: Value(_snoozeSecondsFromMap(r)),
+      MaxTimesPerDayEnabled: Value(
+        (r['MaxTimesPerDayEnabled'] as bool?) ?? (maxTimesPerDay > 0),
+      ),
+      MaxTimesPerDay: Value(maxTimesPerDay),
+      DayStartSeconds: Value((r['DayStartSeconds'] as int?) ?? 0),
+      DriftCompensationTypeCode: Value(
+        (r['DriftCompensationTypeCode'] as int?) ??
+            DriftCompensationTypeCodeEnum.ActualDismissal.index,
+      ),
+      ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
+      Vibrate: Value((r['Vibrate'] as bool?) ?? true),
+      AudioUri: Value(r['AudioUri'] as String?),
+      IsActive: Value((r['IsActive'] as bool?) ?? true),
+    );
   }
 
   /// Imports routines from a validated export string.
@@ -120,8 +159,8 @@ class RA_ExportService {
   /// out, so the caller can schedule it the same way a freshly created routine
   /// is scheduled. Returns the imported routine IDs.
   ///
-  /// Legacy fields such as MaxSnoozes / AutoSnoozeOnIgnore / split interval
-  /// units are ignored or folded into [IntervalSeconds].
+  /// Older exports may omit newer fields; those use defaults. Extra or removed
+  /// fields in the payload are ignored.
   static Future<List<int>> importFromBase64(
     RA_Database db,
     String exportString,
@@ -132,29 +171,13 @@ class RA_ExportService {
 
     for (final routineMap in routinesData) {
       final r = routineMap as Map<String, dynamic>;
-      final intervalSeconds = _intervalSecondsFromMap(r);
+      final companion = _routineCompanionFromMap(r);
+      final intervalSeconds = companion.IntervalSeconds.value;
       final nextTrigger = DateTime.now().add(
         Duration(seconds: intervalSeconds),
       );
       final routineId = await db.insertRoutineWithInitialState(
-        routine: RoutinesCompanion(
-          Name: Value(r['Name'] as String),
-          IntervalSeconds: Value(intervalSeconds),
-          SnoozeSeconds: Value(_snoozeSecondsFromMap(r)),
-          MaxTimesPerDayEnabled: Value(
-            (r['MaxTimesPerDayEnabled'] as bool?) ??
-                (((r['MaxTimesPerDay'] as int?) ?? 0) > 0),
-          ),
-          MaxTimesPerDay: Value((r['MaxTimesPerDay'] as int?) ?? 0),
-          DayStartSeconds: Value((r['DayStartSeconds'] as int?) ?? 0),
-          DriftCompensationTypeCode: Value(
-            r['DriftCompensationTypeCode'] as int,
-          ),
-          ShowPreview: Value(r['ShowPreview'] as bool),
-          Vibrate: Value((r['Vibrate'] as bool?) ?? true),
-          AudioUri: Value(r['AudioUri'] as String?),
-          IsActive: Value((r['IsActive'] as bool?) ?? true),
-        ),
+        routine: companion,
         nextTriggerTime: nextTrigger,
       );
 
