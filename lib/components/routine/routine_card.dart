@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/count_daily_skip_dialog.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
+import 'package:rolling_alarm/components/common/reset_today_counter_dialog.dart';
+import 'package:rolling_alarm/components/common/routine_card_actions_dialog.dart';
 import 'package:rolling_alarm/components/routine/routine_countdown.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
@@ -13,6 +16,7 @@ import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
+import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
@@ -112,6 +116,15 @@ class RA_RoutineCard extends ConsumerWidget {
                   ),
                 );
               },
+              onLongPress: () => unawaited(
+                _openActionsMenu(
+                  context,
+                  ref,
+                  isMuted: isMuted,
+                  isPaused: isPaused,
+                  showDismissUpcoming: !hideDismissUpcoming,
+                ),
+              ),
               child: AnimatedOpacity(
                 duration: RA_ShapeStyles.stateTransitionDuration,
                 opacity: isPaused ? 0.62 : (isMuted ? 0.85 : 1),
@@ -273,6 +286,67 @@ class RA_RoutineCard extends ConsumerWidget {
         countSkipTowardsDaily: countTowardsDaily,
       );
     });
+  }
+
+  Future<void> _openActionsMenu(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool isMuted,
+    required bool isPaused,
+    required bool showDismissUpcoming,
+  }) async {
+    RA_Haptics.heavyUnawaited();
+    final action = await RA_showRoutineCardActionsDialog(
+      context,
+      routineName: routine.Name,
+      isMuted: isMuted,
+      isPaused: isPaused,
+      showDismissUpcoming: showDismissUpcoming,
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case RA_RoutineCardMenuAction.mute:
+        await _toggleMute(ref);
+      case RA_RoutineCardMenuAction.pause:
+        await _togglePause(ref);
+      case RA_RoutineCardMenuAction.dismissUpcoming:
+        await _handleSkip(context, ref);
+      case RA_RoutineCardMenuAction.edit:
+        await Navigator.push(
+          context,
+          RA_Routes.fade(
+            RoutineEditPage(dbPath: dbPath, existingRoutine: routine),
+          ),
+        );
+      case RA_RoutineCardMenuAction.resetTodayCounter:
+        await _resetTodayCounter(context, ref);
+      case RA_RoutineCardMenuAction.delete:
+        final confirmed = await RA_showDeleteRoutineDialog(
+          context,
+          routineName: routine.Name,
+        );
+        if (confirmed == true) {
+          await _deleteRoutine(ref);
+        }
+    }
+  }
+
+  Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {
+    final confirmed = await RA_showResetTodayCounterDialog(context);
+    if (confirmed != true) return;
+
+    RA_Haptics.heavyUnawaited();
+    final db = ref.read(RA_DatabaseProvider);
+    final now = DateTime.now();
+    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    await db.updateRoutineState(
+      routine.Id,
+      RoutineStatesCompanion(
+        TimesRingToday: const Value(0),
+        TimesRingDay: Value(period),
+      ),
+    );
   }
 }
 
