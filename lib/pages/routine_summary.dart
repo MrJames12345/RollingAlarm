@@ -4,19 +4,25 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
+import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/components/common/reset_today_counter_dialog.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
 import 'package:rolling_alarm/components/routine/routine_history_list.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
+import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
+import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -108,7 +114,7 @@ class RoutineSummaryPage extends ConsumerWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  _SummaryTab(routine: routine),
+                  _SummaryTab(routine: routine, dbPath: dbPath),
                   RA_RoutineHistoryList(routineId: routine.Id),
                 ],
               ),
@@ -122,8 +128,25 @@ class RoutineSummaryPage extends ConsumerWidget {
 
 class _SummaryTab extends ConsumerWidget {
   final RoutineModel routine;
+  final String dbPath;
 
-  const _SummaryTab({required this.routine});
+  const _SummaryTab({required this.routine, required this.dbPath});
+
+  void _openEdit(BuildContext context, RoutineEditFieldEnum field) {
+    RA_Haptics.heavyUnawaited();
+    unawaited(
+      Navigator.push(
+        context,
+        RA_Routes.fade(
+          RoutineEditPage(
+            dbPath: dbPath,
+            existingRoutine: routine,
+            scrollToField: field,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -159,51 +182,82 @@ class _SummaryTab extends ConsumerWidget {
       }),
     );
 
+    final dailyLimitTiles = <Widget>[
+      _SummaryTile(
+        label: 'Max times in a day',
+        value: routine.MaxTimesPerDayEnabled ? 'On' : 'Off',
+        onTap: () => _openEdit(context, RoutineEditFieldEnum.maxTimesPerDay),
+      ),
+      if (routine.MaxTimesPerDayEnabled) ...[
+        _SummaryTile(
+          label: 'Limit',
+          value: '${routine.MaxTimesPerDay}',
+          onTap: () => _openEdit(context, RoutineEditFieldEnum.maxTimesLimit),
+        ),
+        _SummaryTile(
+          label: 'Starts at',
+          value: dayStartLabel,
+          onTap: () => _openEdit(context, RoutineEditFieldEnum.dayStart),
+        ),
+      ],
+      _SummaryTile(
+        label: 'Today',
+        value: todayCount == 1 ? '1 time' : '$todayCount times',
+      ),
+    ];
+
     return ListView(
       padding: RA_ShapeStyles.bodyPadding,
       children: [
         RA_FormSection(
           label: 'Alarm sound',
-          child: Column(
+          child: _SummaryTileRow(
             children: [
-              _SummaryRow(label: 'Sound', value: sound.displayLabel),
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
+              _SummaryTile(
+                label: 'Sound',
+                value: sound.displayLabel,
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.sound),
+              ),
+              _SummaryTile(
                 label: 'Volume',
                 value: sound.isSilent
                     ? 'N/A'
-                    : '${routine.Volume.clamp(0, 100)}%',
+                    : '${routine.Volume.clamp(5, 100)}%',
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.volume),
               ),
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
+              _SummaryTile(
                 label: 'Fade in',
                 value: sound.isSilent ? 'N/A' : (routine.FadeIn ? 'On' : 'Off'),
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.fadeIn),
               ),
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
+              _SummaryTile(
                 label: 'Vibrate',
                 value: routine.Vibrate ? 'On' : 'Off',
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.vibrate),
               ),
             ],
           ),
         ),
         RA_FormSection(
           label: 'Timing',
-          child: Column(
+          child: _SummaryTileRow(
+            flexes: const [2, 2, 3],
             children: [
-              _SummaryRow(
+              _SummaryTile(
                 label: 'Interval',
                 value: RA_Utils.formatInterval(routine.IntervalSeconds),
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.interval),
               ),
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
+              _SummaryTile(
                 label: 'Snooze',
                 value: RA_Utils.formatInterval(routine.SnoozeSeconds),
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.snooze),
               ),
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
+              _SummaryTile(
                 label: 'Drift compensation',
                 value: compensationLabel,
+                onTap: () =>
+                    _openEdit(context, RoutineEditFieldEnum.driftCompensation),
               ),
             ],
           ),
@@ -214,26 +268,20 @@ class _SummaryTab extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SummaryRow(
-                label: 'Max times in a day',
-                value: routine.MaxTimesPerDayEnabled ? 'On' : 'Off',
-              ),
-              if (routine.MaxTimesPerDayEnabled) ...[
-                const SizedBox(height: RA_ShapeStyles.space8),
-                _SummaryRow(label: 'Limit', value: '${routine.MaxTimesPerDay}'),
-                const SizedBox(height: RA_ShapeStyles.space8),
-                _SummaryRow(label: 'Starts at', value: dayStartLabel),
-              ],
-              const SizedBox(height: RA_ShapeStyles.space8),
-              _SummaryRow(
-                label: 'Today',
-                value: todayCount == 1 ? '1 time' : '$todayCount times',
-              ),
+              _SummaryTileRow(children: dailyLimitTiles),
               const SizedBox(height: RA_ShapeStyles.space16),
               RA_Button(
                 text: "Reset today's counter",
                 isPrimary: false,
                 onClick: () => unawaited(_resetTodayCounter(context, ref)),
+              ),
+              const SizedBox(height: RA_ShapeStyles.space16),
+              RA_Button(
+                text: 'Delete',
+                backgroundColor: RA_ColourStyles.softCoral,
+                foregroundColor: RA_ColourStyles.onAccent,
+                shadowColor: RA_ColourStyles.softCoral.withValues(alpha: 0.35),
+                onClick: () => unawaited(_deleteRoutine(context, ref)),
               ),
             ],
           ),
@@ -258,43 +306,109 @@ class _SummaryTab extends ConsumerWidget {
       ),
     );
   }
+
+  /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.
+  Future<void> _deleteRoutine(BuildContext context, WidgetRef ref) async {
+    final confirmed = await RA_showDeleteRoutineDialog(
+      context,
+      routineName: routine.Name,
+    );
+    if (confirmed != true) return;
+
+    final deleted = await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      await RA_AlarmService.cancel(routine.Id);
+      await db.softDeleteRoutine(routine.Id);
+      await RA_WidgetService.updateWidgetState(db: db);
+      return true;
+    });
+    if (deleted == true && context.mounted) {
+      Navigator.pop(context);
+    }
+  }
 }
 
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
+/// Equal-height tiles in one horizontal row for a summary section.
+class _SummaryTileRow extends StatelessWidget {
+  final List<Widget> children;
+  final List<int>? flexes;
 
-  const _SummaryRow({required this.label, required this.value});
+  const _SummaryTileRow({required this.children, this.flexes});
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: RA_ShapeStyles.elevatedSurface(),
-      child: Padding(
-        padding: const EdgeInsets.all(RA_ShapeStyles.space16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: RA_TextStyles.tinyFont.copyWith(
-                  color: RA_ColourStyles.mutedPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(width: RA_ShapeStyles.space16),
-            Flexible(
-              child: Text(
-                value,
-                style: RA_TextStyles.smallFont.copyWith(
-                  color: RA_ColourStyles.secondary,
-                ),
-                textAlign: TextAlign.end,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+    assert(
+      flexes == null || flexes!.length == children.length,
+      'flexes length must match children length',
+    );
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: RA_ShapeStyles.space8),
+            Expanded(flex: flexes?[i] ?? 1, child: children[i]),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact summary cell: muted label over value, centered.
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  const _SummaryTile({required this.label, required this.value, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.all(RA_ShapeStyles.space8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          RA_FittedText(
+            label,
+            alignment: Alignment.center,
+            style: RA_TextStyles.tinyFont.copyWith(
+              color: RA_ColourStyles.mutedPrimary,
+            ),
+          ),
+          const SizedBox(height: RA_ShapeStyles.space8),
+          RA_FittedText(
+            value,
+            alignment: Alignment.center,
+            style: RA_TextStyles.smallFont.copyWith(
+              color: RA_ColourStyles.valueText,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return DecoratedBox(
+        decoration: RA_ShapeStyles.elevatedSurface(),
+        child: content,
+      );
+    }
+
+    return RA_PressScale(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          splashColor: RA_ColourStyles.secondary.withValues(alpha: 0.16),
+          highlightColor: RA_ColourStyles.secondary.withValues(alpha: 0.08),
+          child: Ink(
+            decoration: RA_ShapeStyles.elevatedSurface(),
+            child: content,
+          ),
         ),
       ),
     );

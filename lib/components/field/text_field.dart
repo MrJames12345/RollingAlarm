@@ -10,6 +10,8 @@ Widget RA_TextField({
   String? placeholder,
   String? errorText,
   ValueChanged<String>? onChanged,
+  FocusNode? focusNode,
+  bool autofocus = false,
 }) {
   final hasError = errorText != null && errorText.isNotEmpty;
   return Column(
@@ -25,6 +27,8 @@ Widget RA_TextField({
         ),
         child: TextField(
           controller: controller,
+          focusNode: focusNode,
+          autofocus: autofocus,
           style: RA_TextStyles.mediumFont,
           cursorColor: RA_ColourStyles.secondary,
           textCapitalization: TextCapitalization.sentences,

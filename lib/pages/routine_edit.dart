@@ -16,8 +16,10 @@ import 'package:rolling_alarm/components/field/toggle.dart';
 import 'package:rolling_alarm/components/field/volume_field.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
+import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
+import 'package:rolling_alarm/pages/alarm_ring.dart';
 import 'package:rolling_alarm/pages/alarm_sound_picker.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
@@ -29,10 +31,14 @@ class RoutineEditPage extends ConsumerStatefulWidget {
   final String dbPath;
   final RoutineModel? existingRoutine;
 
+  /// When set, scrolls to this field after open and briefly highlights it.
+  final RoutineEditFieldEnum? scrollToField;
+
   const RoutineEditPage({
     super.key,
     required this.dbPath,
     this.existingRoutine,
+    this.scrollToField,
   });
 
   @override
@@ -41,6 +47,7 @@ class RoutineEditPage extends ConsumerStatefulWidget {
 
 class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   late TextEditingController _nameController;
+  final FocusNode _nameFocusNode = FocusNode();
   Duration _interval = const Duration(hours: 2, minutes: 30);
   Duration _snoozeDuration = const Duration(minutes: 5);
   bool _maxTimesPerDayEnabled = false;
@@ -55,8 +62,18 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   bool _showValidationErrors = false;
 
   final GlobalKey _nameFieldKey = GlobalKey();
+  final GlobalKey _soundFieldKey = GlobalKey();
+  final GlobalKey _volumeFieldKey = GlobalKey();
+  final GlobalKey _fadeInFieldKey = GlobalKey();
+  final GlobalKey _vibrateFieldKey = GlobalKey();
   final GlobalKey _intervalFieldKey = GlobalKey();
   final GlobalKey _snoozeFieldKey = GlobalKey();
+  final GlobalKey _maxTimesPerDayFieldKey = GlobalKey();
+  final GlobalKey _maxTimesLimitFieldKey = GlobalKey();
+  final GlobalKey _dayStartFieldKey = GlobalKey();
+  final GlobalKey _driftCompensationFieldKey = GlobalKey();
+
+  RoutineEditFieldEnum? _highlightedField;
 
   bool get _isEditing => widget.existingRoutine != null;
 
@@ -81,6 +98,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     return null;
   }
 
+  GlobalKey _keyFor(RoutineEditFieldEnum field) => switch (field) {
+    RoutineEditFieldEnum.sound => _soundFieldKey,
+    RoutineEditFieldEnum.volume => _volumeFieldKey,
+    RoutineEditFieldEnum.fadeIn => _fadeInFieldKey,
+    RoutineEditFieldEnum.vibrate => _vibrateFieldKey,
+    RoutineEditFieldEnum.interval => _intervalFieldKey,
+    RoutineEditFieldEnum.snooze => _snoozeFieldKey,
+    RoutineEditFieldEnum.maxTimesPerDay => _maxTimesPerDayFieldKey,
+    RoutineEditFieldEnum.maxTimesLimit => _maxTimesLimitFieldKey,
+    RoutineEditFieldEnum.dayStart => _dayStartFieldKey,
+    RoutineEditFieldEnum.driftCompensation => _driftCompensationFieldKey,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -102,21 +132,36 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
       _vibrate = r.Vibrate;
-      _volume = r.Volume.clamp(0, 100);
+      _volume = r.Volume.clamp(5, 100);
       _fadeIn = r.FadeIn;
     } else {
       unawaited(RA_AlarmService.setSystemAlarmVolume(0.5));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusNameField());
+    }
+
+    final scrollTo = widget.scrollToField;
+    if (scrollTo != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_scrollToAndHighlight(scrollTo));
+      });
     }
   }
 
+  /// Focuses Name on New Routine so typing can start immediately.
+  void _focusNameField() {
+    if (!mounted) return;
+    _nameFocusNode.requestFocus();
+  }
+
   void _onVolumeChanged(int value) {
-    final clamped = value.clamp(0, 100);
+    final clamped = value.clamp(5, 100);
     setState(() => _volume = clamped);
     unawaited(RA_AlarmService.setSystemAlarmVolume(clamped / 100.0));
   }
 
   @override
   void dispose() {
+    _nameFocusNode.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -138,7 +183,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       DriftCompensationTypeCode: Value(_compensation.index),
       ShowPreview: const Value(true),
       Vibrate: Value(_vibrate),
-      Volume: Value(_volume.clamp(0, 100)),
+      Volume: Value(_volume.clamp(5, 100)),
       FadeIn: Value(_fadeIn),
       AudioUri: Value(encoded.isEmpty ? null : encoded),
     );
@@ -153,6 +198,25 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     }
   }
 
+  /// Opens the real alarm UI with current form values; snooze/dismiss only pop.
+  Future<void> _previewAlarm() async {
+    final name = _nameController.text.trim();
+    final encoded = _sound.encode();
+    await Navigator.of(context).push<void>(
+      RA_Routes.alarmRing(
+        AlarmRingPage(
+          routineId: 0,
+          routineName: name.isEmpty ? 'Alarm' : name,
+          audioUri: encoded.isEmpty ? null : encoded,
+          vibrate: _vibrate,
+          volume: _volume,
+          fadeIn: _sound.isSilent ? false : _fadeIn,
+          isPreview: true,
+        ),
+      ),
+    );
+  }
+
   Future<void> _scrollToField(GlobalKey key) async {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
@@ -164,6 +228,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       curve: Curves.easeOut,
       alignment: 0.1,
     );
+  }
+
+  /// Scrolls to [field] after the page fade, then briefly highlights it.
+  Future<void> _scrollToAndHighlight(RoutineEditFieldEnum field) async {
+    await Future<void>.delayed(RA_ShapeStyles.pageFadeDuration);
+    if (!mounted) return;
+    await _scrollToField(_keyFor(field));
+    if (!mounted) return;
+    setState(() => _highlightedField = field);
+    // Hold briefly so the target is obvious, then ease the wash out.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    setState(() => _highlightedField = null);
   }
 
   Future<void> _save() async {
@@ -253,6 +330,20 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     }
   }
 
+  Widget _highlightTarget({
+    required RoutineEditFieldEnum field,
+    required GlobalKey key,
+    required Widget child,
+  }) {
+    return KeyedSubtree(
+      key: key,
+      child: _FieldFocusHighlight(
+        active: _highlightedField == field,
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RA_PageScaffold(
@@ -279,6 +370,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               key: _nameFieldKey,
               child: RA_TextField(
                 controller: _nameController,
+                focusNode: _nameFocusNode,
+                autofocus: !_isEditing,
                 label: 'Name',
                 placeholder: 'e.g. Morning Medication',
                 errorText: _nameError,
@@ -292,38 +385,61 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               label: 'Alarm sound',
               child: Column(
                 children: [
-                  RA_SoundField(
-                    value: _sound,
-                    onTap: () => unawaited(_pickSound()),
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.sound,
+                    key: _soundFieldKey,
+                    child: RA_SoundField(
+                      value: _sound,
+                      onTap: () => unawaited(_pickSound()),
+                    ),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
-                  RA_VolumeField(
-                    value: _volume,
-                    onChanged: _onVolumeChanged,
-                    enabled: !_sound.isSilent,
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.volume,
+                    key: _volumeFieldKey,
+                    child: RA_VolumeField(
+                      value: _volume,
+                      onChanged: _onVolumeChanged,
+                      enabled: !_sound.isSilent,
+                    ),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
-                  Opacity(
-                    opacity: _sound.isSilent ? 0.72 : 1,
-                    child: IgnorePointer(
-                      ignoring: _sound.isSilent,
-                      child: RA_Toggle(
-                        label: 'Fade in',
-                        value: _sound.isSilent ? false : _fadeIn,
-                        onChanged: (v) => setState(() => _fadeIn = v),
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.fadeIn,
+                    key: _fadeInFieldKey,
+                    child: Opacity(
+                      opacity: _sound.isSilent ? 0.72 : 1,
+                      child: IgnorePointer(
+                        ignoring: _sound.isSilent,
+                        child: RA_Toggle(
+                          label: 'Fade in',
+                          value: _sound.isSilent ? false : _fadeIn,
+                          onChanged: (v) => setState(() => _fadeIn = v),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
-                  RA_Toggle(
-                    label: 'Vibrate',
-                    value: _vibrate,
-                    onChanged: (v) => setState(() => _vibrate = v),
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.vibrate,
+                    key: _vibrateFieldKey,
+                    child: RA_Toggle(
+                      label: 'Vibrate',
+                      value: _vibrate,
+                      onChanged: (v) => setState(() => _vibrate = v),
+                    ),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  RA_Button(
+                    text: 'Preview',
+                    isPrimary: false,
+                    onClick: () => unawaited(_previewAlarm()),
                   ),
                 ],
               ),
             ),
-            KeyedSubtree(
+            _highlightTarget(
+              field: RoutineEditFieldEnum.interval,
               key: _intervalFieldKey,
               child: RA_FormSection(
                 label: 'Interval',
@@ -336,7 +452,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                 ),
               ),
             ),
-            KeyedSubtree(
+            _highlightTarget(
+              field: RoutineEditFieldEnum.snooze,
               key: _snoozeFieldKey,
               child: RA_FormSection(
                 label: 'Snooze',
@@ -354,57 +471,97 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RA_Toggle(
-                    label: 'Max times in a day',
-                    value: _maxTimesPerDayEnabled,
-                    onChanged: (v) => setState(() {
-                      _maxTimesPerDayEnabled = v;
-                      if (v && _maxTimesPerDay < 1) {
-                        _maxTimesPerDay = 1;
-                      }
-                    }),
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.maxTimesPerDay,
+                    key: _maxTimesPerDayFieldKey,
+                    child: RA_Toggle(
+                      label: 'Max times in a day',
+                      value: _maxTimesPerDayEnabled,
+                      onChanged: (v) => setState(() {
+                        _maxTimesPerDayEnabled = v;
+                        if (v && _maxTimesPerDay < 1) {
+                          _maxTimesPerDay = 1;
+                        }
+                      }),
+                    ),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
-                  RA_NumberField(
-                    label: 'Number of times in a day',
-                    value: _maxTimesPerDay,
-                    onChanged: (v) => setState(() => _maxTimesPerDay = v),
-                    min: 1,
-                    max: 48,
-                    enabled: _maxTimesPerDayEnabled,
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.maxTimesLimit,
+                    key: _maxTimesLimitFieldKey,
+                    child: RA_NumberField(
+                      label: 'Number of times in a day',
+                      value: _maxTimesPerDay,
+                      onChanged: (v) => setState(() => _maxTimesPerDay = v),
+                      min: 1,
+                      max: 48,
+                      enabled: _maxTimesPerDayEnabled,
+                    ),
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
-                  RA_TimeOfDayField(
-                    label: 'Start at time of day',
-                    value: _dayStart,
-                    onChanged: (v) => setState(() => _dayStart = v),
-                    enabled: _maxTimesPerDayEnabled,
+                  _highlightTarget(
+                    field: RoutineEditFieldEnum.dayStart,
+                    key: _dayStartFieldKey,
+                    child: RA_TimeOfDayField(
+                      label: 'Start at time of day',
+                      value: _dayStart,
+                      onChanged: (v) => setState(() => _dayStart = v),
+                      enabled: _maxTimesPerDayEnabled,
+                    ),
                   ),
                 ],
               ),
             ),
-            RA_FormSection(
-              label: 'Drift Compensation',
-              bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
-              child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
-                groupValue: _compensation,
-                onChanged: (v) => setState(() => _compensation = v),
-                options: const [
-                  RA_RadioOption(
-                    value: DriftCompensationTypeCodeEnum.InitialRing,
-                    title: 'Classic Interval',
-                  ),
-                  RA_RadioOption(
-                    value: DriftCompensationTypeCodeEnum.ActualDismissal,
-                    title: 'Actual Dismissal',
-                    subtitle: 'Next alarm based on when you dismiss',
-                  ),
-                ],
+            _highlightTarget(
+              field: RoutineEditFieldEnum.driftCompensation,
+              key: _driftCompensationFieldKey,
+              child: RA_FormSection(
+                label: 'Drift Compensation',
+                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
+                child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
+                  groupValue: _compensation,
+                  onChanged: (v) => setState(() => _compensation = v),
+                  options: const [
+                    RA_RadioOption(
+                      value: DriftCompensationTypeCodeEnum.InitialRing,
+                      title: 'Classic Interval',
+                    ),
+                    RA_RadioOption(
+                      value: DriftCompensationTypeCodeEnum.ActualDismissal,
+                      title: 'Actual Dismissal',
+                      subtitle: 'Next alarm based on when you dismiss',
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Soft sage wash that appears instantly, then eases out when [active] clears.
+class _FieldFocusHighlight extends StatelessWidget {
+  final bool active;
+  final Widget child;
+
+  const _FieldFocusHighlight({required this.active, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: active ? Duration.zero : const Duration(milliseconds: 1000),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: active
+            ? RA_ColourStyles.secondary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: RA_ShapeStyles.largeBorderRadius,
+        boxShadow: active ? RA_ShapeStyles.tealGlow : null,
+      ),
+      child: child,
     );
   }
 }
