@@ -1,5 +1,6 @@
 package com.example.rolling_alarm
 
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -9,10 +10,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.Locale
 
 class MainActivity : FlutterActivity() {
     private val soundChannel = "com.example.rolling_alarm/alarm_sound"
@@ -172,20 +175,17 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     "clearLockScreenFlags" -> {
-                        // Ignore early clears while the Dart isolate may still be
-                        // committing IsRinging after a lock-screen wake.
-                        // Dismiss sets the ringing pref false first, so it still clears.
-                        val sinceWake = SystemClock.elapsedRealtime() - alarmWakeElapsedMs
-                        if (lockOverlayFromAlarmIntent &&
-                            sinceWake < CLEAR_GRACE_MS &&
-                            readRingingPref()
-                        ) {
+                        // Dismiss / cancel clears the ringing pref first. While it
+                        // is still true, ignore Flutter clears from the race where
+                        // the activity woke before Drift committed IsRinging.
+                        // A timed grace alone was not enough: after it expired the
+                        // overlay flags dropped while sound was already playing.
+                        if (readRingingPref()) {
                             result.success(null)
                             return@setMethodCallHandler
                         }
                         isAlarmRinging = false
                         lockOverlayFromAlarmIntent = false
-                        writeRingingPref(false)
                         alarmWakeElapsedMs = 0L
                         applyLockScreenFlags(false)
                         result.success(null)
@@ -320,7 +320,7 @@ class MainActivity : FlutterActivity() {
                         val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                             putExtra(
                                 RingtoneManager.EXTRA_RINGTONE_TYPE,
-                                RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE
+                                RingtoneManager.TYPE_ALL
                             )
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
@@ -463,24 +463,101 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * Builds the Device sounds list from every RingtoneManager category plus
+     * MediaStore-indexed audio on internal and external storage, so formats
+     * and tones outside the alarm/ringtone buckets are not missing.
+     */
     private fun listDeviceSounds(): List<Map<String, String>> {
-        val manager = RingtoneManager(this)
-        manager.setType(RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE)
-        val cursor = manager.cursor
-        val sounds = ArrayList<Map<String, String>>()
-        while (cursor.moveToNext()) {
-            val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX) ?: continue
-            val uri = manager.getRingtoneUri(cursor.position)?.toString() ?: continue
-            sounds.add(hashMapOf("title" to title, "uri" to uri))
+        val byUri = LinkedHashMap<String, Map<String, String>>()
+
+        try {
+            val manager = RingtoneManager(this)
+            manager.setType(RingtoneManager.TYPE_ALL)
+            manager.cursor.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX)?.trim()
+                    if (title.isNullOrEmpty()) continue
+                    val uri = manager.getRingtoneUri(cursor.position)?.toString() ?: continue
+                    byUri.putIfAbsent(uri, hashMapOf("title" to title, "uri" to uri))
+                }
+            }
+        } catch (_: Exception) {
+            // RingtoneManager failures must not block MediaStore results.
         }
-        cursor.close()
-        return sounds
+
+        for (collection in mediaStoreAudioCollections()) {
+            appendMediaStoreAudio(byUri, collection)
+        }
+
+        return byUri.values.sortedBy { it["title"]?.lowercase(Locale.ROOT) ?: "" }
+    }
+
+    private fun mediaStoreAudioCollections(): List<Uri> {
+        val collections = mutableListOf(MediaStore.Audio.Media.INTERNAL_CONTENT_URI)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            collections.add(MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL))
+        } else {
+            collections.add(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+        }
+        return collections
+    }
+
+    private fun appendMediaStoreAudio(
+        byUri: LinkedHashMap<String, Map<String, String>>,
+        collection: Uri,
+    ) {
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.MIME_TYPE,
+        )
+        val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "${MediaStore.Audio.Media.IS_PENDING} = 0"
+        } else {
+            null
+        }
+        try {
+            contentResolver.query(
+                collection,
+                projection,
+                selection,
+                null,
+                "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC",
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                while (cursor.moveToNext()) {
+                    val mime = cursor.getString(mimeCol)?.lowercase(Locale.ROOT)
+                    if (mime != null && !mime.startsWith("audio/") && mime != "application/ogg") {
+                        continue
+                    }
+                    val id = cursor.getLong(idCol)
+                    val uri = ContentUris.withAppendedId(collection, id).toString()
+                    if (byUri.containsKey(uri)) continue
+                    val title = cursor.getString(titleCol)?.trim().orEmpty()
+                    val displayName = cursor.getString(nameCol)?.trim().orEmpty()
+                    val label = when {
+                        title.isNotEmpty() -> title
+                        displayName.isNotEmpty() -> displayName
+                        else -> continue
+                    }
+                    byUri[uri] = hashMapOf("title" to label, "uri" to uri)
+                }
+            }
+        } catch (_: SecurityException) {
+            // READ_MEDIA_AUDIO / storage not granted yet; RingtoneManager entries remain.
+        } catch (_: Exception) {
+            // Ignore one bad volume so the other collections can still load.
+        }
     }
 
     companion object {
         private const val REQUEST_RINGTONE = 9911
         private const val REQUEST_LOCAL_FILE = 9912
-        private const val CLEAR_GRACE_MS = 5_000L
         private const val WAKE_STAMP_VALID_MS = 30_000L
         const val EXTRA_ALARM_RINGING = "ra_alarm_ringing"
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"

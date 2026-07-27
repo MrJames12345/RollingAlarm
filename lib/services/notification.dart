@@ -84,16 +84,17 @@ class RA_NotificationService {
 
   /// Requests Android 14+ full-screen intent special access when needed.
   ///
-  /// Used by the native [AlarmRingingService] wake path, not Flutter banners.
-  /// [USE_FULL_SCREEN_INTENT] is declared in the manifest; on API 34+ the OS
-  /// may still require an app-ops grant via Settings. No-ops on older APIs /
-  /// non-Android / headless test hosts.
+  /// Required for [AlarmRingingService] to launch the ring UI over the keyguard
+  /// when the screen is off. Without this grant, Android demotes the wake
+  /// notification and the user may only hear sound/vibration. No-ops on older
+  /// APIs / non-Android / headless test hosts.
   static Future<void> requestFullScreenIntentPermission() async {
     try {
       final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
           >();
+      // Opens Settings when the USE_FULL_SCREEN_INTENT app-op is not granted.
       await androidPlugin?.requestFullScreenIntentPermission();
     } catch (_) {
       // Ignore permission request failures in headless test environments

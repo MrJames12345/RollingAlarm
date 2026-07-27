@@ -8,11 +8,13 @@ import android.os.PowerManager
 /**
  * Exact-alarm fire entry point from [AlarmManager.setAlarmClock].
  *
- * Must not start [MainActivity] directly from the background; Android will kill
- * or defer that path under Doze / OEM limits. Immediately acquires a
- * [PowerManager.PARTIAL_WAKE_LOCK], then escalates to [AlarmRingingService]
- * which starts the foreground service and full-page ring activity while the lock
- * is still held.
+ * Acquires a short wake lock, starts [AlarmRingingService], and when the device
+ * is unlocked immediately launches [MainActivity]. The alarm-clock broadcast
+ * grants a brief background-activity exemption that is the most reliable way to
+ * bring the full-page ring UI over whatever app the user currently has open.
+ *
+ * When locked / screen off, activity launch is left to the service full-screen
+ * intent path so a direct startActivity does not cancel FSI.
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -26,10 +28,15 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         wakeLock.setReferenceCounted(false)
         // Keep CPU awake across the FGS handoff (service acquires its own lock).
-        // Timeout is the safety release; do not drop the lock before startForeground.
         wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
 
+        val lockedOrAsleep = AlarmRingingService.isLockedOrAsleep(context)
         AlarmRingingService.start(context, routineId)
+
+        if (!lockedOrAsleep) {
+            // Use the setAlarmClock broadcast BAL window to jump over other apps.
+            AlarmRingingService.launchRingActivity(context, routineId)
+        }
     }
 
     companion object {

@@ -67,6 +67,11 @@ Future<void> _requestPermissions() async {
     await RA_AlarmService.ensureBatteryOptimizationExempt();
     // Android 14+: full-screen alarm UI needs USE_FULL_SCREEN_INTENT app-ops.
     await RA_NotificationService.requestFullScreenIntentPermission();
+    // Lets the ring activity start over another foreground app when BAL blocks
+    // plain startActivity from the wake service.
+    if (!await Permission.systemAlertWindow.isGranted) {
+      await Permission.systemAlertWindow.request();
+    }
   });
 }
 
@@ -79,9 +84,8 @@ class RollingAlarmApp extends StatelessWidget {
     navigatorKey: RA_navigatorKey,
     title: 'Rolling Alarm',
     debugShowCheckedModeBanner: false,
-    builder: (context, child) => RA_AlarmRingPresenter(
-      child: child ?? const SizedBox.shrink(),
-    ),
+    builder: (context, child) =>
+        RA_AlarmRingPresenter(child: child ?? const SizedBox.shrink()),
     theme: ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
