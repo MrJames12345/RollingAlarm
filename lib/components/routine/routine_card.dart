@@ -19,6 +19,7 @@ import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
@@ -126,60 +127,75 @@ class RA_RoutineCard extends ConsumerWidget {
               child: AnimatedOpacity(
                 duration: RA_ShapeStyles.stateTransitionDuration,
                 opacity: isPaused ? 0.62 : (isMuted ? 0.85 : 1),
-                child: Padding(
-                  padding: const EdgeInsets.all(RA_ShapeStyles.space16),
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(RA_ShapeStyles.space16),
+                      child: Stack(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  routine.Name,
-                                  style: RA_TextStyles.mediumFont.copyWith(
-                                    color: isPaused
-                                        ? RA_ColourStyles.mutedPrimary
-                                        : null,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: RA_ShapeStyles.space8),
-                              Text(
-                                RA_Utils.formatInterval(
-                                  routine.IntervalSeconds,
-                                ),
-                                style: RA_TextStyles.intervalDigitsFont
-                                    .copyWith(
-                                      color: isPaused
-                                          ? RA_ColourStyles.faintPrimary
-                                          : null,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      routine.Name,
+                                      style: RA_TextStyles.mediumFont.copyWith(
+                                        color: isPaused
+                                            ? RA_ColourStyles.mutedPrimary
+                                            : null,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                  ),
+                                  const SizedBox(width: RA_ShapeStyles.space8),
+                                  Text(
+                                    RA_Utils.formatInterval(
+                                      routine.IntervalSeconds,
+                                    ),
+                                    style: RA_TextStyles.intervalDigitsFont
+                                        .copyWith(
+                                          color: isPaused
+                                              ? RA_ColourStyles.faintPrimary
+                                              : null,
+                                        ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: RA_ShapeStyles.space8),
+                              _TodayRingCount(
+                                routine: routine,
+                                muted: isPaused,
+                              ),
+                              const SizedBox(height: RA_ShapeStyles.space16),
+                              _RoutineCardStatus(routineId: routine.Id),
                             ],
                           ),
-                          const SizedBox(height: RA_ShapeStyles.space8),
-                          _TodayRingCount(routine: routine, muted: isPaused),
-                          const SizedBox(height: RA_ShapeStyles.space16),
-                          _RoutineCardStatus(routineId: routine.Id),
+                          if (isMuted)
+                            const Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Icon(
+                                Icons.notifications_off_rounded,
+                                color: RA_ColourStyles.sleepIndigo,
+                                size: 20,
+                              ),
+                            ),
                         ],
                       ),
-                      if (isMuted)
-                        const Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Icon(
-                            Icons.notifications_off_rounded,
-                            color: RA_ColourStyles.sleepIndigo,
-                            size: 20,
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
+                    if (!RA_WeekdaySchedule.isEveryDay(routine.EnabledWeekdays))
+                      _RoutineCardWeekdays(
+                        enabledWeekdays: routine.EnabledWeekdays,
+                        muted: isPaused,
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -586,6 +602,69 @@ _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
     highlight: RA_ColourStyles.secondary.withValues(alpha: 0.06),
   ),
 };
+
+/// Compact MTWTFSS strip along the card bottom when any weekday is disabled.
+class _RoutineCardWeekdays extends StatelessWidget {
+  final int enabledWeekdays;
+  final bool muted;
+
+  const _RoutineCardWeekdays({
+    required this.enabledWeekdays,
+    this.muted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        RA_ShapeStyles.space16,
+        0,
+        RA_ShapeStyles.space16,
+        RA_ShapeStyles.space8,
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < 7; i++) ...[
+            if (i > 0) const SizedBox(width: RA_ShapeStyles.space8),
+            Expanded(
+              child: _WeekdayLetter(
+                label: RA_WeekdaySchedule.dayLabels[i],
+                enabled: RA_WeekdaySchedule.isEnabled(enabledWeekdays, i + 1),
+                muted: muted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekdayLetter extends StatelessWidget {
+  final String label;
+  final bool enabled;
+  final bool muted;
+
+  const _WeekdayLetter({
+    required this.label,
+    required this.enabled,
+    required this.muted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      textAlign: TextAlign.center,
+      style: RA_TextStyles.tinyFont.copyWith(
+        color: enabled
+            ? (muted ? RA_ColourStyles.mutedPrimary : RA_ColourStyles.primary)
+            : RA_ColourStyles.faintPrimary,
+        fontWeight: enabled ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
+  }
+}
 
 /// How many times this routine has rung in the current day period.
 class _TodayRingCount extends ConsumerWidget {
