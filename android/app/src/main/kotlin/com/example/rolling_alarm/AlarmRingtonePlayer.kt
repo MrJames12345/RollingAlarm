@@ -52,9 +52,9 @@ object AlarmRingtonePlayer {
                 if (fadeInMs > 0L) {
                     startFadeIn(fadeInMs, cappedTarget)
                 } else {
-                    // Re-assert after play(); some OEM Ringtone builds reset
-                    // gain on start, which sounds like a short fade-in.
-                    tone.volume = cappedTarget
+                    // OEM Ringtone builds often reset gain on start (worse on
+                    // longer tones). Hold full volume so playback is immediate.
+                    lockFullVolume(cappedTarget)
                 }
             }
             true
@@ -83,6 +83,34 @@ object AlarmRingtonePlayer {
         ringtone?.isPlaying == true
     } catch (_: Exception) {
         false
+    }
+
+    private fun lockFullVolume(targetVolume: Float) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        try {
+            ringtone?.volume = targetVolume
+        } catch (_: Exception) {
+        }
+        val handler = Handler(Looper.getMainLooper())
+        fadeHandler = handler
+        val stepMs = 40L
+        val holdMs = 800L
+        var elapsed = 0L
+        val tick = object : Runnable {
+            override fun run() {
+                val tone = ringtone ?: return
+                try {
+                    tone.volume = targetVolume
+                } catch (_: Exception) {
+                    return
+                }
+                elapsed += stepMs
+                if (elapsed < holdMs) {
+                    handler.postDelayed(this, stepMs)
+                }
+            }
+        }
+        handler.postDelayed(tick, stepMs)
     }
 
     private fun startFadeIn(fadeInMs: Long, targetVolume: Float) {

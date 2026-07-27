@@ -213,7 +213,7 @@ class RA_AudioService {
     );
   }
 
-  /// Starts looping playback, then reasserts gain and optional fade in.
+  /// Starts looping playback, then applies fade in or locks full gain.
   ///
   /// Do not await [AudioPlayer.play] here: with [LoopMode.one] that future
   /// only completes on pause or stop, so fade in would stay at volume 0.
@@ -225,23 +225,33 @@ class RA_AudioService {
     if (player == null) return;
 
     unawaited(player.play());
-
-    // Wait until the engine reports playing so reassert runs after start.
-    if (!player.playing) {
-      try {
-        await player.playingStream
-            .firstWhere((playing) => playing)
-            .timeout(const Duration(seconds: 2));
-      } catch (_) {
-        // Proceed anyway; fade still helps if playback starts late.
-      }
-    }
     if (startId != _playbackGeneration) return;
 
-    // Reassert gain after play starts; some engines reset volume on start.
-    await _applyPlayerGain(fadeIn: fadeIn);
-    if (fadeIn && startId == _playbackGeneration) {
-      _startFadeIn(startId);
+    if (fadeIn) {
+      // Wait until playing so the ramp starts with audible samples.
+      if (!player.playing) {
+        try {
+          await player.playingStream
+              .firstWhere((playing) => playing)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {
+          // Proceed anyway; fade still helps if playback starts late.
+        }
+      }
+      if (startId != _playbackGeneration) return;
+      await _applyPlayerGain(fadeIn: true);
+      if (startId == _playbackGeneration) {
+        _startFadeIn(startId);
+      }
+      return;
+    }
+
+    // No fade: force full gain immediately. Waiting for [playing] on long
+    // files delays the reassert and sounds like a soft fade in when the
+    // engine resets volume on start.
+    await player.setVolume(1.0);
+    if (startId == _playbackGeneration) {
+      _startFullGainHold(startId);
     }
   }
 
@@ -250,6 +260,31 @@ class RA_AudioService {
     final player = _player;
     if (player == null) return;
     await player.setVolume(fadeIn ? 0.0 : 1.0);
+  }
+
+  /// Holds player gain at 1.0 briefly so OEM/engine resets cannot soft fade.
+  static void _startFullGainHold(int startId) {
+    const holdDuration = Duration(milliseconds: 800);
+    const step = Duration(milliseconds: 40);
+    var elapsed = Duration.zero;
+
+    _fadeTimer?.cancel();
+    _fadeTimer = Timer.periodic(step, (timer) {
+      if (startId != _playbackGeneration) {
+        timer.cancel();
+        _fadeTimer = null;
+        return;
+      }
+      final player = _player;
+      if (player != null) {
+        unawaited(player.setVolume(1.0));
+      }
+      elapsed += step;
+      if (elapsed >= holdDuration) {
+        timer.cancel();
+        _fadeTimer = null;
+      }
+    });
   }
 
   /// Gradually increases internal player volume from 0 to 1 over [fadeDuration].
