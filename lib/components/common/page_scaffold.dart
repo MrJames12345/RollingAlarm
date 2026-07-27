@@ -5,6 +5,10 @@ import 'package:rolling_alarm/styles.dart';
 ///
 /// Text scale is clamped so countdown and dense rows stay readable on small
 /// screens without blowing past the 8/16dp layout grid.
+///
+/// The body is wrapped in [SafeArea] with [SafeArea.top] false so content
+/// clears the OS bottom navigation / gesture inset (and side cutouts) while
+/// the [AppBar] continues to own the status bar region.
 Widget RA_PageScaffold({
   required String title,
   required Widget body,
@@ -27,7 +31,11 @@ Widget RA_PageScaffold({
         leading: leading,
         actions: actions,
       ),
-      body: body,
+      body: SafeArea(
+        top: false,
+        maintainBottomViewPadding: true,
+        child: body,
+      ),
       floatingActionButton: floatingActionButton,
     ),
   );

@@ -41,6 +41,7 @@ class RA_TimeOfDayField extends StatelessWidget {
       ),
       builder: (sheetContext) {
         return SafeArea(
+          maintainBottomViewPadding: true,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               RA_ShapeStyles.space16,

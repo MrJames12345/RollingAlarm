@@ -141,6 +141,9 @@ class RA_ShapeStyles {
   );
 
   /// Home list clearance so the last routine card clears the FAB + glow.
+  ///
+  /// OS bottom navigation inset is applied by [RA_PageScaffold]'s [SafeArea],
+  /// so this only adds content gutter above the FAB.
   static const EdgeInsets bodyPaddingWithFab = EdgeInsets.fromLTRB(
     space16,
     space16,

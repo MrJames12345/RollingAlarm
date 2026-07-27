@@ -156,6 +156,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
             children: [
               _RingUrgencyGlow(pulse: _pulse, escalation: _escalation),
               SafeArea(
+                maintainBottomViewPadding: true,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
