@@ -65,6 +65,8 @@ class _LogsListBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsync = ref.watch(LogEntriesProvider(null));
+    final nameById =
+        ref.watch(RoutineNamesByIdProvider).valueOrNull ?? const {};
 
     return RA_AsyncListBody(
       async: logsAsync,
@@ -79,7 +81,13 @@ class _LogsListBody extends ConsumerWidget {
       listBuilder: (entries) => ListView.builder(
         padding: RA_ShapeStyles.bodyPadding,
         itemCount: entries.length,
-        itemBuilder: (_, index) => RA_LogEntryTile(entry: entries[index]),
+        itemBuilder: (_, index) {
+          final entry = entries[index];
+          return RA_LogEntryTile(
+            entry: entry,
+            routineName: nameById[entry.RoutineId],
+          );
+        },
       ),
     );
   }

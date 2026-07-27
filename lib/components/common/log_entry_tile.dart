@@ -7,9 +7,18 @@ import 'package:rolling_alarm/utils.dart';
 
 /// Single alarm lifecycle log row used on the global logs page and
 /// routine history tab.
-Widget RA_LogEntryTile({required LogEntryModel entry}) {
+///
+/// Pass [routineName] on the global logs page so tiles identify which
+/// routine the event belongs to. Omit it on per-routine history.
+Widget RA_LogEntryTile({
+  required LogEntryModel entry,
+  String? routineName,
+}) {
   final action = RA_logActionFromCode(entry.LogActionTypeCode);
   final actionColor = action?.color ?? RA_ColourStyles.primary;
+  final resolvedName = routineName?.trim();
+  final showRoutineName =
+      resolvedName != null && resolvedName.isNotEmpty;
 
   return Padding(
     padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space8),
@@ -61,6 +70,28 @@ Widget RA_LogEntryTile({required LogEntryModel entry}) {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (entry.WasMuted) ...[
+                      const SizedBox(height: RA_ShapeStyles.space8),
+                      Text(
+                        'Muted',
+                        style: RA_TextStyles.tinyFont.copyWith(
+                          color: RA_ColourStyles.sleepIndigo,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (showRoutineName) ...[
+                      const SizedBox(height: RA_ShapeStyles.space8),
+                      Text(
+                        resolvedName,
+                        style: RA_TextStyles.tinyFont.copyWith(
+                          color: RA_ColourStyles.secondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     const SizedBox(height: RA_ShapeStyles.space8),
                     RA_FittedText(
                       RA_Utils.formatDateTime(entry.Timestamp),

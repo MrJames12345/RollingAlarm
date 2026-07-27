@@ -126,6 +126,13 @@ final RoutineListProvider = StreamProvider.autoDispose<List<RoutineModel>>((
   return db.watchAllRoutines();
 });
 
+/// Maps routine ids to names for all routines, including soft deleted ones.
+final RoutineNamesByIdProvider =
+    StreamProvider.autoDispose<Map<int, String>>((ref) {
+      final db = ref.watch(RA_DatabaseProvider);
+      return db.watchRoutineNamesById();
+    });
+
 /// Watches the [RoutineStateModel] for a given routine ID.
 final ActiveRoutineStateProvider = StreamProvider.autoDispose
     .family<RoutineStateModel?, int>((ref, routineId) {
