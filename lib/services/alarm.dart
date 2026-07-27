@@ -417,6 +417,7 @@ class RA_AlarmService {
           final deferred = RA_WeekdaySchedule.deferToEnabledDay(
             now,
             routine.EnabledWeekdays,
+            dayStartSeconds: routine.DayStartSeconds,
           );
           await db.updateRoutineState(
             routineId,
@@ -451,6 +452,7 @@ class RA_AlarmService {
               routine.DayStartSeconds,
             ),
             routine.EnabledWeekdays,
+            dayStartSeconds: routine.DayStartSeconds,
           );
           await db.updateRoutineState(
             routineId,
@@ -681,6 +683,7 @@ class RA_AlarmService {
                 dayStartSeconds: routine.DayStartSeconds,
               ),
               routine.EnabledWeekdays,
+              dayStartSeconds: routine.DayStartSeconds,
             )
           : calculated;
 
@@ -836,6 +839,7 @@ class RA_AlarmService {
           dayStartSeconds: routine.DayStartSeconds,
         ),
         routine.EnabledWeekdays,
+        dayStartSeconds: routine.DayStartSeconds,
       );
       snoozeCount = 0;
     }
@@ -925,6 +929,7 @@ class RA_AlarmService {
       newNext = RA_WeekdaySchedule.deferToEnabledDay(
         newNext,
         routine.EnabledWeekdays,
+        dayStartSeconds: routine.DayStartSeconds,
       );
     }
 
@@ -1068,6 +1073,7 @@ class RA_AlarmService {
         dayStartSeconds: routine.DayStartSeconds,
       ),
       routine.EnabledWeekdays,
+      dayStartSeconds: routine.DayStartSeconds,
     );
 
     int? timeSinceLastDismissal;

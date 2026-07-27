@@ -21,9 +21,8 @@ class RA_WeekdaySchedule {
   ///
   /// A zero [mask] is treated as all days (same as [deferToEnabledDay]).
   static bool isEnabled(int mask, int weekday) {
-    final effective = mask == 0 ? allDaysMask : (mask & allDaysMask);
     final bit = 1 << bitIndexForWeekday(weekday);
-    return (effective & bit) != 0;
+    return (effectiveMask(mask) & bit) != 0;
   }
 
   /// Whether the calendar day of [dateTime] is enabled in [mask].
@@ -42,15 +41,42 @@ class RA_WeekdaySchedule {
     return (mask | bit) & allDaysMask;
   }
 
-  /// If [proposed] falls on a disabled weekday, return the same clock time on
-  /// the next enabled calendar day. Unchanged when that day is enabled, or
-  /// when [mask] has no bits set (treated as all days).
-  static DateTime deferToEnabledDay(DateTime proposed, int mask) {
-    final effective = mask == 0 ? allDaysMask : (mask & allDaysMask);
+  /// Seconds in a calendar day; used to clamp [dayStartSeconds].
+  static const int _secondsPerDay = 24 * 60 * 60;
+
+  /// Effective weekday mask: zero means all days (same as [isEnabled]).
+  static int effectiveMask(int mask) =>
+      mask == 0 ? allDaysMask : (mask & allDaysMask);
+
+  /// Whether [mask] enables every weekday (zero treated as all days).
+  static bool isEveryDay(int mask) => effectiveMask(mask) == allDaysMask;
+
+  /// If [proposed] falls on a disabled weekday, return the next enabled
+  /// calendar day at local [dayStartSeconds] past midnight. Unchanged when
+  /// that day is enabled, or when [mask] has no bits set (treated as all days).
+  ///
+  /// [dayStartSeconds] of `0` means local 12:00 AM (never UTC midnight).
+  static DateTime deferToEnabledDay(
+    DateTime proposed,
+    int mask, {
+    int dayStartSeconds = 0,
+  }) {
+    final effective = effectiveMask(mask);
     if (effective == allDaysMask) return proposed;
+
+    final local = proposed.toLocal();
+    final offset = dayStartSeconds.clamp(0, _secondsPerDay - 1);
+    final hour = offset ~/ 3600;
+    final minute = (offset % 3600) ~/ 60;
+    final second = offset % 60;
+
     for (var i = 0; i < 7; i++) {
-      final candidate = proposed.add(Duration(days: i));
-      if (isDateEnabled(effective, candidate)) return candidate;
+      final day = DateTime(local.year, local.month, local.day).add(
+        Duration(days: i),
+      );
+      if (!isDateEnabled(effective, day)) continue;
+      if (i == 0) return proposed;
+      return DateTime(day.year, day.month, day.day, hour, minute, second);
     }
     return proposed;
   }
@@ -58,7 +84,7 @@ class RA_WeekdaySchedule {
   /// Compact summary label: "Every day", a contiguous range like "Mon to Fri",
   /// or the enabled letters (e.g. "MWF").
   static String summaryLabel(int mask) {
-    final effective = mask == 0 ? allDaysMask : (mask & allDaysMask);
+    final effective = effectiveMask(mask);
     if (effective == allDaysMask) return 'Every day';
 
     const shortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

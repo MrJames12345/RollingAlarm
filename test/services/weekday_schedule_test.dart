@@ -65,7 +65,7 @@ void main() {
       );
     });
 
-    test('deferToEnabledDay skips to the next enabled weekday', () {
+    test('deferToEnabledDay resumes at local day-start on next enabled day', () {
       // Wednesday 15:30; Mon–Fri only (bits 0..4).
       const weekdays = 0x1F;
       final wed = DateTime(2026, 7, 29, 15, 30);
@@ -74,10 +74,23 @@ void main() {
 
       final sat = DateTime(2026, 8, 1, 9, 0); // Saturday
       expect(sat.weekday, DateTime.saturday);
-      expect(
-        RA_WeekdaySchedule.deferToEnabledDay(sat, weekdays),
-        DateTime(2026, 8, 3, 9, 0), // Monday
+      final mondayMidnight = RA_WeekdaySchedule.deferToEnabledDay(
+        sat,
+        weekdays,
+        dayStartSeconds: 0,
       );
+      expect(mondayMidnight, DateTime(2026, 8, 3, 0, 0)); // Monday 12:00 AM
+      expect(mondayMidnight.isUtc, isFalse);
+      expect(mondayMidnight.hour, 0);
+      expect(mondayMidnight.minute, 0);
+
+      final mondaySix = RA_WeekdaySchedule.deferToEnabledDay(
+        sat,
+        weekdays,
+        dayStartSeconds: 6 * 3600,
+      );
+      expect(mondaySix, DateTime(2026, 8, 3, 6, 0));
+      expect(mondaySix.isUtc, isFalse);
     });
 
     test('deferToEnabledDay wraps the weekend for a single-day mask', () {
@@ -85,13 +98,19 @@ void main() {
       final saturday = DateTime(2026, 8, 1, 8, 15);
       expect(
         RA_WeekdaySchedule.deferToEnabledDay(saturday, fridayOnly),
-        DateTime(2026, 8, 7, 8, 15), // next Friday
+        DateTime(2026, 8, 7, 0, 0), // next Friday local midnight
       );
     });
 
     test('deferToEnabledDay treats zero mask as all days', () {
       final proposed = DateTime(2026, 7, 27, 12);
       expect(RA_WeekdaySchedule.deferToEnabledDay(proposed, 0), proposed);
+    });
+
+    test('isEveryDay treats zero and allDaysMask the same', () {
+      expect(RA_WeekdaySchedule.isEveryDay(0), isTrue);
+      expect(RA_WeekdaySchedule.isEveryDay(RA_WeekdaySchedule.allDaysMask), isTrue);
+      expect(RA_WeekdaySchedule.isEveryDay(0x1F), isFalse);
     });
 
     test('summaryLabel covers every day, range, and sparse sets', () {

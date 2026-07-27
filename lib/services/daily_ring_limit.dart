@@ -108,12 +108,16 @@ class RA_DailyRingLimit {
     final proposed = maxTimesPerDayEnabled
         ? nextPeriodStartAfter(now, dayStartSeconds)
         : now.add(interval);
-    return RA_WeekdaySchedule.deferToEnabledDay(proposed, enabledWeekdays);
+    return RA_WeekdaySchedule.deferToEnabledDay(
+      proposed,
+      enabledWeekdays,
+      dayStartSeconds: dayStartSeconds,
+    );
   }
 
   /// Whether [trigger] lands exactly on a "Start at time of day" boundary.
   ///
-  /// True for the immediate next day-start and for the same clock time after
+  /// True for the immediate next day-start and for the day-start clock after
   /// weekday deferral. Used so pause/resume keep absolute day-start targets and
   /// Dismiss upcoming can hide when skipping would not advance past that reset.
   ///
@@ -212,7 +216,11 @@ class RA_DailyRingLimit {
       candidate = previousNext;
     }
 
-    return RA_WeekdaySchedule.deferToEnabledDay(candidate, enabledWeekdays);
+    return RA_WeekdaySchedule.deferToEnabledDay(
+      candidate,
+      enabledWeekdays,
+      dayStartSeconds: newStart,
+    );
   }
 
   /// Remaps [previousNext] when saving an edit that changes day-start.

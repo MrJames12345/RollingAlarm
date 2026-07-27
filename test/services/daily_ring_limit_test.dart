@@ -214,7 +214,7 @@ void main() {
     });
 
     test('initialTriggerTime defers onto an enabled weekday', () {
-      // now is Sunday 15:30; now + 2h30m is Sunday 18:00 -> Monday 18:00.
+      // now is Sunday 15:30; now + 2h30m is Sunday 18:00 -> Monday 00:00.
       const interval = Duration(hours: 2, minutes: 30);
       const weekdays = 0x1F; // Mon to Fri
       expect(now.weekday, DateTime.sunday);
@@ -225,7 +225,7 @@ void main() {
           maxTimesPerDayEnabled: false,
           enabledWeekdays: weekdays,
         ),
-        DateTime(2026, 7, 27, 18),
+        DateTime(2026, 7, 27, 0),
       );
     });
 
