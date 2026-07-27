@@ -31,7 +31,8 @@ void main() {
         if (call.method == 'pickLocalFile') {
           return {
             'uri': 'content://media/external/file/100',
-            'title': 'Morning Melody.mp3',
+            'title': 'Morning Melody',
+            'displayName': 'Morning Melody.mp3',
           };
         }
         return null;
@@ -45,8 +46,39 @@ void main() {
       expect(sound, isNotNull);
       expect(sound!.source, RA_AlarmSoundSource.localFile);
       expect(sound.uri, 'content://media/external/file/100');
-      expect(sound.label, 'Morning Melody.mp3');
+      expect(sound.label, 'Morning Melody');
+      expect(sound.fileName, 'Morning Melody.mp3');
+      expect(sound.listFileName, 'Morning Melody.mp3');
       expect(errorMessage, isNull);
+    });
+
+    test('listDeviceSounds maps metadata title and OS file name', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'listDeviceSounds') {
+          return [
+            {
+              'uri': 'content://media/external/audio/media/1',
+              'title': 'Sunrise',
+              'displayName': 'sunrise_alarm.mp3',
+            },
+            {
+              'uri': 'content://media/external/audio/media/2',
+              'displayName': 'no_tags.wav',
+            },
+          ];
+        }
+        return null;
+      });
+
+      final sounds = await RA_AlarmSoundPickerService.listDeviceSounds();
+      expect(sounds, hasLength(2));
+      expect(sounds[0].label, 'Sunrise');
+      expect(sounds[0].fileName, 'sunrise_alarm.mp3');
+      expect(sounds[0].listFileName, 'sunrise_alarm.mp3');
+      expect(sounds[1].label, 'no_tags.wav');
+      expect(sounds[1].fileName, 'no_tags.wav');
+      expect(sounds[1].listFileName, isNull);
     });
 
     test('pickLocalFile rejects non-audio file from channel and triggers onError', () async {

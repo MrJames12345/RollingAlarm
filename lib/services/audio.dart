@@ -24,6 +24,10 @@ class RA_AudioService {
   static ReceivePort? _controlPort;
   static StreamSubscription<dynamic>? _controlSub;
 
+  /// Bumps on each [startAlarm] / [stopAlarm] so stale fade timers cannot
+  /// keep adjusting volume after a newer start or stop.
+  static int _playbackGeneration = 0;
+
   static const String _audioPortName = 'ra_audio_control_port';
   static const String _alarmSoundChannel =
       'com.example.rolling_alarm/alarm_sound';
@@ -41,6 +45,7 @@ class RA_AudioService {
   /// When [vibrate] is true, starts repeating device vibration as well.
   /// [volume] is 0 to 100 and is applied to the OS alarm stream only.
   /// When [fadeIn] is true, internal gain starts at 0 and ramps to 1.0.
+  /// When [fadeIn] is false, internal gain is 1.0 before the first sample.
   static Future<void> startAlarm({
     String? audioUri,
     bool vibrate = true,
@@ -52,10 +57,10 @@ class RA_AudioService {
     }
 
     final systemVolume = (volume.clamp(0, 100) / 100.0);
-    await _applySystemAlarmVolume(systemVolume);
 
-    // If another isolate claimed audio but may be stuck (e.g. hung setUrl),
-    // ask it to stop so this isolate (usually the ring UI) can take over.
+    // Stop any existing playback before changing STREAM_ALARM. Applying
+    // stream volume while audio is audible can sound like a short fade on
+    // some OEM builds.
     final existingPort = IsolateNameServer.lookupPortByName(_audioPortName);
     if (existingPort != null && _controlPort == null) {
       existingPort.send('stop');
@@ -65,6 +70,12 @@ class RA_AudioService {
     try {
       await RA_SoundPreviewService.stop();
       await stopAlarm();
+
+      // Claim this start only after stop so stale fade timers cannot win.
+      final startId = ++_playbackGeneration;
+
+      await _applySystemAlarmVolume(systemVolume);
+      if (startId != _playbackGeneration) return;
 
       if (vibrate) {
         await RA_VibrationService.start();
@@ -85,6 +96,10 @@ class RA_AudioService {
           fadeInMs: fadeIn ? fadeDuration.inMilliseconds : 0,
           volume: 1.0,
         );
+        if (startId != _playbackGeneration) {
+          await RA_DeviceRingtone.stop();
+          return;
+        }
         if (started == true) {
           _registerControlPort();
           return;
@@ -99,6 +114,7 @@ class RA_AudioService {
 
       _registerControlPort();
       await _configureSession();
+      if (startId != _playbackGeneration) return;
 
       _player = AudioPlayer();
       if (sound.hasPlayableUri) {
@@ -107,24 +123,29 @@ class RA_AudioService {
         await _player!.setAsset(defaultAlarmAsset);
       }
       await _player!.setLoopMode(LoopMode.one);
-      await _player!.setVolume(fadeIn ? 0.0 : 1.0);
+      await _applyPlayerGain(fadeIn: fadeIn);
+      if (startId != _playbackGeneration) return;
       await _player!.play();
-      if (fadeIn) {
-        _startFadeIn();
+      // Re-assert gain after play(); some engines reset volume on start.
+      await _applyPlayerGain(fadeIn: fadeIn);
+      if (fadeIn && startId == _playbackGeneration) {
+        _startFadeIn(startId);
       }
     } catch (_) {
       // Primary source failed; try bundled default so the visual alarm still
       // has audio when possible.
       try {
+        final startId = _playbackGeneration;
         await RA_DeviceRingtone.stop();
         _registerControlPort();
         _player ??= AudioPlayer();
         await _player!.setAsset(defaultAlarmAsset);
         await _player!.setLoopMode(LoopMode.one);
-        await _player!.setVolume(fadeIn ? 0.0 : 1.0);
+        await _applyPlayerGain(fadeIn: fadeIn);
         await _player!.play();
-        if (fadeIn) {
-          _startFadeIn();
+        await _applyPlayerGain(fadeIn: fadeIn);
+        if (fadeIn && startId == _playbackGeneration) {
+          _startFadeIn(startId);
         }
       } catch (_) {
         // Audio playback failed; continue visual alarm gracefully.
@@ -135,6 +156,7 @@ class RA_AudioService {
 
   /// Stops the alarm audio and cleans up.
   static Future<void> stopAlarm() async {
+    _playbackGeneration++;
     _fadeTimer?.cancel();
     _fadeTimer = null;
 
@@ -200,13 +222,25 @@ class RA_AudioService {
     );
   }
 
+  /// Sets internal player gain for the fade-in on/off paths.
+  static Future<void> _applyPlayerGain({required bool fadeIn}) async {
+    final player = _player;
+    if (player == null) return;
+    await player.setVolume(fadeIn ? 0.0 : 1.0);
+  }
+
   /// Gradually increases internal player volume from 0 to 1 over [fadeDuration].
-  static void _startFadeIn() {
+  static void _startFadeIn(int startId) {
     final stepDuration = fadeDuration ~/ _fadeSteps;
     int currentStep = 0;
 
     _fadeTimer?.cancel();
     _fadeTimer = Timer.periodic(stepDuration, (timer) {
+      if (startId != _playbackGeneration) {
+        timer.cancel();
+        _fadeTimer = null;
+        return;
+      }
       currentStep++;
       final volume = currentStep / _fadeSteps;
       final player = _player;

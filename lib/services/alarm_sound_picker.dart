@@ -12,7 +12,7 @@ class RA_AlarmSoundPickerService {
     'com.example.rolling_alarm/alarm_sound',
   );
 
-  /// System tones (alarm, ringtone, notification) plus MediaStore audio files.
+  /// MediaStore audio files that include an OS file name (DISPLAY_NAME).
   static Future<List<RA_AlarmSound>> listDeviceSounds() async {
     try {
       await _ensureAudioReadPermission();
@@ -22,10 +22,10 @@ class RA_AlarmSoundPickerService {
       if (raw == null) return const [];
       return raw.map((item) {
         final map = Map<String, dynamic>.from(item as Map);
-        return RA_AlarmSound(
+        return _fromNativeMap(
+          map,
           source: RA_AlarmSoundSource.deviceSounds,
-          uri: map['uri'] as String?,
-          label: map['title'] as String? ?? 'Device sound',
+          fallbackLabel: 'Unknown Title',
         );
       }).toList();
     } catch (_) {
@@ -44,10 +44,10 @@ class RA_AlarmSoundPickerService {
       final map = Map<String, dynamic>.from(raw);
       final uri = map['uri'] as String?;
       if (uri == null || uri.isEmpty) return null;
-      return RA_AlarmSound(
+      return _fromNativeMap(
+        map,
         source: RA_AlarmSoundSource.deviceSounds,
-        uri: uri,
-        label: map['title'] as String? ?? 'Device sound',
+        fallbackLabel: 'Unknown Title',
       );
     } catch (_) {
       return null;
@@ -101,23 +101,21 @@ class RA_AlarmSoundPickerService {
       final map = Map<String, dynamic>.from(raw);
       final uri = map['uri'] as String?;
       if (uri == null || uri.isEmpty) return (handled: true, sound: null);
-      final label = map['title'] as String? ?? 'Local file';
+      final sound = _fromNativeMap(
+        map,
+        source: RA_AlarmSoundSource.localFile,
+        fallbackLabel: 'Local file',
+      );
+      final checkLabel = sound.fileName ?? sound.label ?? 'Local file';
 
-      if (!_isAcceptableAudioLabel(label, uri)) {
+      if (!_isAcceptableAudioLabel(checkLabel, uri)) {
         onError?.call(
-          'Selected file is not an audio file ($label). Please choose a valid audio format (e.g. MP3, WAV, OGG, M4A, FLAC).',
+          'Selected file is not an audio file ($checkLabel). Please choose a valid audio format (e.g. MP3, WAV, OGG, M4A, FLAC).',
         );
         return (handled: true, sound: null);
       }
 
-      return (
-        handled: true,
-        sound: RA_AlarmSound(
-          source: RA_AlarmSoundSource.localFile,
-          uri: uri,
-          label: label,
-        ),
-      );
+      return (handled: true, sound: sound);
     } on PlatformException catch (e) {
       if (e.code == 'non_audio_file' || e.code == 'not_audio') {
         onError?.call(
@@ -170,10 +168,41 @@ class RA_AlarmSoundPickerService {
         ? rawUri
         : Uri.file(rawUri).toString();
 
+    final fileName = name.isNotEmpty
+        ? name
+        : (path != null && path.isNotEmpty ? path.split('/').last : null);
     return RA_AlarmSound(
       source: RA_AlarmSoundSource.localFile,
       uri: uri,
-      label: name.isNotEmpty ? name : 'Local file',
+      label: (fileName != null && fileName.isNotEmpty) ? fileName : 'Local file',
+      fileName: fileName,
+    );
+  }
+
+  /// Maps native `{ title, displayName, uri }` into [RA_AlarmSound].
+  ///
+  /// [title] is the embedded metadata title; [displayName] is the OS file name.
+  /// Empty metadata falls back to the file name, then [fallbackLabel].
+  static RA_AlarmSound _fromNativeMap(
+    Map<String, dynamic> map, {
+    required RA_AlarmSoundSource source,
+    required String fallbackLabel,
+  }) {
+    final uri = map['uri'] as String?;
+    final metadataTitle = (map['title'] as String?)?.trim();
+    final displayName = (map['displayName'] as String?)?.trim();
+    final hasTitle = metadataTitle != null && metadataTitle.isNotEmpty;
+    final hasFileName = displayName != null && displayName.isNotEmpty;
+
+    final label = hasTitle
+        ? metadataTitle
+        : (hasFileName ? displayName : fallbackLabel);
+
+    return RA_AlarmSound(
+      source: source,
+      uri: uri,
+      label: label,
+      fileName: hasFileName ? displayName : null,
     );
   }
 

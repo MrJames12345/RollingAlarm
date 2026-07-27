@@ -48,8 +48,14 @@ object AlarmRingtonePlayer {
         return try {
             tone.play()
             ringtone = tone
-            if (fadeInMs > 0L && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                startFadeIn(fadeInMs, cappedTarget)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                if (fadeInMs > 0L) {
+                    startFadeIn(fadeInMs, cappedTarget)
+                } else {
+                    // Re-assert after play(); some OEM Ringtone builds reset
+                    // gain on start, which sounds like a short fade-in.
+                    tone.volume = cappedTarget
+                }
             }
             true
         } catch (_: Exception) {

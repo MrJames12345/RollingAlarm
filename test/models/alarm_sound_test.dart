@@ -32,13 +32,39 @@ void main() {
         source: RA_AlarmSoundSource.deviceSounds,
         uri: 'content://media/external/audio/media/1',
         label: 'Argon',
+        fileName: 'argon_tone.ogg',
       );
       final decoded = RA_AlarmSound.decode(sound.encode());
       expect(decoded.source, RA_AlarmSoundSource.deviceSounds);
       expect(decoded.uri, sound.uri);
       expect(decoded.label, 'Argon');
+      expect(decoded.fileName, 'argon_tone.ogg');
+      expect(decoded.listFileName, 'argon_tone.ogg');
       expect(decoded.hasPlayableUri, isFalse);
       expect(decoded.usesNativeRingtone, isTrue);
+    });
+
+    test('listFileName is omitted when it matches the metadata title', () {
+      const sound = RA_AlarmSound(
+        source: RA_AlarmSoundSource.deviceSounds,
+        uri: 'content://media/external/audio/media/2',
+        label: 'wake.mp3',
+        fileName: 'wake.mp3',
+      );
+      expect(sound.displayLabel, 'wake.mp3');
+      expect(sound.listFileName, isNull);
+    });
+
+    test('displayLabel falls back to fileName then source label', () {
+      const withFile = RA_AlarmSound(
+        source: RA_AlarmSoundSource.deviceSounds,
+        uri: 'content://media/external/audio/media/3',
+        fileName: 'track.mp3',
+      );
+      expect(withFile.displayLabel, 'track.mp3');
+
+      const bare = RA_AlarmSound(source: RA_AlarmSoundSource.deviceSounds);
+      expect(bare.displayLabel, RA_AlarmSoundSource.deviceSounds.label);
     });
 
     test('reads legacy plain file uri', () {

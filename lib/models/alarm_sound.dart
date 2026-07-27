@@ -9,9 +9,19 @@ import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 class RA_AlarmSound {
   final RA_AlarmSoundSource source;
   final String? uri;
+
+  /// Embedded metadata title (ID3 / MediaStore TITLE), or a fallback label.
   final String? label;
 
-  const RA_AlarmSound({required this.source, this.uri, this.label});
+  /// Raw OS file name including extension (MediaStore DISPLAY_NAME).
+  final String? fileName;
+
+  const RA_AlarmSound({
+    required this.source,
+    this.uri,
+    this.label,
+    this.fileName,
+  });
 
   static const RA_AlarmSound silent = RA_AlarmSound(
     source: RA_AlarmSoundSource.silent,
@@ -29,7 +39,17 @@ class RA_AlarmSound {
   String get displayLabel {
     final named = label?.trim();
     if (named != null && named.isNotEmpty) return named;
+    final file = fileName?.trim();
+    if (file != null && file.isNotEmpty) return file;
     return source.label;
+  }
+
+  /// OS file name for list subtitles when it differs from [displayLabel].
+  String? get listFileName {
+    final file = fileName?.trim();
+    if (file == null || file.isEmpty) return null;
+    if (file.toLowerCase() == displayLabel.toLowerCase()) return null;
+    return file;
   }
 
   /// True when [just_audio] can load [uri] directly.
@@ -65,6 +85,7 @@ class RA_AlarmSound {
       'source': source.storageKey,
       if (uri != null && uri!.isNotEmpty) 'uri': uri,
       if (label != null && label!.isNotEmpty) 'label': label,
+      if (fileName != null && fileName!.isNotEmpty) 'fileName': fileName,
     });
   }
 
@@ -83,6 +104,7 @@ class RA_AlarmSound {
           ),
           uri: map['uri'] as String?,
           label: map['label'] as String?,
+          fileName: map['fileName'] as String?,
         );
       } catch (_) {
         return deviceDefault;
@@ -95,6 +117,7 @@ class RA_AlarmSound {
           : RA_AlarmSoundSource.localFile,
       uri: value,
       label: value.split('/').last,
+      fileName: value.split('/').last,
     );
   }
 }

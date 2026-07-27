@@ -11,11 +11,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.view.KeyEvent
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
+import kotlin.concurrent.thread
 
 class MainActivity : FlutterActivity() {
     private val soundChannel = "com.example.rolling_alarm/alarm_sound"
@@ -26,6 +28,11 @@ class MainActivity : FlutterActivity() {
     private var alarmWakeElapsedMs: Long = 0L
     /** True only for a real alarm launch intent / bringToForeground, not a stale pref. */
     private var lockOverlayFromAlarmIntent: Boolean = false
+    private var alarmSoundMethodChannel: MethodChannel? = null
+    /** Cached side-button actions while ringing: none / snooze / dismiss. */
+    private var sideButtonVolumeUp: String = ACTION_NONE
+    private var sideButtonVolumeDown: String = ACTION_NONE
+    private var sideButtonPower: String = ACTION_NONE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Apply lock-screen flags before Flutter attaches so a full-screen
@@ -149,8 +156,9 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(AlarmUiSchedulerPlugin())
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, soundChannel)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, soundChannel)
+        alarmSoundMethodChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "bringToForeground" -> {
                         try {
@@ -187,6 +195,7 @@ class MainActivity : FlutterActivity() {
                         isAlarmRinging = false
                         lockOverlayFromAlarmIntent = false
                         alarmWakeElapsedMs = 0L
+                        clearSideButtonActions()
                         applyLockScreenFlags(false)
                         result.success(null)
                     }
@@ -202,6 +211,7 @@ class MainActivity : FlutterActivity() {
                         lockOverlayFromAlarmIntent = false
                         writeRingingPref(false)
                         alarmWakeElapsedMs = 0L
+                        clearSideButtonActions()
                         intent?.removeExtra(EXTRA_ALARM_RINGING)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                             setShowWhenLocked(false)
@@ -220,11 +230,25 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
+                    "setSideButtonActions" -> {
+                        val args = call.arguments as? Map<*, *>
+                        sideButtonVolumeUp = normalizeSideAction(args?.get("volumeUp"))
+                        sideButtonVolumeDown = normalizeSideAction(args?.get("volumeDown"))
+                        sideButtonPower = normalizeSideAction(args?.get("power"))
+                        result.success(null)
+                    }
                     "listDeviceSounds" -> {
-                        try {
-                            result.success(listDeviceSounds())
-                        } catch (e: Exception) {
-                            result.error("list_failed", e.message, null)
+                        // MediaStore scans can be large; never block the UI /
+                        // Flutter raster thread or the picker page freezes.
+                        thread(name = "ra-list-device-sounds") {
+                            try {
+                                val sounds = listDeviceSounds()
+                                runOnUiThread { result.success(sounds) }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("list_failed", e.message, null)
+                                }
+                            }
                         }
                     }
                     "playDeviceSound" -> {
@@ -366,6 +390,53 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isAlarmRinging) {
+            val action = sideActionForKey(event.keyCode)
+            if (action != null && action != ACTION_NONE) {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    notifySideButtonAction(action)
+                }
+                // Consume up and repeats so the OS does not change media volume.
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun sideActionForKey(keyCode: Int): String? {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> sideButtonVolumeUp
+            KeyEvent.KEYCODE_VOLUME_DOWN -> sideButtonVolumeDown
+            KeyEvent.KEYCODE_POWER -> sideButtonPower
+            else -> null
+        }
+    }
+
+    private fun notifySideButtonAction(action: String) {
+        runOnUiThread {
+            try {
+                alarmSoundMethodChannel?.invokeMethod("sideButtonAction", action)
+            } catch (_: Exception) {
+                // Engine may already be tearing down after dismiss.
+            }
+        }
+    }
+
+    private fun clearSideButtonActions() {
+        sideButtonVolumeUp = ACTION_NONE
+        sideButtonVolumeDown = ACTION_NONE
+        sideButtonPower = ACTION_NONE
+    }
+
+    private fun normalizeSideAction(raw: Any?): String {
+        val value = (raw as? String)?.lowercase(Locale.ROOT) ?: ACTION_NONE
+        return when (value) {
+            ACTION_SNOOZE, ACTION_DISMISS -> value
+            else -> ACTION_NONE
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         // Handle our pickers before super so cancel (null data) is not
@@ -416,25 +487,45 @@ class MainActivity : FlutterActivity() {
                     contentResolver.takePersistableUriPermission(uri, takeFlags)
                 } catch (_: Exception) {}
 
-                var title = "Local file"
+                var displayName = "Local file"
                 try {
                     contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) {
                             val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                             if (idx != -1) {
                                 val name = cursor.getString(idx)
-                                if (!name.isNullOrBlank()) title = name
+                                if (!name.isNullOrBlank()) displayName = name
                             }
                         }
                     }
                 } catch (_: Exception) {}
 
+                // Prefer embedded MediaStore TITLE when the content URI exposes it.
+                var metadataTitle = ""
+                try {
+                    contentResolver.query(
+                        uri,
+                        arrayOf(MediaStore.Audio.Media.TITLE),
+                        null,
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idx = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+                            if (idx != -1) {
+                                metadataTitle = cursor.getString(idx)?.trim().orEmpty()
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                val title = metadataTitle.ifEmpty { displayName }
                 val mimeType = try {
                     contentResolver.getType(uri) ?: ""
                 } catch (_: Exception) {
                     ""
                 }
-                val ext = title.substringAfterLast('.', "").lowercase()
+                val ext = displayName.substringAfterLast('.', "").lowercase()
                 val audioExtensions = setOf("mp3", "wav", "ogg", "flac", "m4a", "aac", "wma", "opus", "mid", "midi", "amr", "aiff", "mpga", "m3u", "aif")
                 val nonAudioExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "zip", "rar", "7z", "tar", "gz", "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "exe", "apk", "bin", "iso", "xml", "html", "json")
 
@@ -448,11 +539,17 @@ class MainActivity : FlutterActivity() {
                     mimeType.startsWith("text/", ignoreCase = true)
 
                 if (isNonAudioExt || (!isAudioMime && !isAudioExt && ext.isNotEmpty())) {
-                    pending.error("non_audio_file", "The selected file '$title' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).", null)
+                    pending.error("non_audio_file", "The selected file '$displayName' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).", null)
                     return
                 }
 
-                pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
+                pending.success(
+                    hashMapOf(
+                        "uri" to uri.toString(),
+                        "title" to title,
+                        "displayName" to displayName,
+                    ),
+                )
             }
         } catch (e: Exception) {
             try {
@@ -464,32 +561,15 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * Builds the Device sounds list from every RingtoneManager category plus
-     * MediaStore-indexed audio on internal and external storage, so formats
-     * and tones outside the alarm/ringtone buckets are not missing.
+     * Builds the Device sounds list from MediaStore audio that has an OS
+     * file name (DISPLAY_NAME). System ringtone titles without a file name
+     * are omitted to match the picker UI.
      */
     private fun listDeviceSounds(): List<Map<String, String>> {
         val byUri = LinkedHashMap<String, Map<String, String>>()
-
-        try {
-            val manager = RingtoneManager(this)
-            manager.setType(RingtoneManager.TYPE_ALL)
-            manager.cursor.use { cursor ->
-                while (cursor.moveToNext()) {
-                    val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX)?.trim()
-                    if (title.isNullOrEmpty()) continue
-                    val uri = manager.getRingtoneUri(cursor.position)?.toString() ?: continue
-                    byUri.putIfAbsent(uri, hashMapOf("title" to title, "uri" to uri))
-                }
-            }
-        } catch (_: Exception) {
-            // RingtoneManager failures must not block MediaStore results.
-        }
-
         for (collection in mediaStoreAudioCollections()) {
             appendMediaStoreAudio(byUri, collection)
         }
-
         return byUri.values.sortedBy { it["title"]?.lowercase(Locale.ROOT) ?: "" }
     }
 
@@ -540,12 +620,16 @@ class MainActivity : FlutterActivity() {
                     if (byUri.containsKey(uri)) continue
                     val title = cursor.getString(titleCol)?.trim().orEmpty()
                     val displayName = cursor.getString(nameCol)?.trim().orEmpty()
-                    val label = when {
-                        title.isNotEmpty() -> title
-                        displayName.isNotEmpty() -> displayName
-                        else -> continue
-                    }
-                    byUri[uri] = hashMapOf("title" to label, "uri" to uri)
+                    // Picker only shows entries that have an OS file name.
+                    if (displayName.isEmpty()) continue
+                    // Keep metadata TITLE and OS DISPLAY_NAME separate so Flutter
+                    // can show both; empty TITLE falls back to the file name.
+                    val entry = hashMapOf(
+                        "uri" to uri,
+                        "title" to title.ifEmpty { displayName },
+                        "displayName" to displayName,
+                    )
+                    byUri[uri] = entry
                 }
             }
         } catch (_: SecurityException) {
@@ -559,6 +643,9 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_RINGTONE = 9911
         private const val REQUEST_LOCAL_FILE = 9912
         private const val WAKE_STAMP_VALID_MS = 30_000L
+        private const val ACTION_NONE = "none"
+        private const val ACTION_SNOOZE = "snooze"
+        private const val ACTION_DISMISS = "dismiss"
         const val EXTRA_ALARM_RINGING = "ra_alarm_ringing"
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"
         private const val FLUTTER_RINGING_KEY = "flutter.ra_is_ringing"
