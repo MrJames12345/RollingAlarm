@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rolling_alarm/services/alarm_calculator.dart';
-import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
+import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
+import 'package:rolling_alarm/services/alarm_calculator.dart';
 
 void main() {
   group('RA_AlarmCalculator', () {
@@ -38,36 +38,81 @@ void main() {
     // ActualDismissal: rang 06:00, snoozed twice (9m each), dismissed 06:23:17
     // Next = 06:23:17 + 4h30m = 10:53:17 (drift accumulates)
     // --------------------------------------------------------------------- //
-    test('ActualDismissal bases next trigger on dismiss time (drift accumulates)', () {
-      final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final dismissTime = DateTime(2026, 1, 1, 6, 23, 17);
-      final result = RA_AlarmCalculator.calculateNextTrigger(
-        Action: RA_AlarmActionTypeCodeEnum.Dismiss,
-        Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
-        IntervalSeconds: 16200,
-        SnoozeSeconds: 540,
-        InitialRingTime: initialRing,
-        Now: dismissTime,
-      );
-      expect(result, DateTime(2026, 1, 1, 10, 53, 17));
-    });
+    test(
+      'ActualDismissal bases next trigger on dismiss time (drift accumulates)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final dismissTime = DateTime(2026, 1, 1, 6, 23, 17);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: dismissTime,
+        );
+        expect(result, DateTime(2026, 1, 1, 10, 53, 17));
+      },
+    );
 
     // --------------------------------------------------------------------- //
     // InitialRing: identical inputs give next = 06:00:00 + 4h30m = 10:30:00
     // Schedule self-corrects; snooze time is absorbed.
     // --------------------------------------------------------------------- //
-    test('InitialRing bases next trigger on initial ring time (self-corrects)', () {
+    test(
+      'InitialRing bases next trigger on initial ring time (self-corrects)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final dismissTime = DateTime(2026, 1, 1, 6, 23, 17);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: dismissTime,
+        );
+        expect(result, DateTime(2026, 1, 1, 10, 30, 0));
+      },
+    );
+
+    // --------------------------------------------------------------------- //
+    // InitialRing late dismiss: rang 06:00, interval 1h, dismissed at 08:45
+    // after many snoozes. InitialRingTime + Interval = 07:00 is already past;
+    // must skip to the first future slot (09:00), not clamp to now.
+    // --------------------------------------------------------------------- //
+    test(
+      'InitialRing fast-forwards past intervals when dismiss is very late',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final dismissTime = DateTime(2026, 1, 1, 8, 45, 0);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 3600,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: dismissTime,
+        );
+        expect(result, DateTime(2026, 1, 1, 9, 0, 0));
+        expect(result.isAfter(dismissTime), isTrue);
+      },
+    );
+
+    test('InitialRing skips exact boundary when dismiss lands on a slot', () {
+      // Ring 06:00, interval 1h, dismiss exactly at 07:00: next must be 08:00
+      // (strictly after Now), not 07:00 which would clamp and re-ring.
       final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final dismissTime = DateTime(2026, 1, 1, 6, 23, 17);
+      final dismissTime = DateTime(2026, 1, 1, 7, 0, 0);
       final result = RA_AlarmCalculator.calculateNextTrigger(
         Action: RA_AlarmActionTypeCodeEnum.Dismiss,
         Compensation: DriftCompensationTypeCodeEnum.InitialRing,
-        IntervalSeconds: 16200,
+        IntervalSeconds: 3600,
         SnoozeSeconds: 540,
         InitialRingTime: initialRing,
         Now: dismissTime,
       );
-      expect(result, DateTime(2026, 1, 1, 10, 30, 0));
+      expect(result, DateTime(2026, 1, 1, 8, 0, 0));
     });
 
     // --------------------------------------------------------------------- //
@@ -77,7 +122,10 @@ void main() {
     test('InitialRing produces zero cumulative drift across 10 cycles', () {
       const intervalHours = 2;
       const intervalMinutes = 0;
-      const intervalDuration = Duration(hours: intervalHours, minutes: intervalMinutes);
+      const intervalDuration = Duration(
+        hours: intervalHours,
+        minutes: intervalMinutes,
+      );
 
       var currentInitialRing = DateTime(2026, 1, 1, 8, 0, 0);
       final firstRing = currentInitialRing;
@@ -87,7 +135,9 @@ void main() {
 
       for (int i = 0; i < 10; i++) {
         // Simulate a dismiss that happens snoozeDurations[i] minutes after ring
-        final dismissTime = currentInitialRing.add(Duration(minutes: snoozeDurations[i]));
+        final dismissTime = currentInitialRing.add(
+          Duration(minutes: snoozeDurations[i]),
+        );
 
         final nextTrigger = RA_AlarmCalculator.calculateNextTrigger(
           Action: RA_AlarmActionTypeCodeEnum.Dismiss,
@@ -125,65 +175,77 @@ void main() {
     // --------------------------------------------------------------------- //
     // Snooze has no cap: always returns Now + SnoozeMinutes
     // --------------------------------------------------------------------- //
-    test('repeated snooze always returns now plus snooze minutes (ActualDismissal)', () {
-      final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final now = DateTime(2026, 1, 1, 6, 27, 0);
-      final result = RA_AlarmCalculator.calculateNextTrigger(
-        Action: RA_AlarmActionTypeCodeEnum.Snooze,
-        Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
-        IntervalSeconds: 16200,
-        SnoozeSeconds: 540,
-        InitialRingTime: initialRing,
-        Now: now,
-      );
-      expect(result, DateTime(2026, 1, 1, 6, 36, 0));
-    });
+    test(
+      'repeated snooze always returns now plus snooze minutes (ActualDismissal)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final now = DateTime(2026, 1, 1, 6, 27, 0);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Snooze,
+          Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(result, DateTime(2026, 1, 1, 6, 36, 0));
+      },
+    );
 
-    test('repeated snooze always returns now plus snooze minutes (InitialRing)', () {
-      final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final now = DateTime(2026, 1, 1, 6, 27, 0);
-      final result = RA_AlarmCalculator.calculateNextTrigger(
-        Action: RA_AlarmActionTypeCodeEnum.Snooze,
-        Compensation: DriftCompensationTypeCodeEnum.InitialRing,
-        IntervalSeconds: 16200,
-        SnoozeSeconds: 540,
-        InitialRingTime: initialRing,
-        Now: now,
-      );
-      expect(result, DateTime(2026, 1, 1, 6, 36, 0));
-    });
+    test(
+      'repeated snooze always returns now plus snooze minutes (InitialRing)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final now = DateTime(2026, 1, 1, 6, 27, 0);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Snooze,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(result, DateTime(2026, 1, 1, 6, 36, 0));
+      },
+    );
 
     // --------------------------------------------------------------------- //
     // Skip: cancels pending trigger, returns Now + interval regardless of mode
     // --------------------------------------------------------------------- //
-    test('skip returns now plus interval regardless of compensation mode (ActualDismissal)', () {
-      final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final now = DateTime(2026, 1, 1, 7, 15, 0);
-      final result = RA_AlarmCalculator.calculateNextTrigger(
-        Action: RA_AlarmActionTypeCodeEnum.Skip,
-        Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
-        IntervalSeconds: 16200,
-        SnoozeSeconds: 540,
-        InitialRingTime: initialRing,
-        Now: now,
-      );
-      expect(result, DateTime(2026, 1, 1, 11, 45, 0));
-    });
+    test(
+      'skip returns now plus interval regardless of compensation mode (ActualDismissal)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final now = DateTime(2026, 1, 1, 7, 15, 0);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Skip,
+          Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(result, DateTime(2026, 1, 1, 11, 45, 0));
+      },
+    );
 
-    test('skip returns now plus interval regardless of compensation mode (InitialRing)', () {
-      final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
-      final now = DateTime(2026, 1, 1, 7, 15, 0);
-      final result = RA_AlarmCalculator.calculateNextTrigger(
-        Action: RA_AlarmActionTypeCodeEnum.Skip,
-        Compensation: DriftCompensationTypeCodeEnum.InitialRing,
-        IntervalSeconds: 16200,
-        SnoozeSeconds: 540,
-        InitialRingTime: initialRing,
-        Now: now,
-      );
-      // Skip always uses Now, not InitialRingTime
-      expect(result, DateTime(2026, 1, 1, 11, 45, 0));
-    });
+    test(
+      'skip returns now plus interval regardless of compensation mode (InitialRing)',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final now = DateTime(2026, 1, 1, 7, 15, 0);
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Skip,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 16200,
+          SnoozeSeconds: 540,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        // Skip always uses Now, not InitialRingTime
+        expect(result, DateTime(2026, 1, 1, 11, 45, 0));
+      },
+    );
 
     // --------------------------------------------------------------------- //
     // AutoSnooze: same as snooze but triggered by inaction

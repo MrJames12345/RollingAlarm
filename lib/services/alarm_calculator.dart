@@ -1,5 +1,5 @@
-import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
+import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 
 /// Pure arithmetic calculator for alarm scheduling.
 ///
@@ -40,20 +40,33 @@ class RA_AlarmCalculator {
         Now: Now,
       ),
       RA_AlarmActionTypeCodeEnum.Snooze ||
-      RA_AlarmActionTypeCodeEnum.AutoSnooze =>
-        Now.add(snoozeDuration),
+      RA_AlarmActionTypeCodeEnum.AutoSnooze => Now.add(snoozeDuration),
       RA_AlarmActionTypeCodeEnum.Skip => Now.add(interval),
     };
   }
 
   /// Internal dismiss calculation respecting the compensation mode.
+  ///
+  /// For [InitialRing], advances by whole intervals from [InitialRingTime]
+  /// until the candidate is strictly after [Now]. A single
+  /// `InitialRingTime + Interval` can already be in the past after a long
+  /// snooze chain; without this skip, [scheduleNext] would clamp to now and
+  /// re-ring immediately in a loop.
   static DateTime _calculateDismiss({
     required DriftCompensationTypeCodeEnum Compensation,
     required Duration Interval,
     required DateTime InitialRingTime,
     required DateTime Now,
-  }) => switch (Compensation) {
-    DriftCompensationTypeCodeEnum.ActualDismissal => Now.add(Interval),
-    DriftCompensationTypeCodeEnum.InitialRing => InitialRingTime.add(Interval),
-  };
+  }) {
+    switch (Compensation) {
+      case DriftCompensationTypeCodeEnum.ActualDismissal:
+        return Now.add(Interval);
+      case DriftCompensationTypeCodeEnum.InitialRing:
+        var next = InitialRingTime.add(Interval);
+        while (!next.isAfter(Now)) {
+          next = next.add(Interval);
+        }
+        return next;
+    }
+  }
 }
