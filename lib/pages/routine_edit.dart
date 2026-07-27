@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/section_label.dart';
 import 'package:rolling_alarm/components/field/duration_field.dart';
 import 'package:rolling_alarm/components/field/number_field.dart';
 import 'package:rolling_alarm/components/field/radio_group.dart';
@@ -116,6 +117,17 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     RoutineEditFieldEnum.days => _daysFieldKey,
   };
 
+  /// Keeps edit state on [allDaysMask], never raw `0`, so Day Start enablement
+  /// does not flicker between 0 and 127 when meaning "every day."
+  int _normalizeEnabledWeekdays(int mask) =>
+      RA_WeekdaySchedule.effectiveMask(mask);
+
+  bool get _hasDisabledWeekday =>
+      !RA_WeekdaySchedule.isEveryDay(_enabledWeekdays);
+
+  bool get _dayStartEnabled =>
+      _maxTimesPerDayEnabled || _hasDisabledWeekday;
+
   @override
   void initState() {
     super.initState();
@@ -133,9 +145,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         hour: dayStart ~/ 3600,
         minute: (dayStart % 3600) ~/ 60,
       );
-      _enabledWeekdays = r.EnabledWeekdays == 0
-          ? RA_WeekdaySchedule.allDaysMask
-          : r.EnabledWeekdays & RA_WeekdaySchedule.allDaysMask;
+      _enabledWeekdays = _normalizeEnabledWeekdays(r.EnabledWeekdays);
       _compensation =
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
@@ -515,13 +525,56 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
                   _highlightTarget(
+                    field: RoutineEditFieldEnum.days,
+                    key: _daysFieldKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RA_SectionLabel('Enabled on Days'),
+                        const SizedBox(height: RA_ShapeStyles.space8),
+                        RA_WeekdayField(
+                          value: _enabledWeekdays,
+                          onChanged: (v) => setState(() {
+                            _enabledWeekdays = _normalizeEnabledWeekdays(v);
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  _highlightTarget(
                     field: RoutineEditFieldEnum.dayStart,
                     key: _dayStartFieldKey,
-                    child: RA_TimeOfDayField(
-                      label: 'Start at time of day',
-                      value: _dayStart,
-                      onChanged: (v) => setState(() => _dayStart = v),
-                      enabled: _maxTimesPerDayEnabled,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RA_SectionLabel('Day Start Time'),
+                        const SizedBox(height: RA_ShapeStyles.space8),
+                        RA_TimeOfDayField(
+                          pickerTitle: 'Day Start Time',
+                          value: _dayStart,
+                          onChanged: (v) => setState(() => _dayStart = v),
+                          enabled: _dayStartEnabled,
+                        ),
+                        if (_maxTimesPerDayEnabled) ...[
+                          const SizedBox(height: RA_ShapeStyles.space8),
+                          Text(
+                            'If count for today has exceeded, we need to know what time to set the next alarm tomorrow',
+                            style: RA_TextStyles.smallFont.copyWith(
+                              color: RA_ColourStyles.mutedPrimary,
+                            ),
+                          ),
+                        ],
+                        if (_hasDisabledWeekday) ...[
+                          const SizedBox(height: RA_ShapeStyles.space8),
+                          Text(
+                            'When the next alarm would naturally fall on a disabled day, we need to know what time to set the next alarm on the upcoming enabled day.',
+                            style: RA_TextStyles.smallFont.copyWith(
+                              color: RA_ColourStyles.mutedPrimary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -532,6 +585,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               key: _driftCompensationFieldKey,
               child: RA_FormSection(
                 label: 'Drift Compensation',
+                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
                 child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
                   groupValue: _compensation,
                   onChanged: (v) => setState(() => _compensation = v),
@@ -546,18 +600,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                       subtitle: 'Next alarm based on when you dismiss',
                     ),
                   ],
-                ),
-              ),
-            ),
-            _highlightTarget(
-              field: RoutineEditFieldEnum.days,
-              key: _daysFieldKey,
-              child: RA_FormSection(
-                label: 'Days',
-                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
-                child: RA_WeekdayField(
-                  value: _enabledWeekdays,
-                  onChanged: (v) => setState(() => _enabledWeekdays = v),
                 ),
               ),
             ),

@@ -7,19 +7,38 @@ import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Tappable clock-time field (hours and minutes) for day-boundary settings.
+///
+/// When [label] is null or empty, the tappable surface shows only the formatted
+/// time on the left and a clock icon on the right. Use [pickerTitle] for the
+/// sheet header when the in-field label is omitted.
 class RA_TimeOfDayField extends StatelessWidget {
-  final String label;
+  final String? label;
+  final String? pickerTitle;
   final TimeOfDay value;
   final ValueChanged<TimeOfDay> onChanged;
   final bool enabled;
 
   const RA_TimeOfDayField({
     super.key,
-    required this.label,
+    this.label,
+    this.pickerTitle,
     required this.value,
     required this.onChanged,
     this.enabled = true,
   });
+
+  String get _sheetTitle {
+    final fromPicker = pickerTitle?.trim();
+    if (fromPicker != null && fromPicker.isNotEmpty) return fromPicker;
+    final fromLabel = label?.trim();
+    if (fromLabel != null && fromLabel.isNotEmpty) return fromLabel;
+    return 'Time';
+  }
+
+  bool get _showInFieldLabel {
+    final text = label?.trim();
+    return text != null && text.isNotEmpty;
+  }
 
   DateTime _asDateTime(TimeOfDay tod) {
     final now = DateTime.now();
@@ -53,7 +72,7 @@ class RA_TimeOfDayField extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(label, style: RA_TextStyles.mediumFont),
+                      child: Text(_sheetTitle, style: RA_TextStyles.mediumFont),
                     ),
                     RA_DialogButton(
                       'Cancel',
@@ -110,6 +129,30 @@ class RA_TimeOfDayField extends StatelessWidget {
         ? RA_ColourStyles.valueText
         : RA_ColourStyles.mutedPrimary;
 
+    final timeText = AnimatedSwitcher(
+      duration: RA_ShapeStyles.pressFeedbackDuration * 2,
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.2),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: Text(
+        labelText,
+        key: ValueKey(labelText),
+        style: RA_TextStyles.largeFont.copyWith(
+          color: valueColor,
+          fontFeatures: RA_TextStyles.tabularFeatures,
+        ),
+      ),
+    );
+
     return Opacity(
       opacity: enabled ? 1 : 0.55,
       child: RA_PressScale(
@@ -128,44 +171,23 @@ class RA_TimeOfDayField extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            label,
-                            style: RA_TextStyles.tinyFont.copyWith(
-                              color: labelColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: RA_ShapeStyles.space8),
-                          AnimatedSwitcher(
-                            duration: RA_ShapeStyles.pressFeedbackDuration * 2,
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0, 0.2),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: child,
+                      child: _showInFieldLabel
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label!.trim(),
+                                  style: RA_TextStyles.tinyFont.copyWith(
+                                    color: labelColor,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            child: Text(
-                              labelText,
-                              key: ValueKey(labelText),
-                              style: RA_TextStyles.largeFont.copyWith(
-                                color: valueColor,
-                                fontFeatures: RA_TextStyles.tabularFeatures,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                                const SizedBox(height: RA_ShapeStyles.space8),
+                                timeText,
+                              ],
+                            )
+                          : timeText,
                     ),
                     Icon(Icons.access_time, color: labelColor),
                   ],
