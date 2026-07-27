@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
-import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
@@ -17,13 +16,11 @@ import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
-import 'package:rolling_alarm/pages/alarm_ring.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
-import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -149,25 +146,6 @@ class _SummaryTab extends ConsumerWidget {
     );
   }
 
-  /// Opens the real alarm UI with this routine's sound settings; snooze/dismiss
-  /// only pop.
-  Future<void> _previewAlarm(BuildContext context) async {
-    final sound = RA_AlarmSound.decode(routine.AudioUri);
-    await Navigator.of(context).push<void>(
-      RA_Routes.alarmRing(
-        AlarmRingPage(
-          routineId: 0,
-          routineName: routine.Name,
-          audioUri: routine.AudioUri,
-          vibrate: routine.Vibrate,
-          volume: routine.Volume,
-          fadeIn: sound.isSilent ? false : routine.FadeIn,
-          isPreview: true,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sound = RA_AlarmSound.decode(routine.AudioUri);
@@ -231,45 +209,29 @@ class _SummaryTab extends ConsumerWidget {
       children: [
         RA_FormSection(
           label: 'Alarm sound',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: _SummaryTileRow(
             children: [
-              _SummaryTileRow(
-                children: [
-                  _SummaryTile(
-                    label: 'Sound',
-                    value: sound.displayLabel,
-                    onTap: () => _openEdit(context, RoutineEditFieldEnum.sound),
-                  ),
-                  _SummaryTile(
-                    label: 'Volume',
-                    value: sound.isSilent
-                        ? 'N/A'
-                        : '${routine.Volume.clamp(5, 100)}%',
-                    onTap: () =>
-                        _openEdit(context, RoutineEditFieldEnum.volume),
-                  ),
-                  _SummaryTile(
-                    label: 'Fade in',
-                    value: sound.isSilent
-                        ? 'N/A'
-                        : (routine.FadeIn ? 'On' : 'Off'),
-                    onTap: () =>
-                        _openEdit(context, RoutineEditFieldEnum.fadeIn),
-                  ),
-                  _SummaryTile(
-                    label: 'Vibrate',
-                    value: routine.Vibrate ? 'On' : 'Off',
-                    onTap: () =>
-                        _openEdit(context, RoutineEditFieldEnum.vibrate),
-                  ),
-                ],
+              _SummaryTile(
+                label: 'Sound',
+                value: sound.displayLabel,
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.sound),
               ),
-              const SizedBox(height: RA_ShapeStyles.space16),
-              RA_Button(
-                text: 'Preview',
-                isPrimary: false,
-                onClick: () => unawaited(_previewAlarm(context)),
+              _SummaryTile(
+                label: 'Volume',
+                value: sound.isSilent
+                    ? 'N/A'
+                    : '${routine.Volume.clamp(5, 100)}%',
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.volume),
+              ),
+              _SummaryTile(
+                label: 'Fade in',
+                value: sound.isSilent ? 'N/A' : (routine.FadeIn ? 'On' : 'Off'),
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.fadeIn),
+              ),
+              _SummaryTile(
+                label: 'Vibrate',
+                value: routine.Vibrate ? 'On' : 'Off',
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.vibrate),
               ),
             ],
           ),
@@ -316,14 +278,6 @@ class _SummaryTab extends ConsumerWidget {
                 isPrimary: false,
                 onClick: () => unawaited(_resetTodayCounter(context, ref)),
               ),
-              const SizedBox(height: RA_ShapeStyles.space16),
-              RA_Button(
-                text: 'Delete',
-                backgroundColor: RA_ColourStyles.softCoral,
-                foregroundColor: RA_ColourStyles.onAccent,
-                shadowColor: RA_ColourStyles.softCoral.withValues(alpha: 0.35),
-                onClick: () => unawaited(_deleteRoutine(context, ref)),
-              ),
             ],
           ),
         ),
@@ -345,26 +299,6 @@ class _SummaryTab extends ConsumerWidget {
         dbPath: dbPath,
       );
     });
-  }
-
-  /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.
-  Future<void> _deleteRoutine(BuildContext context, WidgetRef ref) async {
-    final confirmed = await RA_showDeleteRoutineDialog(
-      context,
-      routineName: routine.Name,
-    );
-    if (confirmed != true) return;
-
-    final deleted = await RA_tryAsync(() async {
-      final db = ref.read(RA_DatabaseProvider);
-      await RA_AlarmService.cancel(routine.Id);
-      await db.softDeleteRoutine(routine.Id);
-      await RA_WidgetService.updateWidgetState(db: db);
-      return true;
-    });
-    if (deleted == true && context.mounted) {
-      Navigator.pop(context);
-    }
   }
 }
 
