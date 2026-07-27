@@ -116,6 +116,40 @@ void main() {
       },
     );
 
+    test(
+      'deferIfDailyLimitReached snaps past day-start even under the cap',
+      () {
+        // Under the cap, but interval lands after tomorrow's 6am day-start.
+        final proposed = DateTime(2026, 7, 27, 8);
+        final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: proposed,
+          maxTimesPerDay: 3,
+          timesRingToday: 1,
+          timesRingDay: DateTime(2026, 7, 26, 6),
+          now: now,
+          dayStartSeconds: sixAm,
+        );
+        expect(deferred, DateTime(2026, 7, 27, 6));
+      },
+    );
+
+    test(
+      'deferIfDailyLimitReached snaps to today day-start when still before it',
+      () {
+        final early = DateTime(2026, 7, 26, 5, 0);
+        final proposed = DateTime(2026, 7, 26, 7, 30);
+        final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: proposed,
+          maxTimesPerDay: 3,
+          timesRingToday: 0,
+          timesRingDay: null,
+          now: early,
+          dayStartSeconds: sixAm,
+        );
+        expect(deferred, DateTime(2026, 7, 26, 6));
+      },
+    );
+
     test('deferIfDailyLimitReached leaves proposed alone under the cap', () {
       final proposed = DateTime(2026, 7, 26, 19, 45);
       final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
@@ -205,5 +239,29 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'earliestResumeAfterMissedDayStart picks the sooner of interval and day-start',
+      () {
+        // Interval (2h) sooner than next day-start (~11h from 15:30).
+        expect(
+          RA_DailyRingLimit.earliestResumeAfterMissedDayStart(
+            now: now,
+            intervalSeconds: 2 * 3600,
+            dayStartSeconds: sixAm,
+          ),
+          now.add(const Duration(hours: 2)),
+        );
+        // Long interval loses to next day-start.
+        expect(
+          RA_DailyRingLimit.earliestResumeAfterMissedDayStart(
+            now: now,
+            intervalSeconds: 20 * 3600,
+            dayStartSeconds: sixAm,
+          ),
+          DateTime(2026, 7, 27, 6),
+        );
+      },
+    );
   });
 }

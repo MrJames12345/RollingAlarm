@@ -57,8 +57,12 @@ class RA_DailyRingLimit {
     return count < maxTimesPerDay;
   }
 
-  /// If the daily cap is exhausted, schedule the next period start
-  /// ("Start at time of day") instead of [proposed].
+  /// Prefer the next period start ("Start at time of day") over [proposed]
+  /// when the daily cap is enabled and either:
+  /// * the cap is exhausted, or
+  /// * [proposed] falls on or after that next day-start boundary.
+  ///
+  /// [maxTimesPerDay] of `0` means the feature is off; [proposed] is unchanged.
   static DateTime deferIfDailyLimitReached({
     required DateTime proposed,
     required int maxTimesPerDay,
@@ -68,6 +72,11 @@ class RA_DailyRingLimit {
     int dayStartSeconds = 0,
   }) {
     if (maxTimesPerDay <= 0) return proposed;
+    final dayStart = nextPeriodStartAfter(now, dayStartSeconds);
+    // Interval math must not skip past the next day-start into a new period.
+    if (!proposed.isBefore(dayStart)) {
+      return dayStart;
+    }
     final count = countForDay(
       timesRingToday: timesRingToday,
       timesRingDay: timesRingDay,
@@ -75,7 +84,7 @@ class RA_DailyRingLimit {
       dayStartSeconds: dayStartSeconds,
     );
     if (count < maxTimesPerDay) return proposed;
-    return nextPeriodStartAfter(now, dayStartSeconds);
+    return dayStart;
   }
 
   /// Next day-period boundary after [now] (the next "Start at time of day").
@@ -114,5 +123,17 @@ class RA_DailyRingLimit {
     );
     return nextTrigger.millisecondsSinceEpoch ==
         expected.millisecondsSinceEpoch;
+  }
+
+  /// Next fire after a paused day-start target was missed: the sooner of
+  /// [now] plus [intervalSeconds] and the next period start.
+  static DateTime earliestResumeAfterMissedDayStart({
+    required DateTime now,
+    required int intervalSeconds,
+    required int dayStartSeconds,
+  }) {
+    final afterInterval = now.add(Duration(seconds: intervalSeconds));
+    final dayStart = nextPeriodStartAfter(now, dayStartSeconds);
+    return afterInterval.isBefore(dayStart) ? afterInterval : dayStart;
   }
 }
