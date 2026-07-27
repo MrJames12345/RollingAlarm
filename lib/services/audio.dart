@@ -125,12 +125,7 @@ class RA_AudioService {
       await _player!.setLoopMode(LoopMode.one);
       await _applyPlayerGain(fadeIn: fadeIn);
       if (startId != _playbackGeneration) return;
-      await _player!.play();
-      // Re-assert gain after play(); some engines reset volume on start.
-      await _applyPlayerGain(fadeIn: fadeIn);
-      if (fadeIn && startId == _playbackGeneration) {
-        _startFadeIn(startId);
-      }
+      await _startLoopingPlayer(fadeIn: fadeIn, startId: startId);
     } catch (_) {
       // Primary source failed; try bundled default so the visual alarm still
       // has audio when possible.
@@ -142,11 +137,7 @@ class RA_AudioService {
         await _player!.setAsset(defaultAlarmAsset);
         await _player!.setLoopMode(LoopMode.one);
         await _applyPlayerGain(fadeIn: fadeIn);
-        await _player!.play();
-        await _applyPlayerGain(fadeIn: fadeIn);
-        if (fadeIn && startId == _playbackGeneration) {
-          _startFadeIn(startId);
-        }
+        await _startLoopingPlayer(fadeIn: fadeIn, startId: startId);
       } catch (_) {
         // Audio playback failed; continue visual alarm gracefully.
         await stopAlarm();
@@ -220,6 +211,38 @@ class RA_AudioService {
         androidWillPauseWhenDucked: false,
       ),
     );
+  }
+
+  /// Starts looping playback, then reasserts gain and optional fade in.
+  ///
+  /// Do not await [AudioPlayer.play] here: with [LoopMode.one] that future
+  /// only completes on pause or stop, so fade in would stay at volume 0.
+  static Future<void> _startLoopingPlayer({
+    required bool fadeIn,
+    required int startId,
+  }) async {
+    final player = _player;
+    if (player == null) return;
+
+    unawaited(player.play());
+
+    // Wait until the engine reports playing so reassert runs after start.
+    if (!player.playing) {
+      try {
+        await player.playingStream
+            .firstWhere((playing) => playing)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        // Proceed anyway; fade still helps if playback starts late.
+      }
+    }
+    if (startId != _playbackGeneration) return;
+
+    // Reassert gain after play starts; some engines reset volume on start.
+    await _applyPlayerGain(fadeIn: fadeIn);
+    if (fadeIn && startId == _playbackGeneration) {
+      _startFadeIn(startId);
+    }
   }
 
   /// Sets internal player gain for the fade-in on/off paths.
