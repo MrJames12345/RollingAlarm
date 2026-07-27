@@ -620,7 +620,7 @@ class _RoutineCardWeekdays extends StatelessWidget {
         RA_ShapeStyles.space16,
         0,
         RA_ShapeStyles.space16,
-        RA_ShapeStyles.space8,
+        RA_ShapeStyles.space16,
       ),
       child: Row(
         children: [
