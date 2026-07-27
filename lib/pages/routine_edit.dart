@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/section_label.dart';
@@ -29,6 +30,7 @@ import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
+import 'package:rolling_alarm/utils.dart';
 
 class RoutineEditPage extends ConsumerStatefulWidget {
   final String dbPath;
@@ -125,8 +127,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   bool get _hasDisabledWeekday =>
       !RA_WeekdaySchedule.isEveryDay(_enabledWeekdays);
 
-  bool get _dayStartEnabled =>
-      _maxTimesPerDayEnabled || _hasDisabledWeekday;
+  bool get _dayStartEnabled => _maxTimesPerDayEnabled || _hasDisabledWeekday;
 
   @override
   void initState() {
@@ -585,7 +586,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               key: _driftCompensationFieldKey,
               child: RA_FormSection(
                 label: 'Drift Compensation',
-                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
+                bottomSpacing: _isEditing
+                    ? RA_ShapeStyles.space24
+                    : RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
                 child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
                   groupValue: _compensation,
                   onChanged: (v) => setState(() => _compensation = v),
@@ -603,10 +606,46 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                 ),
               ),
             ),
+            if (_isEditing) ...[
+              RA_Button(
+                text: 'Delete',
+                backgroundColor: RA_ColourStyles.softCoral,
+                foregroundColor: RA_ColourStyles.onAccent,
+                shadowColor: RA_ColourStyles.softCoral.withValues(alpha: 0.35),
+                onClick: () => unawaited(_deleteRoutine()),
+              ),
+              const SizedBox(
+                height: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.
+  Future<void> _deleteRoutine() async {
+    final existing = widget.existingRoutine;
+    if (existing == null) return;
+
+    final confirmed = await RA_showDeleteRoutineDialog(
+      context,
+      routineName: existing.Name,
+    );
+    if (confirmed != true) return;
+
+    final deleted = await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      await RA_AlarmService.cancel(existing.Id);
+      await db.softDeleteRoutine(existing.Id);
+      await RA_WidgetService.updateWidgetState(db: db);
+      return true;
+    });
+    if (deleted == true && mounted) {
+      // Leave edit and any summary underneath so home is showing.
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 }
 
