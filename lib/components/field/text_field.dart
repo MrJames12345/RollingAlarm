@@ -27,6 +27,7 @@ Widget RA_TextField({
           controller: controller,
           style: RA_TextStyles.mediumFont,
           cursorColor: RA_ColourStyles.secondary,
+          textCapitalization: TextCapitalization.sentences,
           onChanged: onChanged,
           onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           decoration: RA_InputDecoration(
