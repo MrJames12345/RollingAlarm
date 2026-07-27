@@ -224,14 +224,12 @@ class _DurationUnitFieldState extends State<_DurationUnitField> {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor =
-        widget.enabled
-            ? RA_ColourStyles.mutedPrimary
-            : RA_ColourStyles.faintPrimary;
-    final valueColor =
-        widget.enabled
-            ? RA_ColourStyles.secondary
-            : RA_ColourStyles.mutedPrimary;
+    final labelColor = widget.enabled
+        ? RA_ColourStyles.mutedPrimary
+        : RA_ColourStyles.faintPrimary;
+    final valueColor = widget.enabled
+        ? RA_ColourStyles.valueText
+        : RA_ColourStyles.mutedPrimary;
 
     final decoration = widget.hasError
         ? BoxDecoration(
@@ -303,17 +301,15 @@ class _DurationUnitFieldState extends State<_DurationUnitField> {
                 children: [
                   _UnitStepperTap(
                     icon: Icons.keyboard_arrow_up,
-                    onTap:
-                        widget.enabled && widget.canIncrement
-                            ? _increment
-                            : null,
+                    onTap: widget.enabled && widget.canIncrement
+                        ? _increment
+                        : null,
                   ),
                   _UnitStepperTap(
                     icon: Icons.keyboard_arrow_down,
-                    onTap:
-                        widget.enabled && widget.canDecrement
-                            ? _decrement
-                            : null,
+                    onTap: widget.enabled && widget.canDecrement
+                        ? _decrement
+                        : null,
                   ),
                 ],
               ),
@@ -332,10 +328,9 @@ Widget _UnitStepperTap({required IconData icon, required VoidCallback? onTap}) {
     child: IconButton(
       onPressed: onTap,
       icon: Icon(icon),
-      color:
-          onTap == null
-              ? RA_ColourStyles.primary.withValues(alpha: 0.25)
-              : RA_ColourStyles.primary,
+      color: onTap == null
+          ? RA_ColourStyles.primary.withValues(alpha: 0.25)
+          : RA_ColourStyles.primary,
       splashColor: RA_ColourStyles.secondary.withValues(alpha: 0.2),
       highlightColor: RA_ColourStyles.secondary.withValues(alpha: 0.1),
       constraints: const BoxConstraints(minWidth: 36, minHeight: 38),
@@ -344,4 +339,3 @@ Widget _UnitStepperTap({required IconData icon, required VoidCallback? onTap}) {
     ),
   );
 }
-

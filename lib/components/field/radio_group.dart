@@ -32,7 +32,7 @@ Widget RA_RadioGroup<T>({
               Divider(
                 height: 1,
                 thickness: 1,
-                color: RA_ColourStyles.offBlack.withValues(alpha: 0.55),
+                color: RA_ColourStyles.divider,
               ),
             _RadioTile<T>(
               option: options[i],

@@ -35,9 +35,7 @@ class RA_TimeOfDayField extends StatelessWidget {
       context: context,
       backgroundColor: RA_ColourStyles.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -73,7 +71,7 @@ class RA_TimeOfDayField extends StatelessWidget {
                   height: 196,
                   child: CupertinoTheme(
                     data: CupertinoThemeData(
-                      brightness: Brightness.dark,
+                      brightness: RA_ColourStyles.brightness,
                       primaryColor: RA_ColourStyles.secondary,
                       textTheme: CupertinoTextThemeData(
                         dateTimePickerTextStyle: RA_TextStyles.largeFont
@@ -109,7 +107,7 @@ class RA_TimeOfDayField extends StatelessWidget {
         ? RA_ColourStyles.mutedPrimary
         : RA_ColourStyles.faintPrimary;
     final valueColor = enabled
-        ? RA_ColourStyles.secondary
+        ? RA_ColourStyles.valueText
         : RA_ColourStyles.mutedPrimary;
 
     return Opacity(
@@ -169,10 +167,7 @@ class RA_TimeOfDayField extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.access_time,
-                      color: labelColor,
-                    ),
+                    Icon(Icons.access_time, color: labelColor),
                   ],
                 ),
               ),

@@ -60,7 +60,7 @@ class HomePage extends StatelessWidget {
           ),
           child: FloatingActionButton(
             backgroundColor: RA_ColourStyles.secondary,
-            foregroundColor: RA_ColourStyles.offBlack,
+            foregroundColor: RA_ColourStyles.onAccent,
             elevation: 0,
             highlightElevation: 0,
             splashColor: RA_ColourStyles.primary.withValues(alpha: 0.22),

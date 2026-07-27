@@ -1,6 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/database/database.dart';
+import 'package:rolling_alarm/enums/alarm_side_button_action.dart';
+import 'package:rolling_alarm/enums/alarm_snooze_dismiss_layout.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
+import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
+import 'package:rolling_alarm/services/settings.dart';
+import 'package:rolling_alarm/styles.dart';
 
 /// Provides the singleton [RA_Database] instance.
 /// Overridden in main() with the concrete, path-resolved instance.
@@ -10,6 +16,104 @@ final RA_DatabaseProvider = Provider<RA_Database>((ref) {
     'instance in the root ProviderScope.',
   );
 });
+
+/// App-wide snooze/dismiss control layout on the alarm ring screen.
+final AlarmSnoozeDismissLayoutProvider =
+    AsyncNotifierProvider<
+      AlarmSnoozeDismissLayoutNotifier,
+      AlarmSnoozeDismissLayoutEnum
+    >(AlarmSnoozeDismissLayoutNotifier.new);
+
+class AlarmSnoozeDismissLayoutNotifier
+    extends AsyncNotifier<AlarmSnoozeDismissLayoutEnum> {
+  @override
+  Future<AlarmSnoozeDismissLayoutEnum> build() {
+    return RA_SettingsService.getAlarmSnoozeDismissLayout();
+  }
+
+  Future<void> setLayout(AlarmSnoozeDismissLayoutEnum layout) async {
+    state = AsyncData(layout);
+    await RA_SettingsService.setAlarmSnoozeDismissLayout(layout);
+  }
+}
+
+/// App chrome theme (light or dark), persisted in SharedPreferences.
+final AppThemeModeProvider =
+    AsyncNotifierProvider<AppThemeModeNotifier, AppThemeModeEnum>(
+      AppThemeModeNotifier.new,
+    );
+
+class AppThemeModeNotifier extends AsyncNotifier<AppThemeModeEnum> {
+  @override
+  Future<AppThemeModeEnum> build() async {
+    final mode = await RA_SettingsService.getThemeMode();
+    RA_ColourStyles.apply(mode);
+    return mode;
+  }
+
+  Future<void> setMode(AppThemeModeEnum mode) async {
+    RA_ColourStyles.apply(mode);
+    state = AsyncData(mode);
+    await RA_SettingsService.setThemeMode(mode);
+  }
+}
+
+/// Hardware side button actions while an alarm is ringing.
+final AlarmSideButtonsProvider =
+    AsyncNotifierProvider<AlarmSideButtonsNotifier, AlarmSideButtonsSettings>(
+      AlarmSideButtonsNotifier.new,
+    );
+
+class AlarmSideButtonsNotifier extends AsyncNotifier<AlarmSideButtonsSettings> {
+  @override
+  Future<AlarmSideButtonsSettings> build() {
+    return RA_SettingsService.getSideButtons();
+  }
+
+  Future<void> setButtonAction({
+    required AlarmSideButtonEnum button,
+    required AlarmSideButtonActionEnum action,
+  }) async {
+    final current = state.valueOrNull ?? const AlarmSideButtonsSettings();
+    final next = current.copyWithButton(button: button, action: action);
+    state = AsyncData(next);
+    await RA_SettingsService.setSideButtonAction(
+      button: button,
+      action: action,
+    );
+  }
+}
+
+/// Left/right swipe actions on home routine cards.
+final RoutineSwipeActionsProvider =
+    AsyncNotifierProvider<
+      RoutineSwipeActionsNotifier,
+      RoutineSwipeActionsSettings
+    >(RoutineSwipeActionsNotifier.new);
+
+class RoutineSwipeActionsNotifier
+    extends AsyncNotifier<RoutineSwipeActionsSettings> {
+  @override
+  Future<RoutineSwipeActionsSettings> build() {
+    return RA_SettingsService.getSwipeActions();
+  }
+
+  Future<void> setDirectionAction({
+    required RoutineSwipeDirectionEnum direction,
+    required RoutineSwipeActionEnum action,
+  }) async {
+    final current = state.valueOrNull ?? const RoutineSwipeActionsSettings();
+    final next = current.copyWithDirection(
+      direction: direction,
+      action: action,
+    );
+    state = AsyncData(next);
+    await RA_SettingsService.setSwipeAction(
+      direction: direction,
+      action: action,
+    );
+  }
+}
 
 /// Watches all non-deleted routines as a reactive stream.
 ///
@@ -30,8 +134,8 @@ final ActiveRoutineStateProvider = StreamProvider.autoDispose
     });
 
 /// Derives card UI phase from [ActiveRoutineStateProvider], selecting only
-/// [IsRinging], [NextTriggerTime], and [PausedAt] so snooze count and other
-/// fields do not rebuild chrome or status widgets.
+/// [IsRinging], [NextTriggerTime], [PausedAt], and [MutedAt] so snooze count
+/// and other fields do not rebuild chrome or status widgets.
 final RoutineUiSnapshotProvider = Provider.autoDispose
     .family<RA_RoutineUiSnapshot, int>((ref, routineId) {
       return ref.watch(
@@ -48,6 +152,12 @@ RA_RoutineUiSnapshot _snapshotFromAsync(AsyncValue<RoutineStateModel?> async) {
           pausedAt: s.PausedAt!,
           nextTriggerTime: s.NextTriggerTime,
         );
+      }
+      if (s.MutedAt != null && s.NextTriggerTime != null) {
+        return RA_RoutineUiSnapshot.muted(s.NextTriggerTime!);
+      }
+      if (s.MutedAt != null) {
+        return const RA_RoutineUiSnapshot.idle();
       }
       if (s.IsRinging) return const RA_RoutineUiSnapshot.ringing();
       if (s.NextTriggerTime != null) {

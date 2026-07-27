@@ -9,6 +9,7 @@ import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/routine/routine_countdown.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
+import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
@@ -39,6 +40,7 @@ class RA_RoutineCard extends ConsumerWidget {
       RoutineUiSnapshotProvider(routine.Id).select((s) => s.phase),
     );
     final isPaused = phase == RA_RoutineUiPhase.paused;
+    final isMuted = phase == RA_RoutineUiPhase.muted;
     final hideDismissUpcoming =
         isPaused ||
         ref.watch(
@@ -52,48 +54,22 @@ class RA_RoutineCard extends ConsumerWidget {
           }),
         );
     final chrome = _chromeFor(phase);
+    final swipeActions =
+        ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
+        const RoutineSwipeActionsSettings();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
       child: _SwipeRoutineActions(
+        leftAction: swipeActions.left,
+        rightAction: swipeActions.right,
+        dismissUpcomingAllowed: !hideDismissUpcoming,
         confirmDelete: () =>
             RA_showDeleteRoutineDialog(context, routineName: routine.Name),
         onDeleteConfirmed: () => _deleteRoutine(ref),
-        onPauseToggle: () => _togglePause(ref),
-        deleteBackground: DecoratedBox(
-          decoration: BoxDecoration(
-            color: RA_ColourStyles.softCoral,
-            borderRadius: RA_ShapeStyles.largeBorderRadius,
-          ),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: RA_ShapeStyles.space24),
-              child: Icon(
-                Icons.delete_outline,
-                color: RA_ColourStyles.offBlack,
-                size: 28,
-              ),
-            ),
-          ),
-        ),
-        pauseBackground: DecoratedBox(
-          decoration: BoxDecoration(
-            color: RA_ColourStyles.secondary,
-            borderRadius: RA_ShapeStyles.largeBorderRadius,
-          ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: RA_ShapeStyles.space24),
-              child: Icon(
-                isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                color: RA_ColourStyles.offBlack,
-                size: 28,
-              ),
-            ),
-          ),
-        ),
+        onMute: () => _toggleMute(ref),
+        onPause: () => _togglePause(ref),
+        onDismissUpcoming: () => _handleSkip(context, ref),
         child: AnimatedContainer(
           duration: RA_ShapeStyles.stateTransitionDuration,
           curve: Curves.easeInOut,
@@ -138,7 +114,7 @@ class RA_RoutineCard extends ConsumerWidget {
               },
               child: AnimatedOpacity(
                 duration: RA_ShapeStyles.stateTransitionDuration,
-                opacity: isPaused ? 0.62 : 1,
+                opacity: isPaused ? 0.62 : (isMuted ? 0.85 : 1),
                 child: Padding(
                   padding: const EdgeInsets.all(RA_ShapeStyles.space16),
                   child: Column(
@@ -174,17 +150,47 @@ class RA_RoutineCard extends ConsumerWidget {
                       _TodayRingCount(routine: routine, muted: isPaused),
                       const SizedBox(height: RA_ShapeStyles.space16),
                       _RoutineCardStatus(routineId: routine.Id),
-                      if (!hideDismissUpcoming) ...[
-                        const SizedBox(height: RA_ShapeStyles.space16),
-                        Align(
-                          alignment: Alignment.centerRight,
+                      const SizedBox(height: RA_ShapeStyles.space16),
+                      if (isPaused)
+                        Center(
                           child: RA_IconTextButton(
-                            icon: Icons.skip_next,
-                            label: 'Dismiss upcoming',
-                            onTap: () => unawaited(_handleSkip(context, ref)),
+                            icon: Icons.pause_rounded,
+                            label: 'Paused',
+                            color: RA_ColourStyles.sleepIndigo,
+                            onTap: () => unawaited(_togglePause(ref)),
                           ),
+                        )
+                      else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            RA_IconTextButton(
+                              icon: isMuted
+                                  ? Icons.notifications_off_rounded
+                                  : Icons.notifications_off_outlined,
+                              label: isMuted ? 'Muted' : 'Mute',
+                              color: isMuted
+                                  ? RA_ColourStyles.sleepIndigo
+                                  : null,
+                              onTap: () => unawaited(_toggleMute(ref)),
+                            ),
+                            const SizedBox(width: RA_ShapeStyles.space8),
+                            RA_IconTextButton(
+                              icon: Icons.pause_rounded,
+                              label: 'Pause',
+                              onTap: () => unawaited(_togglePause(ref)),
+                            ),
+                            if (!hideDismissUpcoming) ...[
+                              const SizedBox(width: RA_ShapeStyles.space8),
+                              RA_IconTextButton(
+                                icon: Icons.skip_next,
+                                label: 'Dismiss upcoming',
+                                onTap: () =>
+                                    unawaited(_handleSkip(context, ref)),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
                     ],
                   ),
                 ),
@@ -231,6 +237,25 @@ class RA_RoutineCard extends ConsumerWidget {
     });
   }
 
+  Future<void> _toggleMute(WidgetRef ref) async {
+    await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      final muted =
+          ref.read(RoutineUiSnapshotProvider(routine.Id)).phase ==
+          RA_RoutineUiPhase.muted;
+      if (muted) {
+        await RA_AlarmService.unmuteRoutine(routineId: routine.Id, db: db);
+      } else {
+        await RA_AlarmService.muteRoutine(
+          routineId: routine.Id,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+      }
+    });
+  }
+
   Future<void> _handleSkip(BuildContext context, WidgetRef ref) async {
     final countTowardsDaily = await RA_showCountDailySkipDialog(context);
     if (countTowardsDaily == null) return;
@@ -251,22 +276,28 @@ class RA_RoutineCard extends ConsumerWidget {
   }
 }
 
-/// Swipe left to delete (confirm). Swipe right to pause or resume (no confirm).
+/// Swipe left/right to run the configured home-card actions.
 class _SwipeRoutineActions extends StatefulWidget {
   final Widget child;
-  final Widget deleteBackground;
-  final Widget pauseBackground;
+  final RoutineSwipeActionEnum leftAction;
+  final RoutineSwipeActionEnum rightAction;
+  final bool dismissUpcomingAllowed;
   final Future<bool?> Function() confirmDelete;
   final Future<bool> Function() onDeleteConfirmed;
-  final Future<void> Function() onPauseToggle;
+  final Future<void> Function() onMute;
+  final Future<void> Function() onPause;
+  final Future<void> Function() onDismissUpcoming;
 
   const _SwipeRoutineActions({
     required this.child,
-    required this.deleteBackground,
-    required this.pauseBackground,
+    required this.leftAction,
+    required this.rightAction,
+    required this.dismissUpcomingAllowed,
     required this.confirmDelete,
     required this.onDeleteConfirmed,
-    required this.onPauseToggle,
+    required this.onMute,
+    required this.onPause,
+    required this.onDismissUpcoming,
   });
 
   @override
@@ -301,28 +332,28 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
     );
   }
 
+  bool _actionAvailable(RoutineSwipeActionEnum action) {
+    if (action == RoutineSwipeActionEnum.DismissUpcoming) {
+      return widget.dismissUpcomingAllowed;
+    }
+    return true;
+  }
+
   Future<void> _onDragEnd(double velocity) async {
     if (_busy) return;
 
     final value = _controller.value;
+    final towardLeft = value < 0 || (value == 0 && velocity < 0);
+    final action = towardLeft ? widget.leftAction : widget.rightAction;
+    final signedThreshold = _width * _actionFraction;
+    final pastThreshold = towardLeft
+        ? -value >= signedThreshold
+        : value >= signedThreshold;
+    final fling = towardLeft
+        ? velocity < -700 && value < 0
+        : velocity > 700 && value > 0;
 
-    // Swipe right: pause / resume
-    final pastPauseThreshold = value >= _width * _actionFraction;
-    final flingToPause = velocity > 700 && value > 0;
-    if (pastPauseThreshold || flingToPause) {
-      _busy = true;
-      RA_Haptics.heavyUnawaited();
-      await _animateTo(0);
-      if (!mounted) return;
-      await widget.onPauseToggle();
-      if (mounted) _busy = false;
-      return;
-    }
-
-    // Swipe left: delete with confirm
-    final pastDeleteThreshold = -value >= _width * _actionFraction;
-    final flingToDelete = velocity < -700 && value < 0;
-    if (!pastDeleteThreshold && !flingToDelete) {
+    if ((!pastThreshold && !fling) || !_actionAvailable(action)) {
       await _animateTo(0);
       return;
     }
@@ -330,22 +361,38 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
     _busy = true;
     RA_Haptics.heavyUnawaited();
 
-    final confirmed = await widget.confirmDelete();
-    if (!mounted) return;
-
-    if (confirmed == true) {
-      await _animateTo(-_width);
+    if (action == RoutineSwipeActionEnum.Delete) {
+      final confirmed = await widget.confirmDelete();
       if (!mounted) return;
-      final deleted = await widget.onDeleteConfirmed();
-      if (!mounted) return;
-      if (!deleted) {
+      if (confirmed == true) {
+        await _animateTo(towardLeft ? -_width : _width);
+        if (!mounted) return;
+        final deleted = await widget.onDeleteConfirmed();
+        if (!mounted) return;
+        if (!deleted) await _animateTo(0);
+      } else {
         await _animateTo(0);
       }
     } else {
+      await _runAction(action);
+      if (!mounted) return;
       await _animateTo(0);
     }
 
     if (mounted) _busy = false;
+  }
+
+  Future<void> _runAction(RoutineSwipeActionEnum action) async {
+    switch (action) {
+      case RoutineSwipeActionEnum.Mute:
+        await widget.onMute();
+      case RoutineSwipeActionEnum.Pause:
+        await widget.onPause();
+      case RoutineSwipeActionEnum.DismissUpcoming:
+        await widget.onDismissUpcoming();
+      case RoutineSwipeActionEnum.Delete:
+        break;
+    }
   }
 
   @override
@@ -376,9 +423,19 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
               return Stack(
                 children: [
                   if (value < 0)
-                    Positioned.fill(child: widget.deleteBackground)
-                  else if (value > 0)
-                    Positioned.fill(child: widget.pauseBackground),
+                    Positioned.fill(
+                      child: _SwipeActionBackground(
+                        action: widget.leftAction,
+                        alignEnd: true,
+                      ),
+                    ),
+                  if (value > 0)
+                    Positioned.fill(
+                      child: _SwipeActionBackground(
+                        action: widget.rightAction,
+                        alignEnd: false,
+                      ),
+                    ),
                   Transform.translate(offset: Offset(value, 0), child: child),
                 ],
               );
@@ -387,6 +444,41 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
           ),
         );
       },
+    );
+  }
+}
+
+/// Coloured swipe reveal with action icon on the exposed edge.
+class _SwipeActionBackground extends StatelessWidget {
+  final RoutineSwipeActionEnum action;
+  final bool alignEnd;
+
+  const _SwipeActionBackground({
+    required this.action,
+    required this.alignEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: action.color,
+        borderRadius: RA_ShapeStyles.largeBorderRadius,
+      ),
+      child: Align(
+        alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: alignEnd ? 0 : RA_ShapeStyles.space24,
+            right: alignEnd ? RA_ShapeStyles.space24 : 0,
+          ),
+          child: Icon(
+            action.icon,
+            color: RA_ColourStyles.onAccent,
+            size: 28,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -425,6 +517,14 @@ _CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
     glow: RA_ShapeStyles.tealGlow,
     splash: RA_ColourStyles.secondary.withValues(alpha: 0.1),
     highlight: RA_ColourStyles.secondary.withValues(alpha: 0.04),
+  ),
+  RA_RoutineUiPhase.muted => _CardChrome(
+    fill: RA_ColourStyles.offBlack,
+    border: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.4),
+    borderWidth: 1.5,
+    glow: null,
+    splash: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.12),
+    highlight: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.05),
   ),
   RA_RoutineUiPhase.paused => _CardChrome(
     fill: RA_ColourStyles.surface,
@@ -469,7 +569,11 @@ class _TodayRingCount extends ConsumerWidget {
       }),
     );
 
-    final label = count == 1 ? '1 time today' : '$count times today';
+    final label = routine.MaxTimesPerDayEnabled
+        ? '$count/${routine.MaxTimesPerDay} times today'
+        : count == 1
+        ? '1 time today'
+        : '$count times today';
     return Text(
       label,
       style: RA_TextStyles.tinyFont.copyWith(
@@ -535,15 +639,20 @@ class _RoutineCardStatus extends ConsumerWidget {
           ),
         );
       case RA_RoutineUiPhase.countingDown:
+      case RA_RoutineUiPhase.muted:
         final next = snapshot.nextTriggerTime!;
         return Column(
-          key: ValueKey('next_${next.millisecondsSinceEpoch}'),
+          key: ValueKey(
+            '${snapshot.phase.name}_${next.millisecondsSinceEpoch}',
+          ),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             RA_Countdown(nextTriggerTime: next),
             const SizedBox(height: RA_ShapeStyles.space8),
             Text(
-              'Next: ${RA_Utils.formatTime(next)}',
+              snapshot.phase == RA_RoutineUiPhase.muted
+                  ? 'Muted, next: ${RA_Utils.formatTime(next)}'
+                  : 'Next: ${RA_Utils.formatTime(next)}',
               style: RA_TextStyles.timestampFont,
             ),
           ],

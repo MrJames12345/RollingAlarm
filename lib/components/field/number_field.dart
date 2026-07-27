@@ -27,7 +27,7 @@ Widget RA_NumberField({
       ? RA_ColourStyles.mutedPrimary
       : RA_ColourStyles.faintPrimary;
   final valueColor = enabled
-      ? RA_ColourStyles.secondary
+      ? RA_ColourStyles.valueText
       : RA_ColourStyles.mutedPrimary;
 
   return Opacity(

@@ -20,7 +20,7 @@ Widget RA_Button({
       (isPrimary ? RA_ColourStyles.secondary : RA_ColourStyles.surface);
   final fg =
       foregroundColor ??
-      (isPrimary ? RA_ColourStyles.offBlack : RA_ColourStyles.primary);
+      (isPrimary ? RA_ColourStyles.onAccent : RA_ColourStyles.primary);
   final side =
       sideColor ??
       (isPrimary ? null : RA_ColourStyles.secondary.withValues(alpha: 0.3));

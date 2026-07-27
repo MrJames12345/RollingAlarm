@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
+import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
+import 'package:rolling_alarm/enums/alarm_side_button_action.dart';
+import 'package:rolling_alarm/enums/alarm_snooze_dismiss_layout.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/notification.dart';
+import 'package:rolling_alarm/services/settings.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -20,6 +25,9 @@ class AlarmRingPage extends ConsumerStatefulWidget {
   final int volume;
   final bool fadeIn;
 
+  /// When true, snooze/dismiss only stop audio and pop; no alarm side effects.
+  final bool isPreview;
+
   const AlarmRingPage({
     super.key,
     required this.routineId,
@@ -28,6 +36,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
     this.vibrate = true,
     this.volume = 100,
     this.fadeIn = false,
+    this.isPreview = false,
   });
 
   @override
@@ -36,6 +45,10 @@ class AlarmRingPage extends ConsumerStatefulWidget {
 
 class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     with SingleTickerProviderStateMixin {
+  static const MethodChannel _alarmSoundChannel = MethodChannel(
+    'com.example.rolling_alarm/alarm_sound',
+  );
+
   late final AnimationController _pulseController;
   late final Animation<double> _pulse;
   late final ValueNotifier<double> _escalation;
@@ -67,7 +80,54 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       _pulseController.duration = Duration(milliseconds: ms);
       unawaited(_pulseController.repeat(reverse: true));
     });
+    _alarmSoundChannel.setMethodCallHandler(_onPlatformCall);
     unawaited(_startAlarmAudio());
+    unawaited(_syncSideButtonActions());
+  }
+
+  Future<dynamic> _onPlatformCall(MethodCall call) async {
+    if (call.method != 'sideButtonAction') return null;
+    final raw = call.arguments;
+    if (raw is! String) return null;
+    final action = switch (raw) {
+      'snooze' => RA_AlarmActionTypeCodeEnum.Snooze,
+      'dismiss' => RA_AlarmActionTypeCodeEnum.Dismiss,
+      _ => null,
+    };
+    if (action == null) return null;
+    await _handleAction(action);
+    return null;
+  }
+
+  Future<void> _syncSideButtonActions() async {
+    final settings =
+        ref.read(AlarmSideButtonsProvider).valueOrNull ??
+        await RA_SettingsService.getSideButtons();
+    try {
+      await _alarmSoundChannel.invokeMethod('setSideButtonActions', {
+        'volumeUp': _actionWireName(settings.volumeUp),
+        'volumeDown': _actionWireName(settings.volumeDown),
+        'power': _actionWireName(settings.power),
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _clearSideButtonActions() async {
+    try {
+      await _alarmSoundChannel.invokeMethod('setSideButtonActions', {
+        'volumeUp': 'none',
+        'volumeDown': 'none',
+        'power': 'none',
+      });
+    } catch (_) {}
+  }
+
+  String _actionWireName(AlarmSideButtonActionEnum action) {
+    return switch (action) {
+      AlarmSideButtonActionEnum.None => 'none',
+      AlarmSideButtonActionEnum.Snooze => 'snooze',
+      AlarmSideButtonActionEnum.Dismiss => 'dismiss',
+    };
   }
 
   Future<void> _startAlarmAudio() async {
@@ -86,6 +146,9 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     setState(() => _busy = true);
     try {
       await RA_AudioService.stopAlarm();
+
+      // Preview returns to the editor without snooze/dismiss side effects.
+      if (widget.isPreview) return;
 
       final db = ref.read(RA_DatabaseProvider);
       final routine = await db.getRoutineById(widget.routineId);
@@ -123,14 +186,23 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     _escalationTimer?.cancel();
     _escalation.dispose();
     _pulseController.dispose();
+    _alarmSoundChannel.setMethodCallHandler(null);
+    unawaited(_clearSideButtonActions());
     unawaited(RA_AudioService.stopAlarm());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Keep native key remapping in sync if Settings change while ringing.
+    ref.listen(AlarmSideButtonsProvider, (previous, next) {
+      next.whenData((_) => unawaited(_syncSideButtonActions()));
+    });
+
     // Notification snooze/dismiss can clear ringing while this page is open.
+    // Preview ignores live state so a real ring elsewhere cannot auto close it.
     ref.listen(ActiveRoutineStateProvider(widget.routineId), (previous, next) {
+      if (widget.isPreview) return;
       next.whenData((state) {
         if (_busy) return;
         if (state == null || !state.IsRinging) {
@@ -144,20 +216,27 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     // Scaffold and action chrome stay stable; urgency glow / icon listen to
     // pulse + escalation notifiers, and the clock ticks in its own State.
     // Block system back so Home / Edit cannot cover a live ring.
+    // Preview allows back so the editor returns without side effects.
     return PopScope(
-      canPop: false,
+      canPop: widget.isPreview,
       child: MediaQuery.withClampedTextScaling(
         minScaleFactor: 0.9,
         maxScaleFactor: 1.2,
         child: Scaffold(
           backgroundColor: RA_ColourStyles.offBlack,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              _RingUrgencyGlow(pulse: _pulse, escalation: _escalation),
-              SafeArea(
-                maintainBottomViewPadding: true,
-                child: Column(
+          // Keep the whole ring chrome (glow + controls) above the OS
+          // navigation / status bars. viewPadding covers edge-to-edge cases
+          // where MediaQuery.padding.bottom is already consumed or zero.
+          body: SafeArea(
+            maintainBottomViewPadding: true,
+            minimum: EdgeInsets.only(
+              bottom: MediaQuery.viewPaddingOf(context).bottom,
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _RingUrgencyGlow(pulse: _pulse, escalation: _escalation),
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Spacer(flex: 2),
@@ -197,36 +276,18 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                           padding: const EdgeInsets.symmetric(
                             horizontal: RA_ShapeStyles.space16,
                           ),
-                          child: Column(
-                            children: [
-                              _SlideToAction(
-                                key: const Key('ra_ring_snooze'),
-                                label: 'Slide to snooze',
-                                semanticsLabel: 'Slide to snooze alarm',
-                                accent: RA_ColourStyles.secondary,
-                                glow: RA_ShapeStyles.tealGlow,
-                                thumbIcon: Icons.snooze,
-                                onComplete: () => unawaited(
-                                  _handleAction(
-                                    RA_AlarmActionTypeCodeEnum.Snooze,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: RA_ShapeStyles.space16),
-                              _SlideToAction(
-                                key: const Key('ra_ring_dismiss'),
-                                label: 'Slide to dismiss',
-                                semanticsLabel: 'Slide to dismiss alarm',
-                                accent: RA_ColourStyles.softCoral,
-                                glow: RA_ShapeStyles.softCoralGlow,
-                                thumbIcon: Icons.alarm_off,
-                                onComplete: () => unawaited(
-                                  _handleAction(
-                                    RA_AlarmActionTypeCodeEnum.Dismiss,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: _RingActions(
+                            layout:
+                                ref
+                                    .watch(AlarmSnoozeDismissLayoutProvider)
+                                    .valueOrNull ??
+                                AlarmSnoozeDismissLayoutEnum.Sliders,
+                            onSnooze: () => unawaited(
+                              _handleAction(RA_AlarmActionTypeCodeEnum.Snooze),
+                            ),
+                            onDismiss: () => unawaited(
+                              _handleAction(RA_AlarmActionTypeCodeEnum.Dismiss),
+                            ),
                           ),
                         ),
                       ),
@@ -234,8 +295,149 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                     const SizedBox(height: RA_ShapeStyles.space48),
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Snooze/dismiss controls: stacked slide tracks or a side-by-side button row.
+class _RingActions extends StatelessWidget {
+  final AlarmSnoozeDismissLayoutEnum layout;
+  final VoidCallback onSnooze;
+  final VoidCallback onDismiss;
+
+  const _RingActions({
+    required this.layout,
+    required this.onSnooze,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (layout == AlarmSnoozeDismissLayoutEnum.Buttons) {
+      return Row(
+        children: [
+          Expanded(
+            child: _RingActionButton(
+              key: const Key('ra_ring_snooze'),
+              label: 'Snooze',
+              semanticsLabel: 'Snooze alarm',
+              accent: RA_ColourStyles.secondary,
+              glow: RA_ShapeStyles.tealGlow,
+              icon: Icons.snooze,
+              onPressed: onSnooze,
+            ),
+          ),
+          const SizedBox(width: RA_ShapeStyles.space16),
+          Expanded(
+            child: _RingActionButton(
+              key: const Key('ra_ring_dismiss'),
+              label: 'Dismiss',
+              semanticsLabel: 'Dismiss alarm',
+              accent: RA_ColourStyles.softCoral,
+              glow: RA_ShapeStyles.softCoralGlow,
+              icon: Icons.alarm_off,
+              onPressed: onDismiss,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        _SlideToAction(
+          key: const Key('ra_ring_snooze'),
+          label: 'Slide to snooze',
+          semanticsLabel: 'Slide to snooze alarm',
+          accent: RA_ColourStyles.secondary,
+          glow: RA_ShapeStyles.tealGlow,
+          thumbIcon: Icons.snooze,
+          onComplete: onSnooze,
+        ),
+        const SizedBox(height: RA_ShapeStyles.space16),
+        _SlideToAction(
+          key: const Key('ra_ring_dismiss'),
+          label: 'Slide to dismiss',
+          semanticsLabel: 'Slide to dismiss alarm',
+          accent: RA_ColourStyles.softCoral,
+          glow: RA_ShapeStyles.softCoralGlow,
+          thumbIcon: Icons.alarm_off,
+          onComplete: onDismiss,
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-width ring action button matching slide-track chrome height and accents.
+class _RingActionButton extends StatelessWidget {
+  final String label;
+  final String semanticsLabel;
+  final Color accent;
+  final List<BoxShadow> glow;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _RingActionButton({
+    super.key,
+    required this.label,
+    required this.semanticsLabel,
+    required this.accent,
+    required this.glow,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: RA_PressScale(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              RA_Haptics.heavyUnawaited();
+              onPressed();
+            },
+            borderRadius: RA_ShapeStyles.largeBorderRadius,
+            splashColor: accent.withValues(alpha: 0.2),
+            highlightColor: accent.withValues(alpha: 0.1),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: RA_ColourStyles.surface,
+                borderRadius: RA_ShapeStyles.largeBorderRadius,
+                border: Border.all(
+                  color: accent.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+                boxShadow: glow,
               ),
-            ],
+              child: SizedBox(
+                height: RA_ShapeStyles.minTouchTarget + RA_ShapeStyles.space16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: accent, size: 26),
+                    const SizedBox(width: RA_ShapeStyles.space8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: RA_TextStyles.smallFont.copyWith(color: accent),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -547,7 +749,7 @@ class _SlideToActionState extends State<_SlideToAction>
                           ),
                           child: Icon(
                             widget.thumbIcon,
-                            color: RA_ColourStyles.offBlack,
+                            color: RA_ColourStyles.onAccent,
                             size: 26,
                           ),
                         ),

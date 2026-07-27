@@ -41,7 +41,7 @@ Widget RA_SoundField({
                       Text(
                         value.displayLabel,
                         style: RA_TextStyles.largeFont.copyWith(
-                          color: RA_ColourStyles.secondary,
+                          color: RA_ColourStyles.valueText,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -56,10 +56,7 @@ Widget RA_SoundField({
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.music_note,
-                  color: RA_ColourStyles.mutedPrimary,
-                ),
+                Icon(Icons.music_note, color: RA_ColourStyles.mutedPrimary),
               ],
             ),
           ),
