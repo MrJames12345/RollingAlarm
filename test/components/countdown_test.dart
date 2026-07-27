@@ -18,9 +18,7 @@ void main() {
         ProviderScope(
           overrides: [
             CountdownProvider(targetTime).overrideWith(
-              (ref) => Stream.value(
-                const Duration(hours: 1, minutes: 30, seconds: 45),
-              ),
+              (ref) => const Duration(hours: 1, minutes: 30, seconds: 45),
             ),
           ],
           child: MaterialApp(
@@ -54,32 +52,30 @@ void main() {
       );
     });
 
-    testWidgets(
-      'renders error style with softCoral/error color when provider errors',
-      (tester) async {
-        final targetTime = DateTime.now();
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              CountdownProvider(
-                targetTime,
-              ).overrideWith((ref) => Stream.error('Error')),
-            ],
-            child: MaterialApp(
-              home: Scaffold(body: RA_Countdown(nextTriggerTime: targetTime)),
+    testWidgets('renders muted style when frozenRemaining is set', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: RA_Countdown(
+                frozenRemaining: Duration(hours: 2, minutes: 5, seconds: 9),
+              ),
             ),
           ),
-        );
+        ),
+      );
 
-        await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-        final textFinder = find.text('--:--:--');
-        expect(textFinder, findsOneWidget);
-
-        final textWidget = tester.widget<Text>(textFinder);
-        expect(textWidget.style?.color, equals(RA_ColourStyles.softCoral));
-      },
-    );
+      expect(find.text('02:05:09'), findsOneWidget);
+      final animatedFinder = find.descendant(
+        of: find.byType(RA_Countdown),
+        matching: find.byType(AnimatedDefaultTextStyle),
+      );
+      final animated = tester.widget<AnimatedDefaultTextStyle>(animatedFinder);
+      expect(animated.style.color, equals(RA_ColourStyles.mutedPrimary));
+    });
   });
 }

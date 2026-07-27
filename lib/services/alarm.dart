@@ -739,6 +739,127 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
+  /// Pauses [routine]: cancels OS timers, freezes the countdown at the remaining
+  /// duration, and marks the routine inactive so background fires are ignored.
+  ///
+  /// If the routine is currently ringing, ends the ring and freezes the next
+  /// interval trigger (same calculation as dismiss) without scheduling it.
+  static Future<void> pauseRoutine({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required String dbPath,
+  }) async {
+    final now = DateTime.now();
+    final state = await db.getRoutineState(routineId);
+
+    await cancel(routineId);
+    await _cancelWatchdog(routineId);
+    await RA_NotificationService.cancelNotification(routineId);
+
+    if (state?.IsRinging == true) {
+      await RA_AudioService.stopAlarm();
+      await stopNativeRinging(routineId);
+      await dismissAlarmUI();
+    }
+
+    DateTime? next = state?.NextTriggerTime;
+    var snoozeCount = state?.CurrentSnoozeCount ?? 0;
+
+    if (state?.IsRinging == true) {
+      final compensation = DriftCompensationTypeCodeEnum
+          .values[routine.DriftCompensationTypeCode];
+      final calculated = RA_AlarmCalculator.calculateNextTrigger(
+        Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+        Compensation: compensation,
+        IntervalSeconds: routine.IntervalSeconds,
+        SnoozeSeconds: routine.SnoozeSeconds,
+        InitialRingTime: state?.InitialRingTime ?? now,
+        Now: now,
+      );
+      next = RA_DailyRingLimit.deferIfDailyLimitReached(
+        proposed: calculated,
+        maxTimesPerDay: routine.MaxTimesPerDayEnabled
+            ? routine.MaxTimesPerDay
+            : 0,
+        timesRingToday: state?.TimesRingToday ?? 0,
+        timesRingDay: state?.TimesRingDay,
+        now: now,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+      snoozeCount = 0;
+    }
+
+    await db.updateRoutine(
+      RoutinesCompanion(Id: Value(routineId), IsActive: const Value(false)),
+    );
+
+    if (state != null) {
+      await db.updateRoutineState(
+        routineId,
+        RoutineStatesCompanion(
+          IsRinging: const Value(false),
+          PausedAt: Value(now),
+          NextTriggerTime: Value(next),
+          CurrentSnoozeCount: Value(snoozeCount),
+        ),
+      );
+    }
+
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+  }
+
+  /// Resumes a paused routine: restores [IsActive], shifts the frozen
+  /// countdown forward by the pause duration, and re-arms the OS alarm.
+  static Future<void> resumeRoutine({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required String dbPath,
+  }) async {
+    final now = DateTime.now();
+    final state = await db.getRoutineState(routineId);
+    final pausedAt = state?.PausedAt;
+    final next = state?.NextTriggerTime;
+
+    DateTime? newNext;
+    if (next != null && pausedAt != null) {
+      final remaining = next.difference(pausedAt);
+      final frozen = remaining.isNegative ? Duration.zero : remaining;
+      newNext = now.add(frozen);
+    } else if (next != null && next.isAfter(now)) {
+      newNext = next;
+    }
+
+    await db.updateRoutine(
+      RoutinesCompanion(Id: Value(routineId), IsActive: const Value(true)),
+    );
+
+    if (state != null) {
+      await db.updateRoutineState(
+        routineId,
+        RoutineStatesCompanion(
+          PausedAt: const Value(null),
+          NextTriggerTime: Value(newNext),
+        ),
+      );
+    }
+
+    if (newNext != null) {
+      await scheduleNext(
+        routineId: routineId,
+        triggerTime: newNext,
+        dbPath: dbPath,
+        routineName: routine.Name,
+      );
+    } else {
+      await RA_WidgetService.updateWidgetState(db: db);
+    }
+
+    _pingUiIsolate(routineId);
+  }
+
   static LogActionTypeCodeEnum _mapToLogAction(
     RA_AlarmActionTypeCodeEnum action,
   ) => LogActionTypeCodeEnum.values[action.index];

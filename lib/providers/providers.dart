@@ -30,8 +30,8 @@ final ActiveRoutineStateProvider = StreamProvider.autoDispose
     });
 
 /// Derives card UI phase from [ActiveRoutineStateProvider], selecting only
-/// [IsRinging] and [NextTriggerTime] so snooze count and other fields do not
-/// rebuild chrome or status widgets.
+/// [IsRinging], [NextTriggerTime], and [PausedAt] so snooze count and other
+/// fields do not rebuild chrome or status widgets.
 final RoutineUiSnapshotProvider = Provider.autoDispose
     .family<RA_RoutineUiSnapshot, int>((ref, routineId) {
       return ref.watch(
@@ -43,6 +43,12 @@ RA_RoutineUiSnapshot _snapshotFromAsync(AsyncValue<RoutineStateModel?> async) {
   return async.when(
     data: (s) {
       if (s == null) return const RA_RoutineUiSnapshot.notScheduled();
+      if (s.PausedAt != null) {
+        return RA_RoutineUiSnapshot.paused(
+          pausedAt: s.PausedAt!,
+          nextTriggerTime: s.NextTriggerTime,
+        );
+      }
       if (s.IsRinging) return const RA_RoutineUiSnapshot.ringing();
       if (s.NextTriggerTime != null) {
         return RA_RoutineUiSnapshot.countingDown(s.NextTriggerTime!);
@@ -68,23 +74,45 @@ final LogEntriesProvider = StreamProvider.autoDispose
       return db.watchLogEntries(routineId: routineId);
     });
 
-/// Per-second countdown stream for a given [NextTriggerTime].
-/// Ticks once per second and emits the remaining [Duration].
-/// Only [RA_Countdown] should watch this; parent cards watch phase snapshots.
-final CountdownProvider = StreamProvider.autoDispose.family<Duration, DateTime>(
-  (ref, nextTriggerTime) {
-    return _countdownStream(nextTriggerTime);
-  },
-);
-
-/// Emits the remaining time immediately so the countdown never renders a
-/// placeholder for the first second, then once per second afterwards.
+/// Shared wall-clock second stream so every countdown flips on the same tick.
 ///
-/// Cancellation of the Riverpod subscription cancels this async* loop, which
-/// cancels the inner [Stream.periodic] so no Timer survives navigation away.
-Stream<Duration> _countdownStream(DateTime nextTriggerTime) async* {
-  yield nextTriggerTime.difference(DateTime.now());
-  await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-    yield nextTriggerTime.difference(DateTime.now());
+/// Aligns to real-world second boundaries (e.g. 12:00:01.000) instead of each
+/// card's mount time, which previously left timers 300 to 500ms out of phase.
+final WallClockSecondProvider = StreamProvider.autoDispose<DateTime>((ref) {
+  return _wallClockSecondStream();
+});
+
+/// Remaining time until [nextTriggerTime], refreshed on each wall-clock second.
+///
+/// Only [RA_Countdown] should watch this; parent cards watch phase snapshots.
+final CountdownProvider = Provider.autoDispose.family<Duration, DateTime>((
+  ref,
+  nextTriggerTime,
+) {
+  final tick = ref.watch(WallClockSecondProvider).valueOrNull;
+  final now = tick ?? DateTime.now();
+  return nextTriggerTime.difference(now);
+});
+
+/// Yields [DateTime.now] immediately, then again at every wall-clock second.
+///
+/// Each wait is recomputed from the clock so timer drift cannot accumulate.
+Stream<DateTime> _wallClockSecondStream() async* {
+  while (true) {
+    final now = DateTime.now();
+    yield now;
+    final nextSecond = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+      now.second + 1,
+    );
+    var delay = nextSecond.difference(DateTime.now());
+    if (delay <= Duration.zero) {
+      delay = const Duration(milliseconds: 1);
+    }
+    await Future<void>.delayed(delay);
   }
 }

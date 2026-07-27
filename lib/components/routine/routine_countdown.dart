@@ -10,36 +10,40 @@ import 'package:rolling_alarm/utils.dart';
 ///
 /// This is the only widget that should watch [CountdownProvider]. Parent cards
 /// watch phase snapshots so per-second ticks never rebuild full card chrome.
+///
+/// When [frozenRemaining] is set, the value is shown statically (paused) and
+/// [CountdownProvider] is not watched.
 class RA_Countdown extends ConsumerWidget {
-  final DateTime nextTriggerTime;
+  final DateTime? nextTriggerTime;
+  final Duration? frozenRemaining;
 
-  const RA_Countdown({super.key, required this.nextTriggerTime});
+  const RA_Countdown({super.key, this.nextTriggerTime, this.frozenRemaining})
+    : assert(
+        frozenRemaining != null || nextTriggerTime != null,
+        'Provide nextTriggerTime or frozenRemaining',
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(CountdownProvider(nextTriggerTime));
+    final frozen = frozenRemaining;
+    if (frozen != null) {
+      final base = RA_TextStyles.countdownFontFor(context);
+      return AnimatedDefaultTextStyle(
+        duration: RA_ShapeStyles.colorBlendDuration,
+        curve: Curves.easeInOut,
+        style: base.copyWith(color: RA_ColourStyles.mutedPrimary),
+        child: RA_FittedText(RA_Utils.formatCountdown(frozen)),
+      );
+    }
 
-    return async.when(
-      data: (rem) {
-        final color = RA_TextStyles.countdownColor(rem);
-        final base = RA_TextStyles.countdownFontFor(context);
-        return AnimatedDefaultTextStyle(
-          duration: RA_ShapeStyles.colorBlendDuration,
-          curve: Curves.easeInOut,
-          style: base.copyWith(color: color),
-          child: RA_FittedText(RA_Utils.formatCountdown(rem)),
-        );
-      },
-      loading: () => RA_FittedText(
-        '00:00:00',
-        style: RA_TextStyles.countdownFontFor(context),
-      ),
-      error: (_, _) => RA_FittedText(
-        '--:--:--',
-        style: RA_TextStyles.countdownFontFor(context).copyWith(
-          color: RA_ColourStyles.softCoral,
-        ),
-      ),
+    final rem = ref.watch(CountdownProvider(nextTriggerTime!));
+    final color = RA_TextStyles.countdownColor(rem);
+    final base = RA_TextStyles.countdownFontFor(context);
+    return AnimatedDefaultTextStyle(
+      duration: RA_ShapeStyles.colorBlendDuration,
+      curve: Curves.easeInOut,
+      style: base.copyWith(color: color),
+      child: RA_FittedText(RA_Utils.formatCountdown(rem)),
     );
   }
 }

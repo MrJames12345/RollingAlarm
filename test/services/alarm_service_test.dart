@@ -1174,5 +1174,78 @@ void main() {
         await tempDir.delete(recursive: true);
       },
     );
+
+    test(
+      'pauseRoutine freezes remaining countdown; resumeRoutine shifts NextTriggerTime',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_pause_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final next = now.add(const Duration(minutes: 30));
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Pause Routine'),
+            IntervalSeconds: const Value(14400),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(next),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.pauseRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final pausedRoutine = await db.getRoutineById(routineId);
+        final pausedState = await db.getRoutineState(routineId);
+        expect(pausedRoutine.IsActive, isFalse);
+        expect(pausedState!.PausedAt, isNotNull);
+        expect(
+          pausedState.NextTriggerTime!.millisecondsSinceEpoch ~/ 1000,
+          equals(next.millisecondsSinceEpoch ~/ 1000),
+        );
+        expect(pausedState.IsRinging, isFalse);
+
+        final frozen = next.difference(pausedState.PausedAt!);
+        expect(frozen.inMinutes, closeTo(30, 1));
+
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        await RA_AlarmService.resumeRoutine(
+          routineId: routineId,
+          db: db,
+          routine: pausedRoutine,
+          dbPath: dbPath,
+        );
+
+        final resumedRoutine = await db.getRoutineById(routineId);
+        final resumedState = await db.getRoutineState(routineId);
+        expect(resumedRoutine.IsActive, isTrue);
+        expect(resumedState!.PausedAt, isNull);
+        expect(resumedState.NextTriggerTime, isNotNull);
+        final remaining = resumedState.NextTriggerTime!.difference(
+          DateTime.now(),
+        );
+        expect(remaining.inSeconds, closeTo(frozen.inSeconds, 2));
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
   });
 }
