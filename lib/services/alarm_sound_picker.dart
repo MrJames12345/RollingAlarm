@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 
@@ -11,9 +12,10 @@ class RA_AlarmSoundPickerService {
     'com.example.rolling_alarm/alarm_sound',
   );
 
-  /// Alarm and ringtone entries from [RingtoneManager].
+  /// System tones (alarm, ringtone, notification) plus MediaStore audio files.
   static Future<List<RA_AlarmSound>> listDeviceSounds() async {
     try {
+      await _ensureAudioReadPermission();
       final raw = await _channel.invokeMethod<List<dynamic>>(
         'listDeviceSounds',
       );
@@ -31,7 +33,7 @@ class RA_AlarmSoundPickerService {
     }
   }
 
-  /// Opens the system ringtone picker (alarm type).
+  /// Opens the system ringtone picker (all ringtone categories).
   static Future<RA_AlarmSound?> pickDeviceSound({String? existingUri}) async {
     try {
       final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
@@ -49,6 +51,23 @@ class RA_AlarmSoundPickerService {
       );
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Requests READ_MEDIA_AUDIO (or legacy storage) so MediaStore audio appears.
+  static Future<void> _ensureAudioReadPermission() async {
+    try {
+      final audio = await Permission.audio.status;
+      if (!audio.isGranted && !audio.isLimited) {
+        await Permission.audio.request();
+      }
+      // Pre Android 13 MediaStore external access uses READ_EXTERNAL_STORAGE.
+      final storage = await Permission.storage.status;
+      if (!storage.isGranted && !storage.isLimited) {
+        await Permission.storage.request();
+      }
+    } catch (_) {
+      // Permission plugin absent in tests; native list still returns tones.
     }
   }
 

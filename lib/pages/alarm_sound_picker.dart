@@ -13,7 +13,7 @@ import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/sound_preview.dart';
 import 'package:rolling_alarm/styles.dart';
 
-/// Alarm sound picker page for selecting device sounds and local audio files.
+/// Alarm sound picker page for selecting Silent, Default, or device sounds.
 class AlarmSoundPickerPage extends StatefulWidget {
   final RA_AlarmSound initial;
 
@@ -65,38 +65,6 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
     });
     await RA_AudioService.stopAlarm();
     await RA_SoundPreviewService.play(sound);
-  }
-
-  Future<void> _pickLocalFile() async {
-    try {
-      // Stop preview while the system picker is open so audio session and
-      // activity pause do not race with just_audio on cancel.
-      await RA_SoundPreviewService.stop();
-      if (!mounted) return;
-
-      final picked = await RA_AlarmSoundPickerService.pickLocalFile(
-        onError: (message) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                message,
-                style: RA_TextStyles.tinyFont.copyWith(
-                  color: RA_ColourStyles.surface,
-                ),
-              ),
-              backgroundColor: RA_ColourStyles.softCoral,
-            ),
-          );
-        },
-      );
-      if (!mounted) return;
-      if (picked != null) {
-        await _preview(picked);
-      }
-    } catch (_) {
-      // Cancel and picker teardown must never surface as an unhandled crash.
-    }
   }
 
   Future<void> _save() async {
@@ -166,7 +134,6 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
         onSelectSilent: () => unawaited(_preview(RA_AlarmSound.silent)),
         onSelectDefault: () => unawaited(_preview(RA_AlarmSound.deviceDefault)),
         onSelectSound: (sound) => unawaited(_preview(sound)),
-        onPickLocal: () => unawaited(_pickLocalFile()),
       ),
     );
   }
@@ -179,7 +146,6 @@ class _DeviceSoundsBody extends StatelessWidget {
   final VoidCallback onSelectSilent;
   final VoidCallback onSelectDefault;
   final ValueChanged<RA_AlarmSound> onSelectSound;
-  final VoidCallback onPickLocal;
 
   const _DeviceSoundsBody({
     required this.loading,
@@ -188,7 +154,6 @@ class _DeviceSoundsBody extends StatelessWidget {
     required this.onSelectSilent,
     required this.onSelectDefault,
     required this.onSelectSound,
-    required this.onPickLocal,
   });
 
   @override
@@ -208,16 +173,6 @@ class _DeviceSoundsBody extends StatelessWidget {
           subtitle: 'Rolling Alarm tone',
           selected: selected.source == RA_AlarmSoundSource.deviceDefault,
           onTap: onSelectDefault,
-        ),
-        const SizedBox(height: RA_ShapeStyles.space8),
-        _SoundTile(
-          title: 'Local file',
-          subtitle: selected.source == RA_AlarmSoundSource.localFile
-              ? selected.displayLabel
-              : 'Pick audio from this device',
-          selected: selected.source == RA_AlarmSoundSource.localFile,
-          onTap: onPickLocal,
-          trailing: Icons.folder_open,
         ),
         const SizedBox(height: RA_ShapeStyles.space24),
         Text('Device sounds', style: RA_TextStyles.tinyFont.copyWith(
@@ -258,14 +213,12 @@ class _SoundTile extends StatelessWidget {
   final String? subtitle;
   final bool selected;
   final VoidCallback onTap;
-  final IconData? trailing;
 
   const _SoundTile({
     required this.title,
     this.subtitle,
     required this.selected,
     required this.onTap,
-    this.trailing,
   });
 
   @override
@@ -329,8 +282,6 @@ class _SoundTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (trailing != null)
-                    Icon(trailing, color: RA_ColourStyles.mutedPrimary),
                 ],
               ),
             ),

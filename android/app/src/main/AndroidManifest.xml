@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
-    <!-- Needed to list / play device ringtone and alarm URIs. -->
+    <!-- Needed to list / play MediaStore audio and system ringtone URIs. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
