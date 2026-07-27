@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/count_daily_skip_dialog.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
@@ -163,47 +162,6 @@ class RA_RoutineCard extends ConsumerWidget {
                       _TodayRingCount(routine: routine, muted: isPaused),
                       const SizedBox(height: RA_ShapeStyles.space16),
                       _RoutineCardStatus(routineId: routine.Id),
-                      const SizedBox(height: RA_ShapeStyles.space16),
-                      if (isPaused)
-                        Center(
-                          child: RA_IconTextButton(
-                            icon: Icons.pause_rounded,
-                            label: 'Paused',
-                            color: RA_ColourStyles.sleepIndigo,
-                            onTap: () => unawaited(_togglePause(ref)),
-                          ),
-                        )
-                      else
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            RA_IconTextButton(
-                              icon: isMuted
-                                  ? Icons.notifications_off_rounded
-                                  : Icons.notifications_off_outlined,
-                              label: isMuted ? 'Muted' : 'Mute',
-                              color: isMuted
-                                  ? RA_ColourStyles.sleepIndigo
-                                  : null,
-                              onTap: () => unawaited(_toggleMute(ref)),
-                            ),
-                            const SizedBox(width: RA_ShapeStyles.space8),
-                            RA_IconTextButton(
-                              icon: Icons.pause_rounded,
-                              label: 'Pause',
-                              onTap: () => unawaited(_togglePause(ref)),
-                            ),
-                            if (!hideDismissUpcoming) ...[
-                              const SizedBox(width: RA_ShapeStyles.space8),
-                              RA_IconTextButton(
-                                icon: Icons.skip_next,
-                                label: 'Dismiss upcoming',
-                                onTap: () =>
-                                    unawaited(_handleSkip(context, ref)),
-                              ),
-                            ],
-                          ],
-                        ),
                     ],
                   ),
                 ),

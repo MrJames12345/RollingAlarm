@@ -55,13 +55,14 @@ void main() {
         timeout: const Duration(seconds: 15),
       );
 
-      // 7. Verify routine appears on Home Page with action buttons
+      // 7. Verify routine appears on Home Page
       expect($('E2E Test Routine'), findsOneWidget);
-      expect($('Dismiss upcoming'), findsOneWidget);
-      expect($('Delete'), findsOneWidget);
 
-      // 8. Tap Dismiss upcoming to test transition and recalculation
-      await $('Dismiss upcoming').tap();
+      // 8. Long-press the tile and dismiss the upcoming alarm from the menu
+      await $('E2E Test Routine').longPress();
+      await pumpFrames($.tester);
+      expect($('Dismiss Upcoming'), findsOneWidget);
+      await $('Dismiss Upcoming').tap();
       await pumpFrames($.tester);
     },
   );
