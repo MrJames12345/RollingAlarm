@@ -111,22 +111,136 @@ class RA_DailyRingLimit {
     return RA_WeekdaySchedule.deferToEnabledDay(proposed, enabledWeekdays);
   }
 
-  /// Whether [nextTrigger] is the next "Start at time of day" after [now].
+  /// Whether [trigger] lands exactly on a "Start at time of day" boundary.
   ///
-  /// True when the daily cap deferred the next ring to the period reset, so
-  /// skipping ahead would land on the same boundary again.
-  static bool isScheduledAtNextPeriodStart({
-    required DateTime nextTrigger,
+  /// True for the immediate next day-start and for the same clock time after
+  /// weekday deferral. Used so pause/resume keep absolute day-start targets and
+  /// Dismiss upcoming can hide when skipping would not advance past that reset.
+  ///
+  /// Compares local time-of-day (hour/minute/second) so Drift round-trips and
+  /// UTC/local representations of the same wall clock still match.
+  static bool isPeriodStartTrigger({
+    required DateTime trigger,
     required int dayStartSeconds,
-    DateTime? now,
   }) {
-    final expected = nextPeriodStartAfter(
-      now ?? DateTime.now(),
-      dayStartSeconds,
-    );
-    return nextTrigger.millisecondsSinceEpoch ==
-        expected.millisecondsSinceEpoch;
+    final local = trigger.toLocal();
+    final offset = normalizeDayStartSeconds(dayStartSeconds);
+    final secondsOfDay = local.hour * 3600 + local.minute * 60 + local.second;
+    return secondsOfDay == offset;
   }
+
+  /// `true` when the daily cap is on and [count] has reached it.
+  static bool isAtOrOverCap({
+    required int count,
+    required bool maxTimesPerDayEnabled,
+    required int maxTimesPerDay,
+  }) {
+    if (!maxTimesPerDayEnabled || maxTimesPerDay <= 0) return false;
+    return count >= maxTimesPerDay;
+  }
+
+  /// Remaps [previousNext] after an edit to day-start and/or max-times.
+  ///
+  /// When the effective daily cap changes relative to today's count:
+  /// * newly at/over cap → next "Start at time of day"
+  /// * newly under cap → [now] plus [intervalSeconds] (still snapped by
+  ///   [deferIfDailyLimitReached] so it cannot skip past day-start)
+  ///
+  /// Otherwise, if the upcoming fire was a day-start boundary and that clock
+  /// changed, retarget to the new day-start. Always applies weekday deferral.
+  static DateTime? retargetNextAfterEdit({
+    required DateTime? previousNext,
+    required int oldDayStartSeconds,
+    required int newDayStartSeconds,
+    required bool oldMaxTimesPerDayEnabled,
+    required bool newMaxTimesPerDayEnabled,
+    required int oldMaxTimesPerDay,
+    required int newMaxTimesPerDay,
+    required int timesRingToday,
+    required DateTime? timesRingDay,
+    required DateTime now,
+    required int intervalSeconds,
+    required int enabledWeekdays,
+  }) {
+    if (previousNext == null) return null;
+
+    final oldStart = normalizeDayStartSeconds(oldDayStartSeconds);
+    final newStart = normalizeDayStartSeconds(newDayStartSeconds);
+    final count = countForDay(
+      timesRingToday: timesRingToday,
+      timesRingDay: timesRingDay,
+      now: now,
+      dayStartSeconds: oldStart,
+    );
+
+    final capChanged =
+        oldMaxTimesPerDayEnabled != newMaxTimesPerDayEnabled ||
+        (oldMaxTimesPerDayEnabled &&
+            newMaxTimesPerDayEnabled &&
+            oldMaxTimesPerDay != newMaxTimesPerDay);
+
+    final wasAtCap = isAtOrOverCap(
+      count: count,
+      maxTimesPerDayEnabled: oldMaxTimesPerDayEnabled,
+      maxTimesPerDay: oldMaxTimesPerDay,
+    );
+    final isAtCap = isAtOrOverCap(
+      count: count,
+      maxTimesPerDayEnabled: newMaxTimesPerDayEnabled,
+      maxTimesPerDay: newMaxTimesPerDay,
+    );
+
+    late final DateTime candidate;
+    if (capChanged && isAtCap && !wasAtCap) {
+      candidate = nextPeriodStartAfter(now, newStart);
+    } else if (capChanged && !isAtCap && wasAtCap) {
+      candidate = deferIfDailyLimitReached(
+        proposed: now.add(Duration(seconds: intervalSeconds)),
+        maxTimesPerDay: newMaxTimesPerDayEnabled ? newMaxTimesPerDay : 0,
+        timesRingToday: timesRingToday,
+        timesRingDay: timesRingDay,
+        now: now,
+        dayStartSeconds: newStart,
+      );
+    } else if (oldStart != newStart &&
+        isPeriodStartTrigger(
+          trigger: previousNext,
+          dayStartSeconds: oldStart,
+        )) {
+      candidate = nextPeriodStartAfter(now, newStart);
+    } else {
+      candidate = previousNext;
+    }
+
+    return RA_WeekdaySchedule.deferToEnabledDay(candidate, enabledWeekdays);
+  }
+
+  /// Remaps [previousNext] when saving an edit that changes day-start.
+  ///
+  /// If the upcoming fire is a day-start boundary under [oldDayStartSeconds],
+  /// move it to the next occurrence of [newDayStartSeconds]. Always applies
+  /// weekday deferral with [enabledWeekdays]. Returns null when there is no
+  /// upcoming fire.
+  static DateTime? retargetNextAfterDayStartEdit({
+    required DateTime? previousNext,
+    required int oldDayStartSeconds,
+    required int newDayStartSeconds,
+    required DateTime now,
+    required int enabledWeekdays,
+  }) => retargetNextAfterEdit(
+    previousNext: previousNext,
+    oldDayStartSeconds: oldDayStartSeconds,
+    newDayStartSeconds: newDayStartSeconds,
+    oldMaxTimesPerDayEnabled: false,
+    newMaxTimesPerDayEnabled: false,
+    oldMaxTimesPerDay: 0,
+    newMaxTimesPerDay: 0,
+    timesRingToday: 0,
+    timesRingDay: null,
+    now: now,
+    intervalSeconds: 0,
+    enabledWeekdays: enabledWeekdays,
+  );
 
   /// Next fire after a paused day-start target was missed: the sooner of
   /// [now] plus [intervalSeconds] and the next period start.

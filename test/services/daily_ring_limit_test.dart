@@ -229,32 +229,222 @@ void main() {
       );
     });
 
-    test('isScheduledAtNextPeriodStart matches the next day-start only', () {
+    test('isPeriodStartTrigger matches any day-start boundary', () {
       expect(
-        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-          nextTrigger: DateTime(2026, 7, 27, 6),
+        RA_DailyRingLimit.isPeriodStartTrigger(
+          trigger: DateTime(2026, 7, 27, 6),
           dayStartSeconds: sixAm,
-          now: now,
         ),
         isTrue,
       );
       expect(
-        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-          nextTrigger: DateTime(2026, 7, 26, 19, 45),
+        RA_DailyRingLimit.isPeriodStartTrigger(
+          trigger: DateTime(2026, 7, 26, 19, 45),
           dayStartSeconds: sixAm,
-          now: now,
         ),
         isFalse,
       );
       expect(
-        RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-          nextTrigger: DateTime(2026, 7, 26, 6),
+        RA_DailyRingLimit.isPeriodStartTrigger(
+          trigger: DateTime(2026, 7, 26, 6),
           dayStartSeconds: sixAm,
-          now: DateTime(2026, 7, 26, 5),
+        ),
+        isTrue,
+      );
+      // Weekday deferral can park on a later day's start; still a boundary.
+      expect(
+        RA_DailyRingLimit.isPeriodStartTrigger(
+          trigger: DateTime(2026, 7, 28, 6),
+          dayStartSeconds: sixAm,
         ),
         isTrue,
       );
     });
+
+    test(
+      'retargetNextAfterDayStartEdit moves a day-start fire to the new clock',
+      () {
+        const sevenAm = 7 * 3600;
+        final previous = DateTime(2026, 7, 27, 6);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterDayStartEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sevenAm,
+            now: now,
+            enabledWeekdays: 0x7F,
+          ),
+          DateTime(2026, 7, 27, 7),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterDayStartEdit leaves interval fires unchanged',
+      () {
+        const sevenAm = 7 * 3600;
+        final previous = DateTime(2026, 7, 26, 19, 45);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterDayStartEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sevenAm,
+            now: now,
+            enabledWeekdays: 0x7F,
+          ),
+          previous,
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterDayStartEdit defers the new day-start onto weekdays',
+      () {
+        // Saturday 15:30; Mon-Fri only. Old next is Monday 6am (deferred).
+        // New day-start 7am should land Monday 7am, not Sunday 7am.
+        const sevenAm = 7 * 3600;
+        const weekdays = 0x1F; // Mon-Fri
+        final previous = DateTime(2026, 7, 27, 6); // Monday
+        expect(previous.weekday, DateTime.monday);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterDayStartEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sevenAm,
+            now: now,
+            enabledWeekdays: weekdays,
+          ),
+          DateTime(2026, 7, 27, 7),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit parks on day-start when lowering max under count',
+      () {
+        // Count 4, max 5 → 3: newly at/over cap → tomorrow 6am.
+        final previous = DateTime(2026, 7, 26, 18);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 5,
+            newMaxTimesPerDay: 3,
+            timesRingToday: 4,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          DateTime(2026, 7, 27, 6),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit resumes interval when raising max over count',
+      () {
+        // Count 4, max 4 → 6: newly under cap → now + 4h.
+        final previous = DateTime(2026, 7, 27, 6);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 4,
+            newMaxTimesPerDay: 6,
+            timesRingToday: 4,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          now.add(const Duration(hours: 4)),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit parks on day-start when enabling cap under count',
+      () {
+        final previous = DateTime(2026, 7, 26, 18);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: false,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 3,
+            newMaxTimesPerDay: 3,
+            timesRingToday: 3,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          DateTime(2026, 7, 27, 6),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit resumes interval when disabling cap at limit',
+      () {
+        final previous = DateTime(2026, 7, 27, 6);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: false,
+            oldMaxTimesPerDay: 3,
+            newMaxTimesPerDay: 3,
+            timesRingToday: 3,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: 2 * 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          now.add(const Duration(hours: 2)),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit ignores max changes that do not cross the count',
+      () {
+        final previous = DateTime(2026, 7, 26, 19, 45);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: previous,
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 5,
+            newMaxTimesPerDay: 6,
+            timesRingToday: 2,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          previous,
+        );
+      },
+    );
 
     test(
       'earliestResumeAfterMissedDayStart picks the sooner of interval and day-start',

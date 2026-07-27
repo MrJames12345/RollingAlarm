@@ -51,8 +51,8 @@ class RA_RoutineCard extends ConsumerWidget {
           RoutineUiSnapshotProvider(routine.Id).select((s) {
             final next = s.nextTriggerTime;
             if (next == null || !routine.MaxTimesPerDayEnabled) return false;
-            return RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-              nextTrigger: next,
+            return RA_DailyRingLimit.isPeriodStartTrigger(
+              trigger: next,
               dayStartSeconds: routine.DayStartSeconds,
             );
           }),

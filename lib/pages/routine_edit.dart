@@ -279,24 +279,26 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         await db.updateRoutine(_companion(id: id));
 
         // Keep the active timer as-is so interval / other edits apply next
-        // cycle. If we were waiting on "Start at time of day" and that time
-        // changed, retarget the countdown to the new day-start boundary.
-        // Always defer onto an enabled weekday after any retarget.
-        var next = previousNext;
-        if (next != null &&
-            oldDayStart != newDayStart &&
-            RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-              nextTrigger: next,
-              dayStartSeconds: oldDayStart,
-            )) {
-          next = RA_DailyRingLimit.nextPeriodStartAfter(
-            DateTime.now(),
-            newDayStart,
-          );
-        }
+        // cycle. Retarget when day-start changes while waiting on that
+        // boundary, or when the daily cap crosses today's count.
+        final next = RA_DailyRingLimit.retargetNextAfterEdit(
+          previousNext: previousNext,
+          oldDayStartSeconds: oldDayStart,
+          newDayStartSeconds: newDayStart,
+          oldMaxTimesPerDayEnabled: existing.MaxTimesPerDayEnabled,
+          newMaxTimesPerDayEnabled: _maxTimesPerDayEnabled,
+          oldMaxTimesPerDay: existing.MaxTimesPerDay,
+          newMaxTimesPerDay: _maxTimesPerDay,
+          timesRingToday: state?.TimesRingToday ?? 0,
+          timesRingDay: state?.TimesRingDay,
+          now: DateTime.now(),
+          intervalSeconds: _interval.inSeconds,
+          enabledWeekdays: _enabledWeekdays,
+        );
         if (next != null) {
-          next = RA_WeekdaySchedule.deferToEnabledDay(next, _enabledWeekdays);
-          if (next != previousNext) {
+          if (previousNext == null ||
+              next.millisecondsSinceEpoch !=
+                  previousNext.millisecondsSinceEpoch) {
             await db.updateRoutineState(
               id,
               RoutineStatesCompanion(NextTriggerTime: Value(next)),

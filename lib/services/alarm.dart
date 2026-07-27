@@ -847,10 +847,9 @@ class RA_AlarmService {
     // Day-start targets keep their absolute wall-clock NextTriggerTime.
     final pausedAt = _driftSecondFloor(now);
     if (next != null) {
-      final preserveAbsolute = RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-        nextTrigger: next,
+      final preserveAbsolute = RA_DailyRingLimit.isPeriodStartTrigger(
+        trigger: next,
         dayStartSeconds: routine.DayStartSeconds,
-        now: now,
       );
       if (!preserveAbsolute) {
         final remainingSeconds = next.difference(now).inSeconds;
@@ -899,10 +898,9 @@ class RA_AlarmService {
 
     DateTime? newNext;
     if (next != null && pausedAt != null) {
-      final wasDayStart = RA_DailyRingLimit.isScheduledAtNextPeriodStart(
-        nextTrigger: next,
+      final wasDayStart = RA_DailyRingLimit.isPeriodStartTrigger(
+        trigger: next,
         dayStartSeconds: routine.DayStartSeconds,
-        now: pausedAt,
       );
       if (wasDayStart) {
         if (next.isAfter(now)) {
