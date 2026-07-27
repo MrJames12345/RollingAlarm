@@ -560,7 +560,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                         if (_maxTimesPerDayEnabled) ...[
                           const SizedBox(height: RA_ShapeStyles.space8),
                           Text(
-                            'If count for today has exceeded, we need to know what time to set the next alarm tomorrow',
+                            'If count for today has exceeded, we need to know what time to set the next alarm tomorrow.',
                             style: RA_TextStyles.smallFont.copyWith(
                               color: RA_ColourStyles.mutedPrimary,
                             ),
