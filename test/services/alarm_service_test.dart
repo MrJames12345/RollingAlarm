@@ -1333,6 +1333,142 @@ void main() {
     );
 
     test(
+      'resetTodayCounter unparks day-start when prior count hit the daily cap',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_reset_cap_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        const dayStartSeconds = 6 * 3600;
+        const intervalSeconds = 4 * 3600;
+        final before = DateTime.now();
+        final dayStart = RA_DailyRingLimit.nextPeriodStartAfter(
+          before,
+          dayStartSeconds,
+        );
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Reset Cap Park'),
+            IntervalSeconds: const Value(intervalSeconds),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(3),
+            DayStartSeconds: const Value(dayStartSeconds),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(dayStart),
+            TimesRingToday: const Value(3),
+            TimesRingDay: Value(
+              RA_DailyRingLimit.periodStart(before, dayStartSeconds),
+            ),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.resetTodayCounter(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final after = DateTime.now();
+        final state = await db.getRoutineState(routineId);
+        expect(state!.TimesRingToday, equals(0));
+        expect(state.NextTriggerTime, isNotNull);
+        expect(
+          state.NextTriggerTime!.millisecondsSinceEpoch,
+          isNot(equals(dayStart.millisecondsSinceEpoch)),
+        );
+        // Resumed to roughly now + interval (allow a few seconds of skew).
+        final delta = state.NextTriggerTime!.difference(before).inSeconds;
+        expect(delta, closeTo(intervalSeconds, 5));
+        expect(
+          state.NextTriggerTime!.isAfter(
+            after.subtract(const Duration(seconds: 2)),
+          ),
+          isTrue,
+        );
+        expect(
+          alarmChannelCalls.any((c) => c.method == 'Alarm.oneShotAt'),
+          isTrue,
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'resetTodayCounter zeros count only when not parked for the daily cap',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_reset_keep_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        const dayStartSeconds = 6 * 3600;
+        final now = DateTime.now();
+        final next = now.add(const Duration(hours: 2));
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Reset Keep Next'),
+            IntervalSeconds: const Value(14400),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(5),
+            DayStartSeconds: const Value(dayStartSeconds),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(next),
+            TimesRingToday: const Value(2),
+            TimesRingDay: Value(
+              RA_DailyRingLimit.periodStart(now, dayStartSeconds),
+            ),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.resetTodayCounter(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final state = await db.getRoutineState(routineId);
+        expect(state!.TimesRingToday, equals(0));
+        // Drift stores whole Unix seconds; compare second precision only.
+        expect(
+          state.NextTriggerTime!.millisecondsSinceEpoch ~/ 1000,
+          next.millisecondsSinceEpoch ~/ 1000,
+        );
+        expect(
+          alarmChannelCalls.any((c) => c.method == 'Alarm.oneShotAt'),
+          isFalse,
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
       'resume after missed day-start uses earliest of interval and next day-start',
       () async {
         final tempDir = await Directory.systemTemp.createTemp('ra_pause_miss_');

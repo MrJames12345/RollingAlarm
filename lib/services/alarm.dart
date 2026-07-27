@@ -1025,6 +1025,80 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
+  /// Zeros today's ring counter for the current day period.
+  ///
+  /// When the prior count had exhausted the daily cap and [NextTriggerTime]
+  /// was parked on a day-start boundary, retargets to [now] plus the routine
+  /// interval and re-arms the OS timer so alarms can resume today.
+  static Future<void> resetTodayCounter({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required String dbPath,
+  }) async {
+    final now = DateTime.now();
+    final state = await db.getRoutineState(routineId);
+    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    final previousNext = state?.NextTriggerTime;
+
+    DateTime? next = RA_DailyRingLimit.retargetNextAfterCounterReset(
+      previousNext: previousNext,
+      priorTimesRingToday: state?.TimesRingToday ?? 0,
+      timesRingDay: state?.TimesRingDay,
+      maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
+      maxTimesPerDay: routine.MaxTimesPerDay,
+      now: now,
+      intervalSeconds: routine.IntervalSeconds,
+      dayStartSeconds: routine.DayStartSeconds,
+      enabledWeekdays: routine.EnabledWeekdays,
+    );
+
+    // While paused, store the new interval relative to PausedAt so resume
+    // shifts by frozen remaining instead of inflating past the pause gap.
+    final pausedAt = state?.PausedAt;
+    final nextChanged =
+        next != null &&
+        (previousNext == null ||
+            next.millisecondsSinceEpoch != previousNext.millisecondsSinceEpoch);
+    if (nextChanged && pausedAt != null) {
+      next = RA_WeekdaySchedule.deferToEnabledDay(
+        RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: pausedAt.add(Duration(seconds: routine.IntervalSeconds)),
+          maxTimesPerDay: routine.MaxTimesPerDayEnabled
+              ? routine.MaxTimesPerDay
+              : 0,
+          timesRingToday: 0,
+          timesRingDay: period,
+          now: now,
+          dayStartSeconds: routine.DayStartSeconds,
+        ),
+        routine.EnabledWeekdays,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+    }
+
+    await db.updateRoutineState(
+      routineId,
+      RoutineStatesCompanion(
+        TimesRingToday: const Value(0),
+        TimesRingDay: Value(period),
+        NextTriggerTime: nextChanged ? Value(next) : const Value.absent(),
+      ),
+    );
+
+    if (nextChanged && next != null && routine.IsActive) {
+      await scheduleNext(
+        routineId: routineId,
+        triggerTime: next,
+        dbPath: dbPath,
+        routineName: routine.Name,
+      );
+    } else {
+      await RA_WidgetService.updateWidgetState(db: db);
+    }
+    _pingUiIsolate(routineId);
+  }
+
   /// Silent muted fire: count (fresh rings only), dismiss-schedule next, no UX.
   static Future<void> _handleMutedFire({
     required int routineId,

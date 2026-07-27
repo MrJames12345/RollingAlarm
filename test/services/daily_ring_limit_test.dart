@@ -279,23 +279,20 @@ void main() {
       },
     );
 
-    test(
-      'retargetNextAfterDayStartEdit leaves interval fires unchanged',
-      () {
-        const sevenAm = 7 * 3600;
-        final previous = DateTime(2026, 7, 26, 19, 45);
-        expect(
-          RA_DailyRingLimit.retargetNextAfterDayStartEdit(
-            previousNext: previous,
-            oldDayStartSeconds: sixAm,
-            newDayStartSeconds: sevenAm,
-            now: now,
-            enabledWeekdays: 0x7F,
-          ),
-          previous,
-        );
-      },
-    );
+    test('retargetNextAfterDayStartEdit leaves interval fires unchanged', () {
+      const sevenAm = 7 * 3600;
+      final previous = DateTime(2026, 7, 26, 19, 45);
+      expect(
+        RA_DailyRingLimit.retargetNextAfterDayStartEdit(
+          previousNext: previous,
+          oldDayStartSeconds: sixAm,
+          newDayStartSeconds: sevenAm,
+          now: now,
+          enabledWeekdays: 0x7F,
+        ),
+        previous,
+      );
+    });
 
     test(
       'retargetNextAfterDayStartEdit defers the new day-start onto weekdays',
@@ -464,6 +461,101 @@ void main() {
             now: now,
             intervalSeconds: 20 * 3600,
             dayStartSeconds: sixAm,
+          ),
+          DateTime(2026, 7, 27, 6),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterCounterReset resumes interval when unparking a cap day-start',
+      () {
+        // Cap hit (count 3 / max 3); parked on tomorrow 6am → now + 4h.
+        final previous = DateTime(2026, 7, 27, 6);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterCounterReset(
+            previousNext: previous,
+            priorTimesRingToday: 3,
+            timesRingDay: period,
+            maxTimesPerDayEnabled: true,
+            maxTimesPerDay: 3,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            dayStartSeconds: sixAm,
+            enabledWeekdays: 0x7F,
+          ),
+          now.add(const Duration(hours: 4)),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterCounterReset leaves next unchanged when under cap',
+      () {
+        final previous = DateTime(2026, 7, 27, 6);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterCounterReset(
+            previousNext: previous,
+            priorTimesRingToday: 1,
+            timesRingDay: period,
+            maxTimesPerDayEnabled: true,
+            maxTimesPerDay: 3,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            dayStartSeconds: sixAm,
+            enabledWeekdays: 0x7F,
+          ),
+          previous,
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterCounterReset leaves interval fires unchanged at cap',
+      () {
+        // At cap but not parked on day-start (should not happen in product,
+        // still leave NextTriggerTime alone).
+        final previous = DateTime(2026, 7, 26, 19, 45);
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterCounterReset(
+            previousNext: previous,
+            priorTimesRingToday: 3,
+            timesRingDay: period,
+            maxTimesPerDayEnabled: true,
+            maxTimesPerDay: 3,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            dayStartSeconds: sixAm,
+            enabledWeekdays: 0x7F,
+          ),
+          previous,
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterCounterReset defers resumed interval onto weekdays',
+      () {
+        // Sunday 15:30; Mon-Fri only. Cap-parked Monday 6am → Monday 6am
+        // because now+4h lands Sunday 19:30, which weekday-defers to Mon 6am.
+        const weekdays = 0x1F; // Mon-Fri
+        final previous = DateTime(2026, 7, 27, 6); // Monday
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(now.weekday, DateTime.sunday);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterCounterReset(
+            previousNext: previous,
+            priorTimesRingToday: 3,
+            timesRingDay: period,
+            maxTimesPerDayEnabled: true,
+            maxTimesPerDay: 3,
+            now: now,
+            intervalSeconds: 4 * 3600,
+            dayStartSeconds: sixAm,
+            enabledWeekdays: weekdays,
           ),
           DateTime(2026, 7, 27, 6),
         );

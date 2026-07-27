@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
@@ -337,16 +336,15 @@ class _SummaryTab extends ConsumerWidget {
     if (confirmed != true) return;
 
     RA_Haptics.heavyUnawaited();
-    final db = ref.read(RA_DatabaseProvider);
-    final now = DateTime.now();
-    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
-    await db.updateRoutineState(
-      routine.Id,
-      RoutineStatesCompanion(
-        TimesRingToday: const Value(0),
-        TimesRingDay: Value(period),
-      ),
-    );
+    await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      await RA_AlarmService.resetTodayCounter(
+        routineId: routine.Id,
+        db: db,
+        routine: routine,
+        dbPath: dbPath,
+      );
+    });
   }
 
   /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.

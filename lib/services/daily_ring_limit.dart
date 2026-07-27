@@ -261,4 +261,62 @@ class RA_DailyRingLimit {
     final dayStart = nextPeriodStartAfter(now, dayStartSeconds);
     return afterInterval.isBefore(dayStart) ? afterInterval : dayStart;
   }
+
+  /// Remaps [previousNext] after the user zeros today's ring counter.
+  ///
+  /// When the prior count was at/over the daily cap and [previousNext] is
+  /// parked on a day-start boundary, resume with [now] plus [intervalSeconds]
+  /// (still snapped by [deferIfDailyLimitReached] and weekday deferral).
+  /// Otherwise returns [previousNext] unchanged.
+  ///
+  /// Callers should persist the zeroed count before or alongside applying the
+  /// returned time; this helper always evaluates the post-reset count as `0`.
+  static DateTime? retargetNextAfterCounterReset({
+    required DateTime? previousNext,
+    required int priorTimesRingToday,
+    required DateTime? timesRingDay,
+    required bool maxTimesPerDayEnabled,
+    required int maxTimesPerDay,
+    required DateTime now,
+    required int intervalSeconds,
+    required int dayStartSeconds,
+    required int enabledWeekdays,
+  }) {
+    if (previousNext == null) return null;
+
+    final dayStart = normalizeDayStartSeconds(dayStartSeconds);
+    final priorCount = countForDay(
+      timesRingToday: priorTimesRingToday,
+      timesRingDay: timesRingDay,
+      now: now,
+      dayStartSeconds: dayStart,
+    );
+    final wasAtCap = isAtOrOverCap(
+      count: priorCount,
+      maxTimesPerDayEnabled: maxTimesPerDayEnabled,
+      maxTimesPerDay: maxTimesPerDay,
+    );
+    if (!wasAtCap ||
+        !isPeriodStartTrigger(
+          trigger: previousNext,
+          dayStartSeconds: dayStart,
+        )) {
+      return previousNext;
+    }
+
+    final period = periodStart(now, dayStart);
+    final candidate = deferIfDailyLimitReached(
+      proposed: now.add(Duration(seconds: intervalSeconds)),
+      maxTimesPerDay: maxTimesPerDayEnabled ? maxTimesPerDay : 0,
+      timesRingToday: 0,
+      timesRingDay: period,
+      now: now,
+      dayStartSeconds: dayStart,
+    );
+    return RA_WeekdaySchedule.deferToEnabledDay(
+      candidate,
+      enabledWeekdays,
+      dayStartSeconds: dayStart,
+    );
+  }
 }
