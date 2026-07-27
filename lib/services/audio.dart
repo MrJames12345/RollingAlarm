@@ -33,7 +33,7 @@ class RA_AudioService {
       'com.example.rolling_alarm/alarm_sound';
 
   /// Bundled fallback tone when a routine has no custom playable URI.
-  static const String defaultAlarmAsset = 'assets/audio/default_alarm.wav';
+  static const String defaultAlarmAsset = 'assets/audio/default_alarm.mp3';
 
   /// Duration over which fade-in climbs from silent to full internal gain.
   static const Duration fadeDuration = Duration(seconds: 10);

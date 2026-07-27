@@ -24,7 +24,7 @@ class RA_SoundPreviewService {
   /// Last sound started via [play], used to resume after a native pause.
   static RA_AlarmSound? _currentSound;
 
-  static const String _defaultAsset = 'assets/audio/default_alarm.wav';
+  static const String _defaultAsset = 'assets/audio/default_alarm.mp3';
 
   /// Whether preview audio is currently playing.
   static bool get isPlaying {
