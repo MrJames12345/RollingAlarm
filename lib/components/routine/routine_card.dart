@@ -129,39 +129,56 @@ class RA_RoutineCard extends ConsumerWidget {
                 opacity: isPaused ? 0.62 : (isMuted ? 0.85 : 1),
                 child: Padding(
                   padding: const EdgeInsets.all(RA_ShapeStyles.space16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              routine.Name,
-                              style: RA_TextStyles.mediumFont.copyWith(
-                                color: isPaused
-                                    ? RA_ColourStyles.mutedPrimary
-                                    : null,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  routine.Name,
+                                  style: RA_TextStyles.mediumFont.copyWith(
+                                    color: isPaused
+                                        ? RA_ColourStyles.mutedPrimary
+                                        : null,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: RA_ShapeStyles.space8),
+                              Text(
+                                RA_Utils.formatInterval(
+                                  routine.IntervalSeconds,
+                                ),
+                                style: RA_TextStyles.intervalDigitsFont
+                                    .copyWith(
+                                      color: isPaused
+                                          ? RA_ColourStyles.faintPrimary
+                                          : null,
+                                    ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: RA_ShapeStyles.space8),
-                          Text(
-                            RA_Utils.formatInterval(routine.IntervalSeconds),
-                            style: RA_TextStyles.intervalDigitsFont.copyWith(
-                              color: isPaused
-                                  ? RA_ColourStyles.faintPrimary
-                                  : null,
-                            ),
-                          ),
+                          const SizedBox(height: RA_ShapeStyles.space8),
+                          _TodayRingCount(routine: routine, muted: isPaused),
+                          const SizedBox(height: RA_ShapeStyles.space16),
+                          _RoutineCardStatus(routineId: routine.Id),
                         ],
                       ),
-                      const SizedBox(height: RA_ShapeStyles.space8),
-                      _TodayRingCount(routine: routine, muted: isPaused),
-                      const SizedBox(height: RA_ShapeStyles.space16),
-                      _RoutineCardStatus(routineId: routine.Id),
+                      if (isMuted)
+                        const Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Icon(
+                            Icons.notifications_off_rounded,
+                            color: RA_ColourStyles.sleepIndigo,
+                            size: 20,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -485,10 +502,7 @@ class _SwipeActionBackground extends StatelessWidget {
   final RoutineSwipeActionEnum action;
   final bool alignEnd;
 
-  const _SwipeActionBackground({
-    required this.action,
-    required this.alignEnd,
-  });
+  const _SwipeActionBackground({required this.action, required this.alignEnd});
 
   @override
   Widget build(BuildContext context) {
@@ -504,11 +518,7 @@ class _SwipeActionBackground extends StatelessWidget {
             left: alignEnd ? 0 : RA_ShapeStyles.space24,
             right: alignEnd ? RA_ShapeStyles.space24 : 0,
           ),
-          child: Icon(
-            action.icon,
-            color: RA_ColourStyles.onAccent,
-            size: 28,
-          ),
+          child: Icon(action.icon, color: RA_ColourStyles.onAccent, size: 28),
         ),
       ),
     );
@@ -682,9 +692,10 @@ class _RoutineCardStatus extends ConsumerWidget {
             RA_Countdown(nextTriggerTime: next),
             const SizedBox(height: RA_ShapeStyles.space8),
             Text(
-              snapshot.phase == RA_RoutineUiPhase.muted
-                  ? 'Muted, next: ${RA_Utils.formatTime(next)}'
-                  : 'Next: ${RA_Utils.formatTime(next)}',
+              RA_Utils.formatNextFireCaption(
+                next,
+                muted: snapshot.phase == RA_RoutineUiPhase.muted,
+              ),
               style: RA_TextStyles.timestampFont,
             ),
           ],

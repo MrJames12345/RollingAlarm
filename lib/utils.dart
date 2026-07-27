@@ -44,6 +44,31 @@ class RA_Utils {
   /// Formats a [DateTime] as time only: "6:00 AM"
   static String formatTime(DateTime dt) => DateFormat('h:mm a').format(dt);
 
+  /// Short weekday for a local [DateTime], e.g. "Tue".
+  static String formatWeekdayShort(DateTime dt) =>
+      DateFormat('EEE').format(dt.toLocal());
+
+  /// Home-card next-fire caption. Same calendar day uses "Next: …"; later days
+  /// use "Resumes {time} {weekday}" (with a muted prefix when [muted]).
+  static String formatNextFireCaption(
+    DateTime next, {
+    required bool muted,
+    DateTime? now,
+  }) {
+    final localNext = next.toLocal();
+    final localNow = (now ?? DateTime.now()).toLocal();
+    final sameDay =
+        localNext.year == localNow.year &&
+        localNext.month == localNow.month &&
+        localNext.day == localNow.day;
+    if (sameDay) {
+      final time = formatTime(localNext);
+      return muted ? 'Muted, next: $time' : 'Next: $time';
+    }
+    final stamp = '${formatTime(localNext)} ${formatWeekdayShort(localNext)}';
+    return muted ? 'Muted, resumes $stamp' : 'Resumes $stamp';
+  }
+
   /// Fixed-width live clock with seconds: "06:00:00 AM".
   /// Zero-padded hour keeps tabular digits from shifting as time ticks.
   static String formatClock(DateTime dt) =>

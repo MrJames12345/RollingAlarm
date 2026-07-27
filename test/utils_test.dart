@@ -64,6 +64,32 @@ void main() {
       expect(RA_Utils.formatTime(dt), '6:45 PM');
     });
 
+    test('formatNextFireCaption uses Next on the same local day', () {
+      final now = DateTime(2026, 7, 27, 15, 30);
+      final next = DateTime(2026, 7, 27, 18, 0);
+      expect(
+        RA_Utils.formatNextFireCaption(next, muted: false, now: now),
+        'Next: 6:00 PM',
+      );
+      expect(
+        RA_Utils.formatNextFireCaption(next, muted: true, now: now),
+        'Muted, next: 6:00 PM',
+      );
+    });
+
+    test('formatNextFireCaption uses Resumes on a later local day', () {
+      final now = DateTime(2026, 7, 27, 15, 30); // Monday
+      final next = DateTime(2026, 7, 28, 0, 0); // Tuesday midnight
+      expect(
+        RA_Utils.formatNextFireCaption(next, muted: false, now: now),
+        'Resumes 12:00 AM Tue',
+      );
+      expect(
+        RA_Utils.formatNextFireCaption(next, muted: true, now: now),
+        'Muted, resumes 12:00 AM Tue',
+      );
+    });
+
     test('formatClock zero-pads hour and includes seconds', () {
       final dt = DateTime(2026, 7, 25, 18, 45, 7);
       expect(RA_Utils.formatClock(dt), '06:45:07 PM');
