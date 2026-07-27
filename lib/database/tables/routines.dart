@@ -29,7 +29,7 @@ class Routines extends Table {
   BoolColumn get Vibrate => boolean().withDefault(const Constant(true))();
 
   /// Alarm playback volume from 0 (silent) to 100 (full).
-  IntColumn get Volume => integer().withDefault(const Constant(100))();
+  IntColumn get Volume => integer().withDefault(const Constant(50))();
 
   /// When true, alarm audio fades from silent up to [Volume] on trigger.
   BoolColumn get FadeIn => boolean().withDefault(const Constant(false))();

@@ -19,7 +19,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -122,6 +122,9 @@ class RA_Database extends _$RA_Database {
       if (from < 12) {
         await m.addColumn(routines, routines.FadeIn);
       }
+      if (from < 13) {
+        await m.addColumn(routineStates, routineStates.PausedAt);
+      }
     },
   );
 
@@ -200,6 +203,7 @@ class RA_Database extends _$RA_Database {
           Deleted: const Value(true),
           IsRinging: const Value(false),
           NextTriggerTime: const Value(null),
+          PausedAt: const Value(null),
           ModifiedAt: Value(now),
         ),
       );

@@ -10,16 +10,21 @@ class RoutineStates extends Table {
   DateTimeColumn get InitialRingTime => dateTime().nullable()();
   IntColumn get CurrentSnoozeCount =>
       integer().withDefault(const Constant(0))();
+
   /// Fresh rings that counted toward [Routines.MaxTimesPerDay] for [TimesRingDay].
   IntColumn get TimesRingToday => integer().withDefault(const Constant(0))();
+
   /// Start of the day period that [TimesRingToday] applies to.
   DateTimeColumn get TimesRingDay => dateTime().nullable()();
   BoolColumn get IsRinging => boolean().withDefault(const Constant(false))();
   DateTimeColumn get LastDismissedAt => dateTime().nullable()();
 
+  /// When set, the routine is paused: countdown freezes at
+  /// [NextTriggerTime] minus this instant until resume.
+  DateTimeColumn get PausedAt => dateTime().nullable()();
+
   // Audit columns
-  DateTimeColumn get CreatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get CreatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get ModifiedAt => dateTime().nullable()();
   BoolColumn get Deleted => boolean().withDefault(const Constant(false))();
 
@@ -27,6 +32,6 @@ class RoutineStates extends Table {
   /// isolate writers from breaking [getSingleOrNull] / [watchSingleOrNull].
   @override
   List<Set<Column>> get uniqueKeys => [
-        {RoutineId},
-      ];
+    {RoutineId},
+  ];
 }
