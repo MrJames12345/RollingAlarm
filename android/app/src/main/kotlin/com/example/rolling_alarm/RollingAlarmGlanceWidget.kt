@@ -16,6 +16,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -54,10 +55,22 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // Re-read SQLite on every redraw (snooze / dismiss / schedule) so the
+        // home screen is not stuck on HomeWidgetPreferences written earlier.
+        val glanceState = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)
+        val routineId = glanceState[intPreferencesKey(WidgetRoutineBridge.PREFS_ROUTINE_ID_KEY)]
+        val freshDisplay = if (routineId != null && routineId > 0) {
+            WidgetRoutineBridge.writeRoutineDisplay(context, routineId)
+        } else {
+            null
+        }
+
         provideContent {
             val prefs = currentState<Preferences>()
-            val routineId = prefs[intPreferencesKey(WidgetRoutineBridge.PREFS_ROUTINE_ID_KEY)]
-            val display = WidgetRoutineBridge.readDisplay(context, routineId)
+            val pinnedRoutineId =
+                prefs[intPreferencesKey(WidgetRoutineBridge.PREFS_ROUTINE_ID_KEY)]
+            val display = freshDisplay
+                ?: WidgetRoutineBridge.readDisplay(context, pinnedRoutineId)
             val size = LocalSize.current
 
             Box(

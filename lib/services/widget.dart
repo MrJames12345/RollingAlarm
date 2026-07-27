@@ -13,6 +13,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class RA_WidgetService {
   RA_WidgetService._();
 
+  /// Fully qualified Glance AppWidgetProvider / receiver class name.
+  ///
+  /// Must be passed as [HomeWidget.updateWidget]'s [qualifiedAndroidName].
+  /// Using [androidName] with a package prefixed string makes home_widget look
+  /// up `package.package.Class` and the redraw never runs.
   static const String _appWidgetProvider =
       'com.example.rolling_alarm.RollingAlarmWidgetReceiver';
 
@@ -29,13 +34,16 @@ class RA_WidgetService {
   ///
   /// Safe to call from the UI isolate or a background alarm isolate. When [db]
   /// is omitted, opens a short-lived isolate connection from the persisted path.
+  ///
+  /// Call after snooze, dismiss, skip, schedule, and routine edits so next
+  /// alarm time and dismissals today stay in sync on the home screen.
   static Future<void> updateWidgetState({RA_Database? db}) async {
     RA_Database? owned;
     try {
       final database = db ?? await _openDbFromPrefs();
       if (db == null) owned = database;
       if (database == null) {
-        await HomeWidget.updateWidget(androidName: _appWidgetProvider);
+        await _requestWidgetRedraw();
         return;
       }
 
@@ -75,12 +83,16 @@ class RA_WidgetService {
         );
       }
 
-      await HomeWidget.updateWidget(androidName: _appWidgetProvider);
+      await _requestWidgetRedraw();
     } catch (_) {
       // Ignore widget update failures in unit tests or headless isolates.
     } finally {
       await owned?.close();
     }
+  }
+
+  static Future<void> _requestWidgetRedraw() async {
+    await HomeWidget.updateWidget(qualifiedAndroidName: _appWidgetProvider);
   }
 
   static Future<RA_Database?> _openDbFromPrefs() async {

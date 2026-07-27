@@ -86,7 +86,7 @@ object WidgetRoutineBridge {
             .putString(nextAlarmKey(routineId), display.nextAlarmTime)
             .putString(intervalKey(routineId), display.intervalTime)
             .putString(dismissalsKey(routineId), display.dismissalsToday)
-            .apply()
+            .commit()
     }
 
     private fun loadDisplay(db: SQLiteDatabase, routineId: Int): RoutineDisplay? {
