@@ -26,14 +26,11 @@ Widget RA_RadioGroup<T>({
     child: DecoratedBox(
       decoration: RA_ShapeStyles.elevatedSurface(),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < options.length; i++) ...[
             if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: RA_ColourStyles.divider,
-              ),
+              Divider(height: 1, thickness: 1, color: RA_ColourStyles.divider),
             _RadioTile<T>(
               option: options[i],
               groupValue: groupValue,

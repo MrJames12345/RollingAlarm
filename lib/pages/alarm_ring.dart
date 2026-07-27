@@ -107,7 +107,6 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       await _alarmSoundChannel.invokeMethod('setSideButtonActions', {
         'volumeUp': _actionWireName(settings.volumeUp),
         'volumeDown': _actionWireName(settings.volumeDown),
-        'power': _actionWireName(settings.power),
       });
     } catch (_) {}
   }
@@ -117,7 +116,6 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       await _alarmSoundChannel.invokeMethod('setSideButtonActions', {
         'volumeUp': 'none',
         'volumeDown': 'none',
-        'power': 'none',
       });
     } catch (_) {}
   }

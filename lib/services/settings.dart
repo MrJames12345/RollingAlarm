@@ -11,7 +11,6 @@ class RA_SettingsService {
   static const String themeModeKey = 'ra_theme_mode';
   static const String sideButtonVolumeUpKey = 'ra_side_button_volume_up';
   static const String sideButtonVolumeDownKey = 'ra_side_button_volume_down';
-  static const String sideButtonPowerKey = 'ra_side_button_power';
   static const String swipeActionLeftKey = 'ra_swipe_action_left';
   static const String swipeActionRightKey = 'ra_swipe_action_right';
 
@@ -53,7 +52,6 @@ class RA_SettingsService {
     return AlarmSideButtonsSettings(
       volumeUp: _readSideButtonAction(prefs, sideButtonVolumeUpKey),
       volumeDown: _readSideButtonAction(prefs, sideButtonVolumeDownKey),
-      power: _readSideButtonAction(prefs, sideButtonPowerKey),
     );
   }
 
@@ -61,7 +59,6 @@ class RA_SettingsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(sideButtonVolumeUpKey, settings.volumeUp.index);
     await prefs.setInt(sideButtonVolumeDownKey, settings.volumeDown.index);
-    await prefs.setInt(sideButtonPowerKey, settings.power.index);
   }
 
   static Future<void> setSideButtonAction({
@@ -72,7 +69,6 @@ class RA_SettingsService {
     final key = switch (button) {
       AlarmSideButtonEnum.VolumeUp => sideButtonVolumeUpKey,
       AlarmSideButtonEnum.VolumeDown => sideButtonVolumeDownKey,
-      AlarmSideButtonEnum.Power => sideButtonPowerKey,
     };
     await prefs.setInt(key, action.index);
   }

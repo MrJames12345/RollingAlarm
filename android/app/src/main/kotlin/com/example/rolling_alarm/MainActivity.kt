@@ -32,7 +32,6 @@ class MainActivity : FlutterActivity() {
     /** Cached side-button actions while ringing: none / snooze / dismiss. */
     private var sideButtonVolumeUp: String = ACTION_NONE
     private var sideButtonVolumeDown: String = ACTION_NONE
-    private var sideButtonPower: String = ACTION_NONE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Apply lock-screen flags before Flutter attaches so a full-screen
@@ -234,7 +233,6 @@ class MainActivity : FlutterActivity() {
                         val args = call.arguments as? Map<*, *>
                         sideButtonVolumeUp = normalizeSideAction(args?.get("volumeUp"))
                         sideButtonVolumeDown = normalizeSideAction(args?.get("volumeDown"))
-                        sideButtonPower = normalizeSideAction(args?.get("power"))
                         result.success(null)
                     }
                     "listDeviceSounds" -> {
@@ -408,7 +406,6 @@ class MainActivity : FlutterActivity() {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> sideButtonVolumeUp
             KeyEvent.KEYCODE_VOLUME_DOWN -> sideButtonVolumeDown
-            KeyEvent.KEYCODE_POWER -> sideButtonPower
             else -> null
         }
     }
@@ -426,7 +423,6 @@ class MainActivity : FlutterActivity() {
     private fun clearSideButtonActions() {
         sideButtonVolumeUp = ACTION_NONE
         sideButtonVolumeDown = ACTION_NONE
-        sideButtonPower = ACTION_NONE
     }
 
     private fun normalizeSideAction(raw: Any?): String {

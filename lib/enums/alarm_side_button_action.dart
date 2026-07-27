@@ -10,13 +10,12 @@ extension AlarmSideButtonActionEnumX on AlarmSideButtonActionEnum {
 }
 
 /// Which physical side button the setting applies to.
-enum AlarmSideButtonEnum { VolumeUp, VolumeDown, Power }
+enum AlarmSideButtonEnum { VolumeUp, VolumeDown }
 
 extension AlarmSideButtonEnumX on AlarmSideButtonEnum {
   String get label => switch (this) {
     AlarmSideButtonEnum.VolumeUp => 'Volume Up',
     AlarmSideButtonEnum.VolumeDown => 'Volume Down',
-    AlarmSideButtonEnum.Power => 'Power',
   };
 }
 
@@ -24,19 +23,16 @@ extension AlarmSideButtonEnumX on AlarmSideButtonEnum {
 class AlarmSideButtonsSettings {
   final AlarmSideButtonActionEnum volumeUp;
   final AlarmSideButtonActionEnum volumeDown;
-  final AlarmSideButtonActionEnum power;
 
   const AlarmSideButtonsSettings({
     this.volumeUp = AlarmSideButtonActionEnum.None,
     this.volumeDown = AlarmSideButtonActionEnum.None,
-    this.power = AlarmSideButtonActionEnum.None,
   });
 
   AlarmSideButtonActionEnum actionFor(AlarmSideButtonEnum button) {
     return switch (button) {
       AlarmSideButtonEnum.VolumeUp => volumeUp,
       AlarmSideButtonEnum.VolumeDown => volumeDown,
-      AlarmSideButtonEnum.Power => power,
     };
   }
 
@@ -48,17 +44,10 @@ class AlarmSideButtonsSettings {
       AlarmSideButtonEnum.VolumeUp => AlarmSideButtonsSettings(
         volumeUp: action,
         volumeDown: volumeDown,
-        power: power,
       ),
       AlarmSideButtonEnum.VolumeDown => AlarmSideButtonsSettings(
         volumeUp: volumeUp,
         volumeDown: action,
-        power: power,
-      ),
-      AlarmSideButtonEnum.Power => AlarmSideButtonsSettings(
-        volumeUp: volumeUp,
-        volumeDown: volumeDown,
-        power: action,
       ),
     };
   }

@@ -255,7 +255,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 }
 
-/// Equal height tiles for Volume Up / Volume Down / Power side button actions.
+/// Equal height tiles for Volume Up / Volume Down side button actions.
 class _SideButtonsTileRow extends StatelessWidget {
   final AlarmSideButtonsSettings settings;
   final ValueChanged<AlarmSideButtonEnum> onSelect;

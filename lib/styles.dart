@@ -26,6 +26,7 @@ class RA_ColourStyles {
   static const Color secondary = Color(0xFF6B9A92); // muted sage teal
   static const Color sleepIndigo = Color(0xFF4A4766); // quiet indigo
   static const Color softCoral = Color(0xFFC17F74); // dusty coral (alerts)
+  static const Color pauseOchre = Color(0xFFA68B5C); // dusty warm ochre (pause)
   /// Near-black ink on sage / coral fills (stable across themes).
   static const Color onAccent = Color(0xFF0A0A0A);
 

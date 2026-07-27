@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Action performed when swiping a home routine card left or right.
-enum RoutineSwipeActionEnum {
-  Mute,
-  Pause,
-  DismissUpcoming,
-  Delete,
-}
+enum RoutineSwipeActionEnum { Mute, Pause, DismissUpcoming, Delete }
 
 extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   String get label => switch (this) {
@@ -20,7 +15,7 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   /// Swipe reveal background colour for this action.
   Color get color => switch (this) {
     RoutineSwipeActionEnum.Mute => RA_ColourStyles.sleepIndigo,
-    RoutineSwipeActionEnum.Pause => RA_ColourStyles.sleepIndigo,
+    RoutineSwipeActionEnum.Pause => RA_ColourStyles.pauseOchre,
     RoutineSwipeActionEnum.DismissUpcoming => RA_ColourStyles.secondary,
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.softCoral,
   };
