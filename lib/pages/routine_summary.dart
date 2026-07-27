@@ -18,6 +18,7 @@ import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
+import 'package:rolling_alarm/pages/alarm_ring.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
@@ -149,6 +150,25 @@ class _SummaryTab extends ConsumerWidget {
     );
   }
 
+  /// Opens the real alarm UI with this routine's sound settings; snooze/dismiss
+  /// only pop.
+  Future<void> _previewAlarm(BuildContext context) async {
+    final sound = RA_AlarmSound.decode(routine.AudioUri);
+    await Navigator.of(context).push<void>(
+      RA_Routes.alarmRing(
+        AlarmRingPage(
+          routineId: 0,
+          routineName: routine.Name,
+          audioUri: routine.AudioUri,
+          vibrate: routine.Vibrate,
+          volume: routine.Volume,
+          fadeIn: sound.isSilent ? false : routine.FadeIn,
+          isPreview: true,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sound = RA_AlarmSound.decode(routine.AudioUri);
@@ -212,29 +232,45 @@ class _SummaryTab extends ConsumerWidget {
       children: [
         RA_FormSection(
           label: 'Alarm sound',
-          child: _SummaryTileRow(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SummaryTile(
-                label: 'Sound',
-                value: sound.displayLabel,
-                onTap: () => _openEdit(context, RoutineEditFieldEnum.sound),
+              _SummaryTileRow(
+                children: [
+                  _SummaryTile(
+                    label: 'Sound',
+                    value: sound.displayLabel,
+                    onTap: () => _openEdit(context, RoutineEditFieldEnum.sound),
+                  ),
+                  _SummaryTile(
+                    label: 'Volume',
+                    value: sound.isSilent
+                        ? 'N/A'
+                        : '${routine.Volume.clamp(5, 100)}%',
+                    onTap: () =>
+                        _openEdit(context, RoutineEditFieldEnum.volume),
+                  ),
+                  _SummaryTile(
+                    label: 'Fade in',
+                    value: sound.isSilent
+                        ? 'N/A'
+                        : (routine.FadeIn ? 'On' : 'Off'),
+                    onTap: () =>
+                        _openEdit(context, RoutineEditFieldEnum.fadeIn),
+                  ),
+                  _SummaryTile(
+                    label: 'Vibrate',
+                    value: routine.Vibrate ? 'On' : 'Off',
+                    onTap: () =>
+                        _openEdit(context, RoutineEditFieldEnum.vibrate),
+                  ),
+                ],
               ),
-              _SummaryTile(
-                label: 'Volume',
-                value: sound.isSilent
-                    ? 'N/A'
-                    : '${routine.Volume.clamp(5, 100)}%',
-                onTap: () => _openEdit(context, RoutineEditFieldEnum.volume),
-              ),
-              _SummaryTile(
-                label: 'Fade in',
-                value: sound.isSilent ? 'N/A' : (routine.FadeIn ? 'On' : 'Off'),
-                onTap: () => _openEdit(context, RoutineEditFieldEnum.fadeIn),
-              ),
-              _SummaryTile(
-                label: 'Vibrate',
-                value: routine.Vibrate ? 'On' : 'Off',
-                onTap: () => _openEdit(context, RoutineEditFieldEnum.vibrate),
+              const SizedBox(height: RA_ShapeStyles.space16),
+              RA_Button(
+                text: 'Preview',
+                isPrimary: false,
+                onClick: () => unawaited(_previewAlarm(context)),
               ),
             ],
           ),
