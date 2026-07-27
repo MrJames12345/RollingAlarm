@@ -28,7 +28,7 @@ class Routines extends Table {
   /// When true, the device vibrates while this routine's alarm is ringing.
   BoolColumn get Vibrate => boolean().withDefault(const Constant(true))();
 
-  /// Alarm playback volume from 0 (silent) to 100 (full).
+  /// Alarm playback volume from 5 (minimum) to 100 (full).
   IntColumn get Volume => integer().withDefault(const Constant(50))();
 
   /// When true, alarm audio fades from silent up to [Volume] on trigger.

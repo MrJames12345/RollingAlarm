@@ -152,7 +152,7 @@ class RA_ExportService {
       ),
       ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
       Vibrate: Value((r['Vibrate'] as bool?) ?? true),
-      Volume: Value(((r['Volume'] as int?) ?? 50).clamp(0, 100)),
+      Volume: Value(((r['Volume'] as int?) ?? 50).clamp(5, 100)),
       FadeIn: Value((r['FadeIn'] as bool?) ?? false),
       AudioUri: Value(r['AudioUri'] as String?),
       IsActive: Value((r['IsActive'] as bool?) ?? true),

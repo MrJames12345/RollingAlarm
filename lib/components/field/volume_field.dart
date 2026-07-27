@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rolling_alarm/styles.dart';
 
-/// Volume slider bound to the device hardware alarm stream (0 to 100).
+/// Volume slider bound to the device hardware alarm stream (5 to 100).
 ///
 /// Moving the slider should call [onChanged], which must forward the value to
 /// the native [AudioManager.STREAM_ALARM] MethodChannel wrappers.
@@ -11,12 +11,12 @@ Widget RA_VolumeField({
   required ValueChanged<int> onChanged,
   bool enabled = true,
 }) {
-  final clamped = value.clamp(0, 100);
+  final clamped = value.clamp(5, 100);
   final labelColor = enabled
       ? RA_ColourStyles.mutedPrimary
       : RA_ColourStyles.mutedPrimary.withValues(alpha: 0.45);
   final valueColor = enabled
-      ? RA_ColourStyles.secondary
+      ? RA_ColourStyles.valueText
       : RA_ColourStyles.mutedPrimary.withValues(alpha: 0.55);
   final activeTrack = enabled
       ? RA_ColourStyles.secondary
@@ -74,11 +74,11 @@ Widget RA_VolumeField({
               ),
               child: Slider(
                 value: clamped.toDouble(),
-                min: 0,
+                min: 5,
                 max: 100,
-                divisions: 20,
+                divisions: 19,
                 onChanged: enabled
-                    ? (v) => onChanged(v.round().clamp(0, 100))
+                    ? (v) => onChanged(v.round().clamp(5, 100))
                     : null,
               ),
             ),
