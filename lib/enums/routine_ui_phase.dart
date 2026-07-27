@@ -4,6 +4,7 @@ enum RA_RoutineUiPhase {
   idle,
   countingDown,
   paused,
+  muted,
   ringing,
   loading,
   error,
@@ -48,6 +49,11 @@ class RA_RoutineUiSnapshot {
     this.nextTriggerTime,
   }) : phase = RA_RoutineUiPhase.paused;
 
+  const RA_RoutineUiSnapshot.muted(DateTime next)
+    : phase = RA_RoutineUiPhase.muted,
+      nextTriggerTime = next,
+      pausedAt = null;
+
   const RA_RoutineUiSnapshot.loading()
     : phase = RA_RoutineUiPhase.loading,
       nextTriggerTime = null,
@@ -59,12 +65,16 @@ class RA_RoutineUiSnapshot {
       pausedAt = null;
 
   /// Remaining duration frozen at the pause instant, or null when idle paused.
+  ///
+  /// Uses whole seconds so the digits match the live countdown (Drift stores
+  /// DateTimes as Unix seconds, which can otherwise inflate remaining by ~1s).
   Duration? get pausedRemaining {
     final next = nextTriggerTime;
     final paused = pausedAt;
     if (next == null || paused == null) return null;
-    final rem = next.difference(paused);
-    return rem.isNegative ? Duration.zero : rem;
+    final seconds = next.difference(paused).inSeconds;
+    if (seconds <= 0) return Duration.zero;
+    return Duration(seconds: seconds);
   }
 
   @override

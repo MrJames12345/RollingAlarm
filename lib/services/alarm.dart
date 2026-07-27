@@ -444,6 +444,20 @@ class RA_AlarmService {
         }
       }
 
+      // Muted: count the ring (fresh only), silent-dismiss, reschedule. No UX.
+      if (state.MutedAt != null) {
+        await _handleMutedFire(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          state: state,
+          dbPath: dbPath,
+          now: now,
+          isResumingFromSnooze: isResumingFromSnooze,
+        );
+        return;
+      }
+
       final period = RA_DailyRingLimit.periodStart(
         now,
         routine.DayStartSeconds,
@@ -742,6 +756,9 @@ class RA_AlarmService {
   /// Pauses [routine]: cancels OS timers, freezes the countdown at the remaining
   /// duration, and marks the routine inactive so background fires are ignored.
   ///
+  /// Clears mute. Day-start targets keep their absolute [NextTriggerTime];
+  /// interval targets freeze remaining as `pausedAt + floor(remaining)`.
+  ///
   /// If the routine is currently ringing, ends the ring and freezes the next
   /// interval trigger (same calculation as dismiss) without scheduling it.
   static Future<void> pauseRoutine({
@@ -790,6 +807,25 @@ class RA_AlarmService {
       snoozeCount = 0;
     }
 
+    // Drift stores DateTimes as whole Unix seconds, so a raw PausedAt would be
+    // truncated toward the past and inflate remaining by almost 1s vs the live
+    // countdown (which uses sub-second DateTime.now). Snap both timestamps to
+    // second precision with remaining = floor(live remaining).
+    // Day-start targets keep their absolute wall-clock NextTriggerTime.
+    final pausedAt = _driftSecondFloor(now);
+    if (next != null) {
+      final preserveAbsolute = RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+        nextTrigger: next,
+        dayStartSeconds: routine.DayStartSeconds,
+        now: now,
+      );
+      if (!preserveAbsolute) {
+        final remainingSeconds = next.difference(now).inSeconds;
+        final whole = remainingSeconds < 0 ? 0 : remainingSeconds;
+        next = pausedAt.add(Duration(seconds: whole));
+      }
+    }
+
     await db.updateRoutine(
       RoutinesCompanion(Id: Value(routineId), IsActive: const Value(false)),
     );
@@ -799,7 +835,8 @@ class RA_AlarmService {
         routineId,
         RoutineStatesCompanion(
           IsRinging: const Value(false),
-          PausedAt: Value(now),
+          PausedAt: Value(pausedAt),
+          MutedAt: const Value(null),
           NextTriggerTime: Value(next),
           CurrentSnoozeCount: Value(snoozeCount),
         ),
@@ -810,8 +847,12 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
-  /// Resumes a paused routine: restores [IsActive], shifts the frozen
-  /// countdown forward by the pause duration, and re-arms the OS alarm.
+  /// Resumes a paused routine: restores [IsActive], applies pause-resume rules
+  /// for the next trigger, and re-arms the OS alarm.
+  ///
+  /// Interval targets shift by frozen remaining. Day-start targets that are
+  /// still ahead keep their absolute time; missed day-starts use
+  /// [RA_DailyRingLimit.earliestResumeAfterMissedDayStart].
   static Future<void> resumeRoutine({
     required int routineId,
     required RA_Database db,
@@ -825,9 +866,26 @@ class RA_AlarmService {
 
     DateTime? newNext;
     if (next != null && pausedAt != null) {
-      final remaining = next.difference(pausedAt);
-      final frozen = remaining.isNegative ? Duration.zero : remaining;
-      newNext = now.add(frozen);
+      final wasDayStart = RA_DailyRingLimit.isScheduledAtNextPeriodStart(
+        nextTrigger: next,
+        dayStartSeconds: routine.DayStartSeconds,
+        now: pausedAt,
+      );
+      if (wasDayStart) {
+        if (next.isAfter(now)) {
+          newNext = next;
+        } else {
+          newNext = RA_DailyRingLimit.earliestResumeAfterMissedDayStart(
+            now: now,
+            intervalSeconds: routine.IntervalSeconds,
+            dayStartSeconds: routine.DayStartSeconds,
+          );
+        }
+      } else {
+        final remainingSeconds = next.difference(pausedAt).inSeconds;
+        final whole = remainingSeconds < 0 ? 0 : remainingSeconds;
+        newNext = now.add(Duration(seconds: whole));
+      }
     } else if (next != null && next.isAfter(now)) {
       newNext = next;
     }
@@ -856,9 +914,172 @@ class RA_AlarmService {
     } else {
       await RA_WidgetService.updateWidgetState(db: db);
     }
-
     _pingUiIsolate(routineId);
   }
+
+  /// Mutes [routine]: schedule keeps running; fires auto-dismiss and count.
+  ///
+  /// Clears pause first (via [resumeRoutine]). If currently ringing, silent
+  /// dismisses then remains muted.
+  static Future<void> muteRoutine({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required String dbPath,
+  }) async {
+    final state = await db.getRoutineState(routineId);
+
+    if (state?.PausedAt != null) {
+      await resumeRoutine(
+        routineId: routineId,
+        db: db,
+        routine: routine,
+        dbPath: dbPath,
+      );
+    }
+
+    final fresh = await db.getRoutineState(routineId);
+    if (fresh?.IsRinging == true) {
+      await RA_AudioService.stopAlarm();
+      await stopNativeRinging(routineId);
+      await handleTransition(
+        action: RA_AlarmActionTypeCodeEnum.Dismiss,
+        routineId: routineId,
+        db: db,
+        routine: routine,
+        state: fresh!,
+      );
+    }
+
+    final mutedAt = _driftSecondFloor(DateTime.now());
+    await db.updateRoutine(
+      RoutinesCompanion(Id: Value(routineId), IsActive: const Value(true)),
+    );
+    if (fresh != null || state != null) {
+      await db.updateRoutineState(
+        routineId,
+        RoutineStatesCompanion(
+          MutedAt: Value(mutedAt),
+          PausedAt: const Value(null),
+        ),
+      );
+    }
+
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+  }
+
+  /// Clears mute; countdown and next fire are unchanged.
+  static Future<void> unmuteRoutine({
+    required int routineId,
+    required RA_Database db,
+  }) async {
+    await db.updateRoutineState(
+      routineId,
+      const RoutineStatesCompanion(MutedAt: Value(null)),
+    );
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+  }
+
+  /// Silent muted fire: count (fresh rings only), dismiss-schedule next, no UX.
+  static Future<void> _handleMutedFire({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required RoutineStateModel state,
+    required String dbPath,
+    required DateTime now,
+    required bool isResumingFromSnooze,
+  }) async {
+    final compensation =
+        DriftCompensationTypeCodeEnum.values[routine.DriftCompensationTypeCode];
+    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    final priorCount = RA_DailyRingLimit.countForDay(
+      timesRingToday: state.TimesRingToday,
+      timesRingDay: state.TimesRingDay,
+      now: now,
+      dayStartSeconds: routine.DayStartSeconds,
+    );
+
+    // Snooze-resume while muted: dismiss without counting again.
+    final shouldCount = !isResumingFromSnooze;
+    final timesRingToday = shouldCount ? priorCount + 1 : state.TimesRingToday;
+    final timesRingDay = shouldCount ? period : state.TimesRingDay;
+    final initialRing = isResumingFromSnooze
+        ? (state.InitialRingTime ?? now)
+        : now;
+
+    final calculated = RA_AlarmCalculator.calculateNextTrigger(
+      Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+      Compensation: compensation,
+      IntervalSeconds: routine.IntervalSeconds,
+      SnoozeSeconds: routine.SnoozeSeconds,
+      InitialRingTime: initialRing,
+      Now: now,
+    );
+    final next = RA_DailyRingLimit.deferIfDailyLimitReached(
+      proposed: calculated,
+      maxTimesPerDay: routine.MaxTimesPerDayEnabled
+          ? routine.MaxTimesPerDay
+          : 0,
+      timesRingToday: timesRingToday,
+      timesRingDay: timesRingDay,
+      now: now,
+      dayStartSeconds: routine.DayStartSeconds,
+    );
+
+    int? timeSinceLastDismissal;
+    if (state.LastDismissedAt != null) {
+      timeSinceLastDismissal = now.difference(state.LastDismissedAt!).inSeconds;
+    }
+
+    await db.transaction(() async {
+      await db.updateRoutineState(
+        routineId,
+        RoutineStatesCompanion(
+          NextTriggerTime: Value(next),
+          IsRinging: const Value(false),
+          CurrentSnoozeCount: const Value(0),
+          LastDismissedAt: Value(now),
+          InitialRingTime: shouldCount ? Value(now) : const Value.absent(),
+          TimesRingToday: shouldCount
+              ? Value(timesRingToday)
+              : const Value.absent(),
+          TimesRingDay: shouldCount
+              ? Value(timesRingDay)
+              : const Value.absent(),
+        ),
+        requireIsRinging: false,
+      );
+
+      await db.insertLogEntry(
+        LogEntriesCompanion(
+          RoutineId: Value(routineId),
+          Timestamp: Value(now),
+          LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
+          TimeSinceLastDismissalSeconds: timeSinceLastDismissal != null
+              ? Value(timeSinceLastDismissal)
+              : const Value.absent(),
+        ),
+      );
+    });
+
+    await scheduleNext(
+      routineId: routineId,
+      triggerTime: next,
+      dbPath: dbPath,
+      routineName: routine.Name,
+    );
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+  }
+
+  /// Floors [value] to the same whole-second instant Drift persists for DateTimes.
+  static DateTime _driftSecondFloor(DateTime value) =>
+      DateTime.fromMillisecondsSinceEpoch(
+        (value.millisecondsSinceEpoch ~/ 1000) * 1000,
+      );
 
   static LogActionTypeCodeEnum _mapToLogAction(
     RA_AlarmActionTypeCodeEnum action,

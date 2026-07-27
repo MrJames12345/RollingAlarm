@@ -493,7 +493,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
   /// When true, the device vibrates while this routine's alarm is ringing.
   final bool Vibrate;
 
-  /// Alarm playback volume from 0 (silent) to 100 (full).
+  /// Alarm playback volume from 5 (minimum) to 100 (full).
   final int Volume;
 
   /// When true, alarm audio fades from silent up to [Volume] on trigger.
@@ -1129,6 +1129,17 @@ class $RoutineStatesTable extends RoutineStates
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _MutedAtMeta = const VerificationMeta(
+    'MutedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> MutedAt = GeneratedColumn<DateTime>(
+    'muted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _CreatedAtMeta = const VerificationMeta(
     'CreatedAt',
   );
@@ -1179,6 +1190,7 @@ class $RoutineStatesTable extends RoutineStates
     IsRinging,
     LastDismissedAt,
     PausedAt,
+    MutedAt,
     CreatedAt,
     ModifiedAt,
     Deleted,
@@ -1272,6 +1284,12 @@ class $RoutineStatesTable extends RoutineStates
         PausedAt.isAcceptableOrUnknown(data['paused_at']!, _PausedAtMeta),
       );
     }
+    if (data.containsKey('muted_at')) {
+      context.handle(
+        _MutedAtMeta,
+        MutedAt.isAcceptableOrUnknown(data['muted_at']!, _MutedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _CreatedAtMeta,
@@ -1343,6 +1361,10 @@ class $RoutineStatesTable extends RoutineStates
         DriftSqlType.dateTime,
         data['${effectivePrefix}paused_at'],
       ),
+      MutedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}muted_at'],
+      ),
       CreatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1383,6 +1405,10 @@ class RoutineStateModel extends DataClass
   /// When set, the routine is paused: countdown freezes at
   /// [NextTriggerTime] minus this instant until resume.
   final DateTime? PausedAt;
+
+  /// When set, the routine is muted: schedule continues but fires are
+  /// silently auto-dismissed and still count toward [TimesRingToday].
+  final DateTime? MutedAt;
   final DateTime CreatedAt;
   final DateTime? ModifiedAt;
   final bool Deleted;
@@ -1397,6 +1423,7 @@ class RoutineStateModel extends DataClass
     required this.IsRinging,
     this.LastDismissedAt,
     this.PausedAt,
+    this.MutedAt,
     required this.CreatedAt,
     this.ModifiedAt,
     required this.Deleted,
@@ -1423,6 +1450,9 @@ class RoutineStateModel extends DataClass
     }
     if (!nullToAbsent || PausedAt != null) {
       map['paused_at'] = Variable<DateTime>(PausedAt);
+    }
+    if (!nullToAbsent || MutedAt != null) {
+      map['muted_at'] = Variable<DateTime>(MutedAt);
     }
     map['created_at'] = Variable<DateTime>(CreatedAt);
     if (!nullToAbsent || ModifiedAt != null) {
@@ -1454,6 +1484,9 @@ class RoutineStateModel extends DataClass
       PausedAt: PausedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(PausedAt),
+      MutedAt: MutedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(MutedAt),
       CreatedAt: Value(CreatedAt),
       ModifiedAt: ModifiedAt == null && nullToAbsent
           ? const Value.absent()
@@ -1478,6 +1511,7 @@ class RoutineStateModel extends DataClass
       IsRinging: serializer.fromJson<bool>(json['IsRinging']),
       LastDismissedAt: serializer.fromJson<DateTime?>(json['LastDismissedAt']),
       PausedAt: serializer.fromJson<DateTime?>(json['PausedAt']),
+      MutedAt: serializer.fromJson<DateTime?>(json['MutedAt']),
       CreatedAt: serializer.fromJson<DateTime>(json['CreatedAt']),
       ModifiedAt: serializer.fromJson<DateTime?>(json['ModifiedAt']),
       Deleted: serializer.fromJson<bool>(json['Deleted']),
@@ -1497,6 +1531,7 @@ class RoutineStateModel extends DataClass
       'IsRinging': serializer.toJson<bool>(IsRinging),
       'LastDismissedAt': serializer.toJson<DateTime?>(LastDismissedAt),
       'PausedAt': serializer.toJson<DateTime?>(PausedAt),
+      'MutedAt': serializer.toJson<DateTime?>(MutedAt),
       'CreatedAt': serializer.toJson<DateTime>(CreatedAt),
       'ModifiedAt': serializer.toJson<DateTime?>(ModifiedAt),
       'Deleted': serializer.toJson<bool>(Deleted),
@@ -1514,6 +1549,7 @@ class RoutineStateModel extends DataClass
     bool? IsRinging,
     Value<DateTime?> LastDismissedAt = const Value.absent(),
     Value<DateTime?> PausedAt = const Value.absent(),
+    Value<DateTime?> MutedAt = const Value.absent(),
     DateTime? CreatedAt,
     Value<DateTime?> ModifiedAt = const Value.absent(),
     bool? Deleted,
@@ -1534,6 +1570,7 @@ class RoutineStateModel extends DataClass
         ? LastDismissedAt.value
         : this.LastDismissedAt,
     PausedAt: PausedAt.present ? PausedAt.value : this.PausedAt,
+    MutedAt: MutedAt.present ? MutedAt.value : this.MutedAt,
     CreatedAt: CreatedAt ?? this.CreatedAt,
     ModifiedAt: ModifiedAt.present ? ModifiedAt.value : this.ModifiedAt,
     Deleted: Deleted ?? this.Deleted,
@@ -1562,6 +1599,7 @@ class RoutineStateModel extends DataClass
           ? data.LastDismissedAt.value
           : this.LastDismissedAt,
       PausedAt: data.PausedAt.present ? data.PausedAt.value : this.PausedAt,
+      MutedAt: data.MutedAt.present ? data.MutedAt.value : this.MutedAt,
       CreatedAt: data.CreatedAt.present ? data.CreatedAt.value : this.CreatedAt,
       ModifiedAt: data.ModifiedAt.present
           ? data.ModifiedAt.value
@@ -1583,6 +1621,7 @@ class RoutineStateModel extends DataClass
           ..write('IsRinging: $IsRinging, ')
           ..write('LastDismissedAt: $LastDismissedAt, ')
           ..write('PausedAt: $PausedAt, ')
+          ..write('MutedAt: $MutedAt, ')
           ..write('CreatedAt: $CreatedAt, ')
           ..write('ModifiedAt: $ModifiedAt, ')
           ..write('Deleted: $Deleted')
@@ -1602,6 +1641,7 @@ class RoutineStateModel extends DataClass
     IsRinging,
     LastDismissedAt,
     PausedAt,
+    MutedAt,
     CreatedAt,
     ModifiedAt,
     Deleted,
@@ -1620,6 +1660,7 @@ class RoutineStateModel extends DataClass
           other.IsRinging == this.IsRinging &&
           other.LastDismissedAt == this.LastDismissedAt &&
           other.PausedAt == this.PausedAt &&
+          other.MutedAt == this.MutedAt &&
           other.CreatedAt == this.CreatedAt &&
           other.ModifiedAt == this.ModifiedAt &&
           other.Deleted == this.Deleted);
@@ -1636,6 +1677,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
   final Value<bool> IsRinging;
   final Value<DateTime?> LastDismissedAt;
   final Value<DateTime?> PausedAt;
+  final Value<DateTime?> MutedAt;
   final Value<DateTime> CreatedAt;
   final Value<DateTime?> ModifiedAt;
   final Value<bool> Deleted;
@@ -1650,6 +1692,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     this.IsRinging = const Value.absent(),
     this.LastDismissedAt = const Value.absent(),
     this.PausedAt = const Value.absent(),
+    this.MutedAt = const Value.absent(),
     this.CreatedAt = const Value.absent(),
     this.ModifiedAt = const Value.absent(),
     this.Deleted = const Value.absent(),
@@ -1665,6 +1708,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     this.IsRinging = const Value.absent(),
     this.LastDismissedAt = const Value.absent(),
     this.PausedAt = const Value.absent(),
+    this.MutedAt = const Value.absent(),
     this.CreatedAt = const Value.absent(),
     this.ModifiedAt = const Value.absent(),
     this.Deleted = const Value.absent(),
@@ -1680,6 +1724,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     Expression<bool>? IsRinging,
     Expression<DateTime>? LastDismissedAt,
     Expression<DateTime>? PausedAt,
+    Expression<DateTime>? MutedAt,
     Expression<DateTime>? CreatedAt,
     Expression<DateTime>? ModifiedAt,
     Expression<bool>? Deleted,
@@ -1696,6 +1741,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
       if (IsRinging != null) 'is_ringing': IsRinging,
       if (LastDismissedAt != null) 'last_dismissed_at': LastDismissedAt,
       if (PausedAt != null) 'paused_at': PausedAt,
+      if (MutedAt != null) 'muted_at': MutedAt,
       if (CreatedAt != null) 'created_at': CreatedAt,
       if (ModifiedAt != null) 'modified_at': ModifiedAt,
       if (Deleted != null) 'deleted': Deleted,
@@ -1713,6 +1759,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     Value<bool>? IsRinging,
     Value<DateTime?>? LastDismissedAt,
     Value<DateTime?>? PausedAt,
+    Value<DateTime?>? MutedAt,
     Value<DateTime>? CreatedAt,
     Value<DateTime?>? ModifiedAt,
     Value<bool>? Deleted,
@@ -1728,6 +1775,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
       IsRinging: IsRinging ?? this.IsRinging,
       LastDismissedAt: LastDismissedAt ?? this.LastDismissedAt,
       PausedAt: PausedAt ?? this.PausedAt,
+      MutedAt: MutedAt ?? this.MutedAt,
       CreatedAt: CreatedAt ?? this.CreatedAt,
       ModifiedAt: ModifiedAt ?? this.ModifiedAt,
       Deleted: Deleted ?? this.Deleted,
@@ -1767,6 +1815,9 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     if (PausedAt.present) {
       map['paused_at'] = Variable<DateTime>(PausedAt.value);
     }
+    if (MutedAt.present) {
+      map['muted_at'] = Variable<DateTime>(MutedAt.value);
+    }
     if (CreatedAt.present) {
       map['created_at'] = Variable<DateTime>(CreatedAt.value);
     }
@@ -1792,6 +1843,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
           ..write('IsRinging: $IsRinging, ')
           ..write('LastDismissedAt: $LastDismissedAt, ')
           ..write('PausedAt: $PausedAt, ')
+          ..write('MutedAt: $MutedAt, ')
           ..write('CreatedAt: $CreatedAt, ')
           ..write('ModifiedAt: $ModifiedAt, ')
           ..write('Deleted: $Deleted')
@@ -2800,6 +2852,7 @@ typedef $$RoutineStatesTableCreateCompanionBuilder =
       Value<bool> IsRinging,
       Value<DateTime?> LastDismissedAt,
       Value<DateTime?> PausedAt,
+      Value<DateTime?> MutedAt,
       Value<DateTime> CreatedAt,
       Value<DateTime?> ModifiedAt,
       Value<bool> Deleted,
@@ -2816,6 +2869,7 @@ typedef $$RoutineStatesTableUpdateCompanionBuilder =
       Value<bool> IsRinging,
       Value<DateTime?> LastDismissedAt,
       Value<DateTime?> PausedAt,
+      Value<DateTime?> MutedAt,
       Value<DateTime> CreatedAt,
       Value<DateTime?> ModifiedAt,
       Value<bool> Deleted,
@@ -2877,6 +2931,11 @@ class $$RoutineStatesTableFilterComposer
 
   ColumnFilters<DateTime> get PausedAt => $composableBuilder(
     column: $table.PausedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get MutedAt => $composableBuilder(
+    column: $table.MutedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2955,6 +3014,11 @@ class $$RoutineStatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get MutedAt => $composableBuilder(
+    column: $table.MutedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get CreatedAt => $composableBuilder(
     column: $table.CreatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3022,6 +3086,9 @@ class $$RoutineStatesTableAnnotationComposer
   GeneratedColumn<DateTime> get PausedAt =>
       $composableBuilder(column: $table.PausedAt, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get MutedAt =>
+      $composableBuilder(column: $table.MutedAt, builder: (column) => column);
+
   GeneratedColumn<DateTime> get CreatedAt =>
       $composableBuilder(column: $table.CreatedAt, builder: (column) => column);
 
@@ -3079,6 +3146,7 @@ class $$RoutineStatesTableTableManager
                 Value<bool> IsRinging = const Value.absent(),
                 Value<DateTime?> LastDismissedAt = const Value.absent(),
                 Value<DateTime?> PausedAt = const Value.absent(),
+                Value<DateTime?> MutedAt = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
                 Value<DateTime?> ModifiedAt = const Value.absent(),
                 Value<bool> Deleted = const Value.absent(),
@@ -3093,6 +3161,7 @@ class $$RoutineStatesTableTableManager
                 IsRinging: IsRinging,
                 LastDismissedAt: LastDismissedAt,
                 PausedAt: PausedAt,
+                MutedAt: MutedAt,
                 CreatedAt: CreatedAt,
                 ModifiedAt: ModifiedAt,
                 Deleted: Deleted,
@@ -3109,6 +3178,7 @@ class $$RoutineStatesTableTableManager
                 Value<bool> IsRinging = const Value.absent(),
                 Value<DateTime?> LastDismissedAt = const Value.absent(),
                 Value<DateTime?> PausedAt = const Value.absent(),
+                Value<DateTime?> MutedAt = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
                 Value<DateTime?> ModifiedAt = const Value.absent(),
                 Value<bool> Deleted = const Value.absent(),
@@ -3123,6 +3193,7 @@ class $$RoutineStatesTableTableManager
                 IsRinging: IsRinging,
                 LastDismissedAt: LastDismissedAt,
                 PausedAt: PausedAt,
+                MutedAt: MutedAt,
                 CreatedAt: CreatedAt,
                 ModifiedAt: ModifiedAt,
                 Deleted: Deleted,

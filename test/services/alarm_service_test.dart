@@ -1215,14 +1215,17 @@ void main() {
         final pausedState = await db.getRoutineState(routineId);
         expect(pausedRoutine.IsActive, isFalse);
         expect(pausedState!.PausedAt, isNotNull);
-        expect(
-          pausedState.NextTriggerTime!.millisecondsSinceEpoch ~/ 1000,
-          equals(next.millisecondsSinceEpoch ~/ 1000),
-        );
+        expect(pausedState.NextTriggerTime, isNotNull);
         expect(pausedState.IsRinging, isFalse);
 
-        final frozen = next.difference(pausedState.PausedAt!);
-        expect(frozen.inMinutes, closeTo(30, 1));
+        final frozenSeconds = pausedState.NextTriggerTime!
+            .difference(pausedState.PausedAt!)
+            .inSeconds;
+        final expectedSeconds = next.difference(DateTime.now()).inSeconds;
+        // Frozen digits match the live floor(remaining) at pause time (+/- 1s
+        // for the async gap between capturing now and asserting).
+        expect(frozenSeconds, closeTo(expectedSeconds, 2));
+        expect(frozenSeconds, closeTo(30 * 60, 5));
 
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
@@ -1241,7 +1244,283 @@ void main() {
         final remaining = resumedState.NextTriggerTime!.difference(
           DateTime.now(),
         );
-        expect(remaining.inSeconds, closeTo(frozen.inSeconds, 2));
+        expect(remaining.inSeconds, closeTo(frozenSeconds, 2));
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'pause at day-start keeps absolute NextTriggerTime; resume before it unchanged',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_pause_ds_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        const dayStartSeconds = 6 * 3600;
+        final now = DateTime.now();
+        final dayStart = RA_DailyRingLimit.nextPeriodStartAfter(
+          now,
+          dayStartSeconds,
+        );
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Day Start Pause'),
+            IntervalSeconds: const Value(14400),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(3),
+            DayStartSeconds: const Value(dayStartSeconds),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(dayStart),
+            TimesRingToday: const Value(3),
+            TimesRingDay: Value(
+              RA_DailyRingLimit.periodStart(now, dayStartSeconds),
+            ),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.pauseRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final pausedState = await db.getRoutineState(routineId);
+        expect(pausedState!.PausedAt, isNotNull);
+        expect(
+          pausedState.NextTriggerTime!.millisecondsSinceEpoch,
+          dayStart.millisecondsSinceEpoch,
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        await RA_AlarmService.resumeRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final resumed = await db.getRoutineState(routineId);
+        expect(resumed!.PausedAt, isNull);
+        expect(
+          resumed.NextTriggerTime!.millisecondsSinceEpoch,
+          dayStart.millisecondsSinceEpoch,
+        );
+        expect((await db.getRoutineById(routineId)).IsActive, isTrue);
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'resume after missed day-start uses earliest of interval and next day-start',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_pause_miss_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        const dayStartSeconds = 6 * 3600;
+        const intervalSeconds = 14400;
+        final resumeAnchor = DateTime.now();
+        final pausedAt = resumeAnchor.subtract(const Duration(days: 2));
+        final missedDayStart = RA_DailyRingLimit.nextPeriodStartAfter(
+          pausedAt,
+          dayStartSeconds,
+        );
+        expect(missedDayStart.isBefore(resumeAnchor), isTrue);
+
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Missed Day Start'),
+            IntervalSeconds: const Value(intervalSeconds),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(3),
+            DayStartSeconds: const Value(dayStartSeconds),
+            IsActive: const Value(false),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(missedDayStart),
+            PausedAt: Value(pausedAt),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.resumeRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final resumed = await db.getRoutineState(routineId);
+        final expected = RA_DailyRingLimit.earliestResumeAfterMissedDayStart(
+          now: DateTime.now(),
+          intervalSeconds: intervalSeconds,
+          dayStartSeconds: dayStartSeconds,
+        );
+        expect(resumed!.PausedAt, isNull);
+        expect(
+          resumed.NextTriggerTime!.difference(expected).inSeconds.abs(),
+          lessThanOrEqualTo(2),
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'muteRoutine keeps schedule active; pause clears mute; mute clears pause',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mute_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final next = DateTime.fromMillisecondsSinceEpoch(
+          ((now.add(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000) *
+              1000),
+        );
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Mute Routine'),
+            IntervalSeconds: const Value(14400),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(next),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        await RA_AlarmService.muteRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        var state = await db.getRoutineState(routineId);
+        expect((await db.getRoutineById(routineId)).IsActive, isTrue);
+        expect(state!.MutedAt, isNotNull);
+        expect(state.PausedAt, isNull);
+        expect(
+          state.NextTriggerTime!.millisecondsSinceEpoch,
+          next.millisecondsSinceEpoch,
+        );
+
+        await RA_AlarmService.pauseRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+        state = await db.getRoutineState(routineId);
+        expect(state!.MutedAt, isNull);
+        expect(state.PausedAt, isNotNull);
+        expect((await db.getRoutineById(routineId)).IsActive, isFalse);
+
+        await RA_AlarmService.muteRoutine(
+          routineId: routineId,
+          db: db,
+          routine: await db.getRoutineById(routineId),
+          dbPath: dbPath,
+        );
+        state = await db.getRoutineState(routineId);
+        expect(state!.MutedAt, isNotNull);
+        expect(state.PausedAt, isNull);
+        expect((await db.getRoutineById(routineId)).IsActive, isTrue);
+        // Resume-from-pause then mute shifts the frozen remaining forward.
+        expect(state.NextTriggerTime, isNotNull);
+        expect(state.NextTriggerTime!.isAfter(DateTime.now()), isTrue);
+
+        await RA_AlarmService.unmuteRoutine(routineId: routineId, db: db);
+        state = await db.getRoutineState(routineId);
+        expect(state!.MutedAt, isNull);
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'muted fire increments TimesRingToday without lasting IsRinging',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mute_fire_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Muted Fire'),
+            IntervalSeconds: const Value(3600),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(5),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(now),
+            MutedAt: Value(now.subtract(const Duration(minutes: 1))),
+            TimesRingToday: const Value(1),
+            TimesRingDay: Value(RA_DailyRingLimit.periodStart(now, 0)),
+          ),
+        );
+
+        await RA_AlarmService.simulateAlarmCallback(routineId);
+
+        final state = await db.getRoutineState(routineId);
+        expect(state!.IsRinging, isFalse);
+        expect(state.MutedAt, isNotNull);
+        expect(state.TimesRingToday, equals(2));
+        expect(state.NextTriggerTime, isNotNull);
+        expect(state.NextTriggerTime!.isAfter(now), isTrue);
+
+        final logs = await db.getAllLogEntries();
+        expect(logs.length, equals(1));
+        expect(
+          logs.first.LogActionTypeCode,
+          LogActionTypeCodeEnum.Dismiss.index,
+        );
 
         await db.close();
         await tempDir.delete(recursive: true);

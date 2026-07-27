@@ -23,6 +23,10 @@ class RoutineStates extends Table {
   /// [NextTriggerTime] minus this instant until resume.
   DateTimeColumn get PausedAt => dateTime().nullable()();
 
+  /// When set, the routine is muted: schedule continues but fires are
+  /// silently auto-dismissed and still count toward [TimesRingToday].
+  DateTimeColumn get MutedAt => dateTime().nullable()();
+
   // Audit columns
   DateTimeColumn get CreatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get ModifiedAt => dateTime().nullable()();
