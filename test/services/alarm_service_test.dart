@@ -129,6 +129,7 @@ void main() {
           MaxTimesPerDayEnabled: false,
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
+          EnabledWeekdays: 0x7F,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
@@ -222,6 +223,7 @@ void main() {
           MaxTimesPerDayEnabled: false,
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
+          EnabledWeekdays: 0x7F,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.InitialRing.index,
           ShowPreview: true,
@@ -312,6 +314,7 @@ void main() {
           MaxTimesPerDayEnabled: false,
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
+          EnabledWeekdays: 0x7F,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
@@ -416,6 +419,7 @@ void main() {
         MaxTimesPerDayEnabled: false,
         MaxTimesPerDay: 0,
         DayStartSeconds: 0,
+        EnabledWeekdays: 0x7F,
         DriftCompensationTypeCode:
             DriftCompensationTypeCodeEnum.InitialRing.index,
         ShowPreview: true,
@@ -509,6 +513,7 @@ void main() {
           MaxTimesPerDayEnabled: false,
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
+          EnabledWeekdays: 0x7F,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
@@ -1521,6 +1526,7 @@ void main() {
           logs.first.LogActionTypeCode,
           LogActionTypeCodeEnum.Dismiss.index,
         );
+        expect(logs.first.WasMuted, isTrue);
 
         await db.close();
         await tempDir.delete(recursive: true);

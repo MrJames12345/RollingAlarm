@@ -14,6 +14,7 @@ import 'package:rolling_alarm/components/field/text_field.dart';
 import 'package:rolling_alarm/components/field/time_of_day_field.dart';
 import 'package:rolling_alarm/components/field/toggle.dart';
 import 'package:rolling_alarm/components/field/volume_field.dart';
+import 'package:rolling_alarm/components/field/weekday_field.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
@@ -24,6 +25,7 @@ import 'package:rolling_alarm/pages/alarm_sound_picker.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 
@@ -53,6 +55,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   bool _maxTimesPerDayEnabled = false;
   int _maxTimesPerDay = 1;
   TimeOfDay _dayStart = const TimeOfDay(hour: 0, minute: 0);
+  int _enabledWeekdays = RA_WeekdaySchedule.allDaysMask;
   DriftCompensationTypeCodeEnum _compensation =
       DriftCompensationTypeCodeEnum.ActualDismissal;
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
@@ -72,6 +75,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   final GlobalKey _maxTimesLimitFieldKey = GlobalKey();
   final GlobalKey _dayStartFieldKey = GlobalKey();
   final GlobalKey _driftCompensationFieldKey = GlobalKey();
+  final GlobalKey _daysFieldKey = GlobalKey();
 
   RoutineEditFieldEnum? _highlightedField;
 
@@ -109,6 +113,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     RoutineEditFieldEnum.maxTimesLimit => _maxTimesLimitFieldKey,
     RoutineEditFieldEnum.dayStart => _dayStartFieldKey,
     RoutineEditFieldEnum.driftCompensation => _driftCompensationFieldKey,
+    RoutineEditFieldEnum.days => _daysFieldKey,
   };
 
   @override
@@ -128,6 +133,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         hour: dayStart ~/ 3600,
         minute: (dayStart % 3600) ~/ 60,
       );
+      _enabledWeekdays = r.EnabledWeekdays == 0
+          ? RA_WeekdaySchedule.allDaysMask
+          : r.EnabledWeekdays & RA_WeekdaySchedule.allDaysMask;
       _compensation =
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
@@ -180,6 +188,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           _dayStart.hour * 3600 + _dayStart.minute * 60,
         ),
       ),
+      EnabledWeekdays: Value(_enabledWeekdays),
       DriftCompensationTypeCode: Value(_compensation.index),
       ShowPreview: const Value(true),
       Vibrate: Value(_vibrate),
@@ -272,6 +281,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         // Keep the active timer as-is so interval / other edits apply next
         // cycle. If we were waiting on "Start at time of day" and that time
         // changed, retarget the countdown to the new day-start boundary.
+        // Always defer onto an enabled weekday after any retarget.
         var next = previousNext;
         if (next != null &&
             oldDayStart != newDayStart &&
@@ -283,13 +293,15 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             DateTime.now(),
             newDayStart,
           );
-          await db.updateRoutineState(
-            id,
-            RoutineStatesCompanion(NextTriggerTime: Value(next)),
-          );
         }
-
         if (next != null) {
+          next = RA_WeekdaySchedule.deferToEnabledDay(next, _enabledWeekdays);
+          if (next != previousNext) {
+            await db.updateRoutineState(
+              id,
+              RoutineStatesCompanion(NextTriggerTime: Value(next)),
+            );
+          }
           await RA_AlarmService.scheduleNext(
             routineId: id,
             triggerTime: next,
@@ -308,6 +320,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           interval: _interval,
           maxTimesPerDayEnabled: _maxTimesPerDayEnabled,
           dayStartSeconds: dayStartSeconds,
+          enabledWeekdays: _enabledWeekdays,
         );
         final routineId = await db.insertRoutineWithInitialState(
           routine: _companion(),
@@ -517,7 +530,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
               key: _driftCompensationFieldKey,
               child: RA_FormSection(
                 label: 'Drift Compensation',
-                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
                 child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
                   groupValue: _compensation,
                   onChanged: (v) => setState(() => _compensation = v),
@@ -532,6 +544,18 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                       subtitle: 'Next alarm based on when you dismiss',
                     ),
                   ],
+                ),
+              ),
+            ),
+            _highlightTarget(
+              field: RoutineEditFieldEnum.days,
+              key: _daysFieldKey,
+              child: RA_FormSection(
+                label: 'Days',
+                bottomSpacing: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
+                child: RA_WeekdayField(
+                  value: _enabledWeekdays,
+                  onChanged: (v) => setState(() => _enabledWeekdays = v),
                 ),
               ),
             ),

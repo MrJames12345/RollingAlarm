@@ -1,3 +1,5 @@
+import 'package:rolling_alarm/services/weekday_schedule.dart';
+
 /// Pure helpers for the per-day ring cap.
 ///
 /// A "day" starts at [dayStartSeconds] past local midnight (not necessarily
@@ -95,17 +97,18 @@ class RA_DailyRingLimit {
   ///
   /// When the daily cap is enabled, schedule the next "Start at time of day"
   /// so the first ring opens the daily cycle. Otherwise use [now] plus
-  /// [interval].
+  /// [interval]. Then defer to the next enabled weekday when needed.
   static DateTime initialTriggerTime({
     required DateTime now,
     required Duration interval,
     required bool maxTimesPerDayEnabled,
     int dayStartSeconds = 0,
+    int enabledWeekdays = 0x7F,
   }) {
-    if (maxTimesPerDayEnabled) {
-      return nextPeriodStartAfter(now, dayStartSeconds);
-    }
-    return now.add(interval);
+    final proposed = maxTimesPerDayEnabled
+        ? nextPeriodStartAfter(now, dayStartSeconds)
+        : now.add(interval);
+    return RA_WeekdaySchedule.deferToEnabledDay(proposed, enabledWeekdays);
   }
 
   /// Whether [nextTrigger] is the next "Start at time of day" after [now].

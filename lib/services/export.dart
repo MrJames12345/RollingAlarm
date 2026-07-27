@@ -11,7 +11,7 @@ class RA_ExportService {
   RA_ExportService._();
 
   static const String _versionPrefix = 'RA1:';
-  static const int _currentVersion = 9;
+  static const int _currentVersion = 10;
   static const int _minSupportedVersion = 1;
 
   /// Matches the new-routine form default (2h 30m) when interval is absent.
@@ -37,6 +37,7 @@ class RA_ExportService {
               'MaxTimesPerDayEnabled': r.MaxTimesPerDayEnabled,
               'MaxTimesPerDay': r.MaxTimesPerDay,
               'DayStartSeconds': r.DayStartSeconds,
+              'EnabledWeekdays': r.EnabledWeekdays,
               'DriftCompensationTypeCode': r.DriftCompensationTypeCode,
               'ShowPreview': r.ShowPreview,
               'Vibrate': r.Vibrate,
@@ -146,6 +147,7 @@ class RA_ExportService {
       ),
       MaxTimesPerDay: Value(maxTimesPerDay),
       DayStartSeconds: Value((r['DayStartSeconds'] as int?) ?? 0),
+      EnabledWeekdays: Value((r['EnabledWeekdays'] as int?) ?? 0x7F),
       DriftCompensationTypeCode: Value(
         (r['DriftCompensationTypeCode'] as int?) ??
             DriftCompensationTypeCodeEnum.ActualDismissal.index,
@@ -183,6 +185,9 @@ class RA_ExportService {
         interval: Duration(seconds: intervalSeconds),
         maxTimesPerDayEnabled: companion.MaxTimesPerDayEnabled.value,
         dayStartSeconds: companion.DayStartSeconds.value,
+        enabledWeekdays: companion.EnabledWeekdays.present
+            ? companion.EnabledWeekdays.value
+            : 0x7F,
       );
       final routineId = await db.insertRoutineWithInitialState(
         routine: companion,

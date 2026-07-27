@@ -14,6 +14,7 @@ import 'package:rolling_alarm/services/alarm_calculator.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/notification.dart';
+import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -412,6 +413,28 @@ class RA_AlarmService {
       final isResumingFromSnooze = state.CurrentSnoozeCount > 0;
 
       if (!isResumingFromSnooze) {
+        if (!RA_WeekdaySchedule.isDateEnabled(routine.EnabledWeekdays, now)) {
+          final deferred = RA_WeekdaySchedule.deferToEnabledDay(
+            now,
+            routine.EnabledWeekdays,
+          );
+          await db.updateRoutineState(
+            routineId,
+            RoutineStatesCompanion(
+              NextTriggerTime: Value(deferred),
+              IsRinging: const Value(false),
+            ),
+            requireIsRinging: false,
+          );
+          await scheduleNext(
+            routineId: routineId,
+            triggerTime: deferred,
+            dbPath: dbPath,
+            routineName: routine.Name,
+          );
+          return;
+        }
+
         final canRing = RA_DailyRingLimit.canRingToday(
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
               ? routine.MaxTimesPerDay
@@ -422,9 +445,12 @@ class RA_AlarmService {
           dayStartSeconds: routine.DayStartSeconds,
         );
         if (!canRing) {
-          final deferred = RA_DailyRingLimit.nextPeriodStartAfter(
-            now,
-            routine.DayStartSeconds,
+          final deferred = RA_WeekdaySchedule.deferToEnabledDay(
+            RA_DailyRingLimit.nextPeriodStartAfter(
+              now,
+              routine.DayStartSeconds,
+            ),
+            routine.EnabledWeekdays,
           );
           await db.updateRoutineState(
             routineId,
@@ -641,16 +667,20 @@ class RA_AlarmService {
       }
 
       // Daily cap only defers the next interval cycle, never an in-cycle snooze.
+      // Weekday filter applies to dismiss/skip the same way.
       final next = isEffectiveDismiss
-          ? RA_DailyRingLimit.deferIfDailyLimitReached(
-              proposed: calculated,
-              maxTimesPerDay: routine.MaxTimesPerDayEnabled
-                  ? routine.MaxTimesPerDay
-                  : 0,
-              timesRingToday: timesRingToday,
-              timesRingDay: timesRingDay,
-              now: now,
-              dayStartSeconds: routine.DayStartSeconds,
+          ? RA_WeekdaySchedule.deferToEnabledDay(
+              RA_DailyRingLimit.deferIfDailyLimitReached(
+                proposed: calculated,
+                maxTimesPerDay: routine.MaxTimesPerDayEnabled
+                    ? routine.MaxTimesPerDay
+                    : 0,
+                timesRingToday: timesRingToday,
+                timesRingDay: timesRingDay,
+                now: now,
+                dayStartSeconds: routine.DayStartSeconds,
+              ),
+              routine.EnabledWeekdays,
             )
           : calculated;
 
@@ -794,15 +824,18 @@ class RA_AlarmService {
         InitialRingTime: state?.InitialRingTime ?? now,
         Now: now,
       );
-      next = RA_DailyRingLimit.deferIfDailyLimitReached(
-        proposed: calculated,
-        maxTimesPerDay: routine.MaxTimesPerDayEnabled
-            ? routine.MaxTimesPerDay
-            : 0,
-        timesRingToday: state?.TimesRingToday ?? 0,
-        timesRingDay: state?.TimesRingDay,
-        now: now,
-        dayStartSeconds: routine.DayStartSeconds,
+      next = RA_WeekdaySchedule.deferToEnabledDay(
+        RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: calculated,
+          maxTimesPerDay: routine.MaxTimesPerDayEnabled
+              ? routine.MaxTimesPerDay
+              : 0,
+          timesRingToday: state?.TimesRingToday ?? 0,
+          timesRingDay: state?.TimesRingDay,
+          now: now,
+          dayStartSeconds: routine.DayStartSeconds,
+        ),
+        routine.EnabledWeekdays,
       );
       snoozeCount = 0;
     }
@@ -888,6 +921,13 @@ class RA_AlarmService {
       }
     } else if (next != null && next.isAfter(now)) {
       newNext = next;
+    }
+
+    if (newNext != null) {
+      newNext = RA_WeekdaySchedule.deferToEnabledDay(
+        newNext,
+        routine.EnabledWeekdays,
+      );
     }
 
     await db.updateRoutine(
@@ -1018,15 +1058,18 @@ class RA_AlarmService {
       InitialRingTime: initialRing,
       Now: now,
     );
-    final next = RA_DailyRingLimit.deferIfDailyLimitReached(
-      proposed: calculated,
-      maxTimesPerDay: routine.MaxTimesPerDayEnabled
-          ? routine.MaxTimesPerDay
-          : 0,
-      timesRingToday: timesRingToday,
-      timesRingDay: timesRingDay,
-      now: now,
-      dayStartSeconds: routine.DayStartSeconds,
+    final next = RA_WeekdaySchedule.deferToEnabledDay(
+      RA_DailyRingLimit.deferIfDailyLimitReached(
+        proposed: calculated,
+        maxTimesPerDay: routine.MaxTimesPerDayEnabled
+            ? routine.MaxTimesPerDay
+            : 0,
+        timesRingToday: timesRingToday,
+        timesRingDay: timesRingDay,
+        now: now,
+        dayStartSeconds: routine.DayStartSeconds,
+      ),
+      routine.EnabledWeekdays,
     );
 
     int? timeSinceLastDismissal;
@@ -1061,6 +1104,7 @@ class RA_AlarmService {
           TimeSinceLastDismissalSeconds: timeSinceLastDismissal != null
               ? Value(timeSinceLastDismissal)
               : const Value.absent(),
+          WasMuted: const Value(true),
         ),
       );
     });

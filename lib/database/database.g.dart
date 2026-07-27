@@ -97,6 +97,18 @@ class $RoutinesTable extends Routines
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _EnabledWeekdaysMeta = const VerificationMeta(
+    'EnabledWeekdays',
+  );
+  @override
+  late final GeneratedColumn<int> EnabledWeekdays = GeneratedColumn<int>(
+    'enabled_weekdays',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(127),
+  );
   static const VerificationMeta _DriftCompensationTypeCodeMeta =
       const VerificationMeta('DriftCompensationTypeCode');
   @override
@@ -234,6 +246,7 @@ class $RoutinesTable extends Routines
     MaxTimesPerDay,
     DayStartSeconds,
     MaxTimesPerDayEnabled,
+    EnabledWeekdays,
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
@@ -312,6 +325,15 @@ class $RoutinesTable extends Routines
         MaxTimesPerDayEnabled.isAcceptableOrUnknown(
           data['max_times_per_day_enabled']!,
           _MaxTimesPerDayEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('enabled_weekdays')) {
+      context.handle(
+        _EnabledWeekdaysMeta,
+        EnabledWeekdays.isAcceptableOrUnknown(
+          data['enabled_weekdays']!,
+          _EnabledWeekdaysMeta,
         ),
       );
     }
@@ -420,6 +442,10 @@ class $RoutinesTable extends Routines
         DriftSqlType.bool,
         data['${effectivePrefix}max_times_per_day_enabled'],
       )!,
+      EnabledWeekdays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}enabled_weekdays'],
+      )!,
       DriftCompensationTypeCode: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}drift_compensation_type_code'],
@@ -487,6 +513,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
 
   /// When false, daily ring cap fields are ignored (unlimited rings).
   final bool MaxTimesPerDayEnabled;
+
+  /// Monday-first weekday bitmask (bit 0 = Mon … bit 6 = Sun). Default all days.
+  final int EnabledWeekdays;
   final int DriftCompensationTypeCode;
   final bool ShowPreview;
 
@@ -511,6 +540,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     required this.MaxTimesPerDay,
     required this.DayStartSeconds,
     required this.MaxTimesPerDayEnabled,
+    required this.EnabledWeekdays,
     required this.DriftCompensationTypeCode,
     required this.ShowPreview,
     required this.Vibrate,
@@ -532,6 +562,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     map['max_times_per_day'] = Variable<int>(MaxTimesPerDay);
     map['day_start_seconds'] = Variable<int>(DayStartSeconds);
     map['max_times_per_day_enabled'] = Variable<bool>(MaxTimesPerDayEnabled);
+    map['enabled_weekdays'] = Variable<int>(EnabledWeekdays);
     map['drift_compensation_type_code'] = Variable<int>(
       DriftCompensationTypeCode,
     );
@@ -560,6 +591,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       MaxTimesPerDay: Value(MaxTimesPerDay),
       DayStartSeconds: Value(DayStartSeconds),
       MaxTimesPerDayEnabled: Value(MaxTimesPerDayEnabled),
+      EnabledWeekdays: Value(EnabledWeekdays),
       DriftCompensationTypeCode: Value(DriftCompensationTypeCode),
       ShowPreview: Value(ShowPreview),
       Vibrate: Value(Vibrate),
@@ -592,6 +624,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       MaxTimesPerDayEnabled: serializer.fromJson<bool>(
         json['MaxTimesPerDayEnabled'],
       ),
+      EnabledWeekdays: serializer.fromJson<int>(json['EnabledWeekdays']),
       DriftCompensationTypeCode: serializer.fromJson<int>(
         json['DriftCompensationTypeCode'],
       ),
@@ -617,6 +650,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       'MaxTimesPerDay': serializer.toJson<int>(MaxTimesPerDay),
       'DayStartSeconds': serializer.toJson<int>(DayStartSeconds),
       'MaxTimesPerDayEnabled': serializer.toJson<bool>(MaxTimesPerDayEnabled),
+      'EnabledWeekdays': serializer.toJson<int>(EnabledWeekdays),
       'DriftCompensationTypeCode': serializer.toJson<int>(
         DriftCompensationTypeCode,
       ),
@@ -640,6 +674,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     int? MaxTimesPerDay,
     int? DayStartSeconds,
     bool? MaxTimesPerDayEnabled,
+    int? EnabledWeekdays,
     int? DriftCompensationTypeCode,
     bool? ShowPreview,
     bool? Vibrate,
@@ -658,6 +693,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     MaxTimesPerDay: MaxTimesPerDay ?? this.MaxTimesPerDay,
     DayStartSeconds: DayStartSeconds ?? this.DayStartSeconds,
     MaxTimesPerDayEnabled: MaxTimesPerDayEnabled ?? this.MaxTimesPerDayEnabled,
+    EnabledWeekdays: EnabledWeekdays ?? this.EnabledWeekdays,
     DriftCompensationTypeCode:
         DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
     ShowPreview: ShowPreview ?? this.ShowPreview,
@@ -689,6 +725,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       MaxTimesPerDayEnabled: data.MaxTimesPerDayEnabled.present
           ? data.MaxTimesPerDayEnabled.value
           : this.MaxTimesPerDayEnabled,
+      EnabledWeekdays: data.EnabledWeekdays.present
+          ? data.EnabledWeekdays.value
+          : this.EnabledWeekdays,
       DriftCompensationTypeCode: data.DriftCompensationTypeCode.present
           ? data.DriftCompensationTypeCode.value
           : this.DriftCompensationTypeCode,
@@ -718,6 +757,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           ..write('MaxTimesPerDay: $MaxTimesPerDay, ')
           ..write('DayStartSeconds: $DayStartSeconds, ')
           ..write('MaxTimesPerDayEnabled: $MaxTimesPerDayEnabled, ')
+          ..write('EnabledWeekdays: $EnabledWeekdays, ')
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
@@ -741,6 +781,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     MaxTimesPerDay,
     DayStartSeconds,
     MaxTimesPerDayEnabled,
+    EnabledWeekdays,
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
@@ -763,6 +804,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           other.MaxTimesPerDay == this.MaxTimesPerDay &&
           other.DayStartSeconds == this.DayStartSeconds &&
           other.MaxTimesPerDayEnabled == this.MaxTimesPerDayEnabled &&
+          other.EnabledWeekdays == this.EnabledWeekdays &&
           other.DriftCompensationTypeCode == this.DriftCompensationTypeCode &&
           other.ShowPreview == this.ShowPreview &&
           other.Vibrate == this.Vibrate &&
@@ -783,6 +825,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
   final Value<int> MaxTimesPerDay;
   final Value<int> DayStartSeconds;
   final Value<bool> MaxTimesPerDayEnabled;
+  final Value<int> EnabledWeekdays;
   final Value<int> DriftCompensationTypeCode;
   final Value<bool> ShowPreview;
   final Value<bool> Vibrate;
@@ -801,6 +844,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.MaxTimesPerDay = const Value.absent(),
     this.DayStartSeconds = const Value.absent(),
     this.MaxTimesPerDayEnabled = const Value.absent(),
+    this.EnabledWeekdays = const Value.absent(),
     this.DriftCompensationTypeCode = const Value.absent(),
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
@@ -820,6 +864,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.MaxTimesPerDay = const Value.absent(),
     this.DayStartSeconds = const Value.absent(),
     this.MaxTimesPerDayEnabled = const Value.absent(),
+    this.EnabledWeekdays = const Value.absent(),
     required int DriftCompensationTypeCode,
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
@@ -841,6 +886,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Expression<int>? MaxTimesPerDay,
     Expression<int>? DayStartSeconds,
     Expression<bool>? MaxTimesPerDayEnabled,
+    Expression<int>? EnabledWeekdays,
     Expression<int>? DriftCompensationTypeCode,
     Expression<bool>? ShowPreview,
     Expression<bool>? Vibrate,
@@ -861,6 +907,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       if (DayStartSeconds != null) 'day_start_seconds': DayStartSeconds,
       if (MaxTimesPerDayEnabled != null)
         'max_times_per_day_enabled': MaxTimesPerDayEnabled,
+      if (EnabledWeekdays != null) 'enabled_weekdays': EnabledWeekdays,
       if (DriftCompensationTypeCode != null)
         'drift_compensation_type_code': DriftCompensationTypeCode,
       if (ShowPreview != null) 'show_preview': ShowPreview,
@@ -883,6 +930,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Value<int>? MaxTimesPerDay,
     Value<int>? DayStartSeconds,
     Value<bool>? MaxTimesPerDayEnabled,
+    Value<int>? EnabledWeekdays,
     Value<int>? DriftCompensationTypeCode,
     Value<bool>? ShowPreview,
     Value<bool>? Vibrate,
@@ -903,6 +951,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       DayStartSeconds: DayStartSeconds ?? this.DayStartSeconds,
       MaxTimesPerDayEnabled:
           MaxTimesPerDayEnabled ?? this.MaxTimesPerDayEnabled,
+      EnabledWeekdays: EnabledWeekdays ?? this.EnabledWeekdays,
       DriftCompensationTypeCode:
           DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
       ShowPreview: ShowPreview ?? this.ShowPreview,
@@ -942,6 +991,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       map['max_times_per_day_enabled'] = Variable<bool>(
         MaxTimesPerDayEnabled.value,
       );
+    }
+    if (EnabledWeekdays.present) {
+      map['enabled_weekdays'] = Variable<int>(EnabledWeekdays.value);
     }
     if (DriftCompensationTypeCode.present) {
       map['drift_compensation_type_code'] = Variable<int>(
@@ -988,6 +1040,7 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
           ..write('MaxTimesPerDay: $MaxTimesPerDay, ')
           ..write('DayStartSeconds: $DayStartSeconds, ')
           ..write('MaxTimesPerDayEnabled: $MaxTimesPerDayEnabled, ')
+          ..write('EnabledWeekdays: $EnabledWeekdays, ')
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
@@ -1915,6 +1968,21 @@ class $LogEntriesTable extends LogEntries
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _WasMutedMeta = const VerificationMeta(
+    'WasMuted',
+  );
+  @override
+  late final GeneratedColumn<bool> WasMuted = GeneratedColumn<bool>(
+    'was_muted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("was_muted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _CreatedAtMeta = const VerificationMeta(
     'CreatedAt',
   );
@@ -1960,6 +2028,7 @@ class $LogEntriesTable extends LogEntries
     Timestamp,
     LogActionTypeCode,
     TimeSinceLastDismissalSeconds,
+    WasMuted,
     CreatedAt,
     ModifiedAt,
     Deleted,
@@ -2015,6 +2084,12 @@ class $LogEntriesTable extends LogEntries
         ),
       );
     }
+    if (data.containsKey('was_muted')) {
+      context.handle(
+        _WasMutedMeta,
+        WasMuted.isAcceptableOrUnknown(data['was_muted']!, _WasMutedMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _CreatedAtMeta,
@@ -2062,6 +2137,10 @@ class $LogEntriesTable extends LogEntries
         DriftSqlType.int,
         data['${effectivePrefix}time_since_last_dismissal_seconds'],
       ),
+      WasMuted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}was_muted'],
+      )!,
       CreatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2089,6 +2168,9 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
   final DateTime Timestamp;
   final int LogActionTypeCode;
   final int? TimeSinceLastDismissalSeconds;
+
+  /// True when this event was produced by a muted auto dismiss (no ring UX).
+  final bool WasMuted;
   final DateTime CreatedAt;
   final DateTime? ModifiedAt;
   final bool Deleted;
@@ -2098,6 +2180,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
     required this.Timestamp,
     required this.LogActionTypeCode,
     this.TimeSinceLastDismissalSeconds,
+    required this.WasMuted,
     required this.CreatedAt,
     this.ModifiedAt,
     required this.Deleted,
@@ -2114,6 +2197,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
         TimeSinceLastDismissalSeconds,
       );
     }
+    map['was_muted'] = Variable<bool>(WasMuted);
     map['created_at'] = Variable<DateTime>(CreatedAt);
     if (!nullToAbsent || ModifiedAt != null) {
       map['modified_at'] = Variable<DateTime>(ModifiedAt);
@@ -2132,6 +2216,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
           TimeSinceLastDismissalSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(TimeSinceLastDismissalSeconds),
+      WasMuted: Value(WasMuted),
       CreatedAt: Value(CreatedAt),
       ModifiedAt: ModifiedAt == null && nullToAbsent
           ? const Value.absent()
@@ -2153,6 +2238,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
       TimeSinceLastDismissalSeconds: serializer.fromJson<int?>(
         json['TimeSinceLastDismissalSeconds'],
       ),
+      WasMuted: serializer.fromJson<bool>(json['WasMuted']),
       CreatedAt: serializer.fromJson<DateTime>(json['CreatedAt']),
       ModifiedAt: serializer.fromJson<DateTime?>(json['ModifiedAt']),
       Deleted: serializer.fromJson<bool>(json['Deleted']),
@@ -2169,6 +2255,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
       'TimeSinceLastDismissalSeconds': serializer.toJson<int?>(
         TimeSinceLastDismissalSeconds,
       ),
+      'WasMuted': serializer.toJson<bool>(WasMuted),
       'CreatedAt': serializer.toJson<DateTime>(CreatedAt),
       'ModifiedAt': serializer.toJson<DateTime?>(ModifiedAt),
       'Deleted': serializer.toJson<bool>(Deleted),
@@ -2181,6 +2268,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
     DateTime? Timestamp,
     int? LogActionTypeCode,
     Value<int?> TimeSinceLastDismissalSeconds = const Value.absent(),
+    bool? WasMuted,
     DateTime? CreatedAt,
     Value<DateTime?> ModifiedAt = const Value.absent(),
     bool? Deleted,
@@ -2192,6 +2280,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
     TimeSinceLastDismissalSeconds: TimeSinceLastDismissalSeconds.present
         ? TimeSinceLastDismissalSeconds.value
         : this.TimeSinceLastDismissalSeconds,
+    WasMuted: WasMuted ?? this.WasMuted,
     CreatedAt: CreatedAt ?? this.CreatedAt,
     ModifiedAt: ModifiedAt.present ? ModifiedAt.value : this.ModifiedAt,
     Deleted: Deleted ?? this.Deleted,
@@ -2207,6 +2296,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
       TimeSinceLastDismissalSeconds: data.TimeSinceLastDismissalSeconds.present
           ? data.TimeSinceLastDismissalSeconds.value
           : this.TimeSinceLastDismissalSeconds,
+      WasMuted: data.WasMuted.present ? data.WasMuted.value : this.WasMuted,
       CreatedAt: data.CreatedAt.present ? data.CreatedAt.value : this.CreatedAt,
       ModifiedAt: data.ModifiedAt.present
           ? data.ModifiedAt.value
@@ -2225,6 +2315,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
           ..write(
             'TimeSinceLastDismissalSeconds: $TimeSinceLastDismissalSeconds, ',
           )
+          ..write('WasMuted: $WasMuted, ')
           ..write('CreatedAt: $CreatedAt, ')
           ..write('ModifiedAt: $ModifiedAt, ')
           ..write('Deleted: $Deleted')
@@ -2239,6 +2330,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
     Timestamp,
     LogActionTypeCode,
     TimeSinceLastDismissalSeconds,
+    WasMuted,
     CreatedAt,
     ModifiedAt,
     Deleted,
@@ -2253,6 +2345,7 @@ class LogEntryModel extends DataClass implements Insertable<LogEntryModel> {
           other.LogActionTypeCode == this.LogActionTypeCode &&
           other.TimeSinceLastDismissalSeconds ==
               this.TimeSinceLastDismissalSeconds &&
+          other.WasMuted == this.WasMuted &&
           other.CreatedAt == this.CreatedAt &&
           other.ModifiedAt == this.ModifiedAt &&
           other.Deleted == this.Deleted);
@@ -2264,6 +2357,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
   final Value<DateTime> Timestamp;
   final Value<int> LogActionTypeCode;
   final Value<int?> TimeSinceLastDismissalSeconds;
+  final Value<bool> WasMuted;
   final Value<DateTime> CreatedAt;
   final Value<DateTime?> ModifiedAt;
   final Value<bool> Deleted;
@@ -2273,6 +2367,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
     this.Timestamp = const Value.absent(),
     this.LogActionTypeCode = const Value.absent(),
     this.TimeSinceLastDismissalSeconds = const Value.absent(),
+    this.WasMuted = const Value.absent(),
     this.CreatedAt = const Value.absent(),
     this.ModifiedAt = const Value.absent(),
     this.Deleted = const Value.absent(),
@@ -2283,6 +2378,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
     required DateTime Timestamp,
     required int LogActionTypeCode,
     this.TimeSinceLastDismissalSeconds = const Value.absent(),
+    this.WasMuted = const Value.absent(),
     this.CreatedAt = const Value.absent(),
     this.ModifiedAt = const Value.absent(),
     this.Deleted = const Value.absent(),
@@ -2295,6 +2391,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
     Expression<DateTime>? Timestamp,
     Expression<int>? LogActionTypeCode,
     Expression<int>? TimeSinceLastDismissalSeconds,
+    Expression<bool>? WasMuted,
     Expression<DateTime>? CreatedAt,
     Expression<DateTime>? ModifiedAt,
     Expression<bool>? Deleted,
@@ -2306,6 +2403,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
       if (LogActionTypeCode != null) 'log_action_type_code': LogActionTypeCode,
       if (TimeSinceLastDismissalSeconds != null)
         'time_since_last_dismissal_seconds': TimeSinceLastDismissalSeconds,
+      if (WasMuted != null) 'was_muted': WasMuted,
       if (CreatedAt != null) 'created_at': CreatedAt,
       if (ModifiedAt != null) 'modified_at': ModifiedAt,
       if (Deleted != null) 'deleted': Deleted,
@@ -2318,6 +2416,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
     Value<DateTime>? Timestamp,
     Value<int>? LogActionTypeCode,
     Value<int?>? TimeSinceLastDismissalSeconds,
+    Value<bool>? WasMuted,
     Value<DateTime>? CreatedAt,
     Value<DateTime?>? ModifiedAt,
     Value<bool>? Deleted,
@@ -2329,6 +2428,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
       LogActionTypeCode: LogActionTypeCode ?? this.LogActionTypeCode,
       TimeSinceLastDismissalSeconds:
           TimeSinceLastDismissalSeconds ?? this.TimeSinceLastDismissalSeconds,
+      WasMuted: WasMuted ?? this.WasMuted,
       CreatedAt: CreatedAt ?? this.CreatedAt,
       ModifiedAt: ModifiedAt ?? this.ModifiedAt,
       Deleted: Deleted ?? this.Deleted,
@@ -2355,6 +2455,9 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
         TimeSinceLastDismissalSeconds.value,
       );
     }
+    if (WasMuted.present) {
+      map['was_muted'] = Variable<bool>(WasMuted.value);
+    }
     if (CreatedAt.present) {
       map['created_at'] = Variable<DateTime>(CreatedAt.value);
     }
@@ -2377,6 +2480,7 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
           ..write(
             'TimeSinceLastDismissalSeconds: $TimeSinceLastDismissalSeconds, ',
           )
+          ..write('WasMuted: $WasMuted, ')
           ..write('CreatedAt: $CreatedAt, ')
           ..write('ModifiedAt: $ModifiedAt, ')
           ..write('Deleted: $Deleted')
@@ -2411,6 +2515,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       Value<int> MaxTimesPerDay,
       Value<int> DayStartSeconds,
       Value<bool> MaxTimesPerDayEnabled,
+      Value<int> EnabledWeekdays,
       required int DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
@@ -2431,6 +2536,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<int> MaxTimesPerDay,
       Value<int> DayStartSeconds,
       Value<bool> MaxTimesPerDayEnabled,
+      Value<int> EnabledWeekdays,
       Value<int> DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
@@ -2484,6 +2590,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<bool> get MaxTimesPerDayEnabled => $composableBuilder(
     column: $table.MaxTimesPerDayEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get EnabledWeekdays => $composableBuilder(
+    column: $table.EnabledWeekdays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2582,6 +2693,11 @@ class $$RoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get EnabledWeekdays => $composableBuilder(
+    column: $table.EnabledWeekdays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get DriftCompensationTypeCode => $composableBuilder(
     column: $table.DriftCompensationTypeCode,
     builder: (column) => ColumnOrderings(column),
@@ -2673,6 +2789,11 @@ class $$RoutinesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get EnabledWeekdays => $composableBuilder(
+    column: $table.EnabledWeekdays,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get DriftCompensationTypeCode => $composableBuilder(
     column: $table.DriftCompensationTypeCode,
     builder: (column) => column,
@@ -2748,6 +2869,7 @@ class $$RoutinesTableTableManager
                 Value<int> MaxTimesPerDay = const Value.absent(),
                 Value<int> DayStartSeconds = const Value.absent(),
                 Value<bool> MaxTimesPerDayEnabled = const Value.absent(),
+                Value<int> EnabledWeekdays = const Value.absent(),
                 Value<int> DriftCompensationTypeCode = const Value.absent(),
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
@@ -2766,6 +2888,7 @@ class $$RoutinesTableTableManager
                 MaxTimesPerDay: MaxTimesPerDay,
                 DayStartSeconds: DayStartSeconds,
                 MaxTimesPerDayEnabled: MaxTimesPerDayEnabled,
+                EnabledWeekdays: EnabledWeekdays,
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
@@ -2786,6 +2909,7 @@ class $$RoutinesTableTableManager
                 Value<int> MaxTimesPerDay = const Value.absent(),
                 Value<int> DayStartSeconds = const Value.absent(),
                 Value<bool> MaxTimesPerDayEnabled = const Value.absent(),
+                Value<int> EnabledWeekdays = const Value.absent(),
                 required int DriftCompensationTypeCode,
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
@@ -2804,6 +2928,7 @@ class $$RoutinesTableTableManager
                 MaxTimesPerDay: MaxTimesPerDay,
                 DayStartSeconds: DayStartSeconds,
                 MaxTimesPerDayEnabled: MaxTimesPerDayEnabled,
+                EnabledWeekdays: EnabledWeekdays,
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
@@ -3230,6 +3355,7 @@ typedef $$LogEntriesTableCreateCompanionBuilder =
       required DateTime Timestamp,
       required int LogActionTypeCode,
       Value<int?> TimeSinceLastDismissalSeconds,
+      Value<bool> WasMuted,
       Value<DateTime> CreatedAt,
       Value<DateTime?> ModifiedAt,
       Value<bool> Deleted,
@@ -3241,6 +3367,7 @@ typedef $$LogEntriesTableUpdateCompanionBuilder =
       Value<DateTime> Timestamp,
       Value<int> LogActionTypeCode,
       Value<int?> TimeSinceLastDismissalSeconds,
+      Value<bool> WasMuted,
       Value<DateTime> CreatedAt,
       Value<DateTime?> ModifiedAt,
       Value<bool> Deleted,
@@ -3277,6 +3404,11 @@ class $$LogEntriesTableFilterComposer
 
   ColumnFilters<int> get TimeSinceLastDismissalSeconds => $composableBuilder(
     column: $table.TimeSinceLastDismissalSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get WasMuted => $composableBuilder(
+    column: $table.WasMuted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3330,6 +3462,11 @@ class $$LogEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get WasMuted => $composableBuilder(
+    column: $table.WasMuted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get CreatedAt => $composableBuilder(
     column: $table.CreatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3373,6 +3510,9 @@ class $$LogEntriesTableAnnotationComposer
     column: $table.TimeSinceLastDismissalSeconds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get WasMuted =>
+      $composableBuilder(column: $table.WasMuted, builder: (column) => column);
 
   GeneratedColumn<DateTime> get CreatedAt =>
       $composableBuilder(column: $table.CreatedAt, builder: (column) => column);
@@ -3423,6 +3563,7 @@ class $$LogEntriesTableTableManager
                 Value<int> LogActionTypeCode = const Value.absent(),
                 Value<int?> TimeSinceLastDismissalSeconds =
                     const Value.absent(),
+                Value<bool> WasMuted = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
                 Value<DateTime?> ModifiedAt = const Value.absent(),
                 Value<bool> Deleted = const Value.absent(),
@@ -3432,6 +3573,7 @@ class $$LogEntriesTableTableManager
                 Timestamp: Timestamp,
                 LogActionTypeCode: LogActionTypeCode,
                 TimeSinceLastDismissalSeconds: TimeSinceLastDismissalSeconds,
+                WasMuted: WasMuted,
                 CreatedAt: CreatedAt,
                 ModifiedAt: ModifiedAt,
                 Deleted: Deleted,
@@ -3444,6 +3586,7 @@ class $$LogEntriesTableTableManager
                 required int LogActionTypeCode,
                 Value<int?> TimeSinceLastDismissalSeconds =
                     const Value.absent(),
+                Value<bool> WasMuted = const Value.absent(),
                 Value<DateTime> CreatedAt = const Value.absent(),
                 Value<DateTime?> ModifiedAt = const Value.absent(),
                 Value<bool> Deleted = const Value.absent(),
@@ -3453,6 +3596,7 @@ class $$LogEntriesTableTableManager
                 Timestamp: Timestamp,
                 LogActionTypeCode: LogActionTypeCode,
                 TimeSinceLastDismissalSeconds: TimeSinceLastDismissalSeconds,
+                WasMuted: WasMuted,
                 CreatedAt: CreatedAt,
                 ModifiedAt: ModifiedAt,
                 Deleted: Deleted,

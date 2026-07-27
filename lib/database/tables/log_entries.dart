@@ -10,6 +10,9 @@ class LogEntries extends Table {
   IntColumn get LogActionTypeCode => integer()();
   IntColumn get TimeSinceLastDismissalSeconds => integer().nullable()();
 
+  /// True when this event was produced by a muted auto dismiss (no ring UX).
+  BoolColumn get WasMuted => boolean().withDefault(const Constant(false))();
+
   // Audit columns
   DateTimeColumn get CreatedAt =>
       dateTime().withDefault(currentDateAndTime)();

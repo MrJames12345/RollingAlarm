@@ -76,6 +76,7 @@ void main() {
         expect(r.FadeIn, isTrue);
         expect(r.AudioUri, equals('default_ringtone'));
         expect(r.IsActive, isTrue);
+        expect(r.EnabledWeekdays, equals(0x7F));
       } finally {
         await db2.close();
       }

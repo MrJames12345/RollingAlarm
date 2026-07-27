@@ -19,7 +19,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -128,6 +128,12 @@ class RA_Database extends _$RA_Database {
       if (from < 14) {
         await m.addColumn(routineStates, routineStates.MutedAt);
       }
+      if (from < 15) {
+        await m.addColumn(routines, routines.EnabledWeekdays);
+      }
+      if (from < 16) {
+        await m.addColumn(logEntries, logEntries.WasMuted);
+      }
     },
   );
 
@@ -140,6 +146,14 @@ class RA_Database extends _$RA_Database {
           ..where((r) => r.Deleted.equals(false))
           ..orderBy([(r) => OrderingTerm.asc(r.CreatedAt)]))
         .watch();
+  }
+
+  /// Maps each routine id to its name, including soft deleted rows, so global
+  /// log history can still label events after a routine is removed.
+  Stream<Map<int, String>> watchRoutineNamesById() {
+    return select(
+      routines,
+    ).watch().map((rows) => {for (final r in rows) r.Id: r.Name});
   }
 
   Future<RoutineModel> getRoutineById(int id) {

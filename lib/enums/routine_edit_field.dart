@@ -10,4 +10,5 @@ enum RoutineEditFieldEnum {
   maxTimesLimit,
   dayStart,
   driftCompensation,
+  days,
 }

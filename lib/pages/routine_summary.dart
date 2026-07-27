@@ -22,6 +22,7 @@ import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
@@ -241,7 +242,7 @@ class _SummaryTab extends ConsumerWidget {
         RA_FormSection(
           label: 'Timing',
           child: _SummaryTileRow(
-            flexes: const [2, 2, 3],
+            flexes: const [2, 2, 2, 2],
             children: [
               _SummaryTile(
                 label: 'Interval',
@@ -252,6 +253,11 @@ class _SummaryTab extends ConsumerWidget {
                 label: 'Snooze',
                 value: RA_Utils.formatInterval(routine.SnoozeSeconds),
                 onTap: () => _openEdit(context, RoutineEditFieldEnum.snooze),
+              ),
+              _SummaryTile(
+                label: 'Days',
+                value: RA_WeekdaySchedule.summaryLabel(routine.EnabledWeekdays),
+                onTap: () => _openEdit(context, RoutineEditFieldEnum.days),
               ),
               _SummaryTile(
                 label: 'Drift compensation',
@@ -271,7 +277,7 @@ class _SummaryTab extends ConsumerWidget {
               _SummaryTileRow(children: dailyLimitTiles),
               const SizedBox(height: RA_ShapeStyles.space16),
               RA_Button(
-                text: "Reset today's counter",
+                text: "Reset Today's Counter",
                 isPrimary: false,
                 onClick: () => unawaited(_resetTodayCounter(context, ref)),
               ),

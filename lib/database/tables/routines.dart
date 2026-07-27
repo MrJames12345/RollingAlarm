@@ -22,6 +22,10 @@ class Routines extends Table {
   /// When false, daily ring cap fields are ignored (unlimited rings).
   BoolColumn get MaxTimesPerDayEnabled =>
       boolean().withDefault(const Constant(false))();
+
+  /// Monday-first weekday bitmask (bit 0 = Mon … bit 6 = Sun). Default all days.
+  IntColumn get EnabledWeekdays => integer().withDefault(const Constant(127))();
+
   IntColumn get DriftCompensationTypeCode => integer()();
   BoolColumn get ShowPreview => boolean().withDefault(const Constant(true))();
 
