@@ -188,7 +188,7 @@ void main() {
         );
         expect(r.ShowPreview, isTrue);
         expect(r.Vibrate, isTrue);
-        expect(r.Volume, equals(100));
+        expect(r.Volume, equals(50));
         expect(r.FadeIn, isFalse);
         expect(r.AudioUri, isNull);
         expect(r.IsActive, isTrue);

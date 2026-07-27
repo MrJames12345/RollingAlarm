@@ -144,6 +144,41 @@ void main() {
       );
     });
 
+    test('initialTriggerTime uses day start when the daily cap is on', () {
+      const interval = Duration(hours: 2, minutes: 30);
+      expect(
+        RA_DailyRingLimit.initialTriggerTime(
+          now: now,
+          interval: interval,
+          maxTimesPerDayEnabled: true,
+          dayStartSeconds: sixAm,
+        ),
+        DateTime(2026, 7, 27, 6),
+      );
+      expect(
+        RA_DailyRingLimit.initialTriggerTime(
+          now: DateTime(2026, 7, 26, 5),
+          interval: interval,
+          maxTimesPerDayEnabled: true,
+          dayStartSeconds: sixAm,
+        ),
+        DateTime(2026, 7, 26, 6),
+      );
+    });
+
+    test('initialTriggerTime uses now plus interval when the cap is off', () {
+      const interval = Duration(hours: 2, minutes: 30);
+      expect(
+        RA_DailyRingLimit.initialTriggerTime(
+          now: now,
+          interval: interval,
+          maxTimesPerDayEnabled: false,
+          dayStartSeconds: sixAm,
+        ),
+        now.add(interval),
+      );
+    });
+
     test('isScheduledAtNextPeriodStart matches the next day-start only', () {
       expect(
         RA_DailyRingLimit.isScheduledAtNextPeriodStart(

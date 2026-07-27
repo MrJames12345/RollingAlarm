@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
+import 'package:rolling_alarm/services/daily_ring_limit.dart';
 
 /// Versioned JSON-to-base64 export/import service.
 /// Format: `RA1:` followed by base64-encoded JSON.
@@ -151,7 +152,7 @@ class RA_ExportService {
       ),
       ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
       Vibrate: Value((r['Vibrate'] as bool?) ?? true),
-      Volume: Value(((r['Volume'] as int?) ?? 100).clamp(0, 100)),
+      Volume: Value(((r['Volume'] as int?) ?? 50).clamp(0, 100)),
       FadeIn: Value((r['FadeIn'] as bool?) ?? false),
       AudioUri: Value(r['AudioUri'] as String?),
       IsActive: Value((r['IsActive'] as bool?) ?? true),
@@ -159,9 +160,9 @@ class RA_ExportService {
   }
 
   /// Imports routines from a validated export string.
-  /// Every imported routine also gets a [RoutineStates] row seeded one interval
-  /// out, so the caller can schedule it the same way a freshly created routine
-  /// is scheduled. Returns the imported routine IDs.
+  /// Every imported routine also gets a [RoutineStates] row seeded the same
+  /// way a freshly created routine is scheduled (day start when the daily
+  /// cap is on, otherwise one interval out). Returns the imported routine IDs.
   ///
   /// Older exports may omit newer fields; those use defaults. Extra or removed
   /// fields in the payload are ignored.
@@ -177,8 +178,11 @@ class RA_ExportService {
       final r = routineMap as Map<String, dynamic>;
       final companion = _routineCompanionFromMap(r);
       final intervalSeconds = companion.IntervalSeconds.value;
-      final nextTrigger = DateTime.now().add(
-        Duration(seconds: intervalSeconds),
+      final nextTrigger = RA_DailyRingLimit.initialTriggerTime(
+        now: DateTime.now(),
+        interval: Duration(seconds: intervalSeconds),
+        maxTimesPerDayEnabled: companion.MaxTimesPerDayEnabled.value,
+        dayStartSeconds: companion.DayStartSeconds.value,
       );
       final routineId = await db.insertRoutineWithInitialState(
         routine: companion,

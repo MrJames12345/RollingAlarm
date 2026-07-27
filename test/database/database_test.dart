@@ -218,7 +218,7 @@ void main() {
         expect(after.AudioUri, equals('file:///custom.mp3'));
         expect(after.IsActive, isTrue);
         expect(after.Vibrate, isTrue);
-        expect(after.Volume, equals(100));
+        expect(after.Volume, equals(50));
         expect(after.FadeIn, isFalse);
         expect(after.CreatedAt, equals(before.CreatedAt));
         expect(after.Deleted, isFalse);

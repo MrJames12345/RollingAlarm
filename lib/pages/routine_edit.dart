@@ -50,7 +50,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       DriftCompensationTypeCodeEnum.ActualDismissal;
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
   bool _vibrate = true;
-  int _volume = 100;
+  int _volume = 50;
   bool _fadeIn = false;
   bool _showValidationErrors = false;
 
@@ -105,15 +105,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       _volume = r.Volume.clamp(0, 100);
       _fadeIn = r.FadeIn;
     } else {
-      unawaited(_seedVolumeFromSystem());
+      unawaited(RA_AlarmService.setSystemAlarmVolume(0.5));
     }
-  }
-
-  /// Seeds a new routine's slider from the live STREAM_ALARM hardware level.
-  Future<void> _seedVolumeFromSystem() async {
-    final ratio = await RA_AlarmService.getSystemAlarmVolume();
-    if (!mounted) return;
-    setState(() => _volume = (ratio * 100).round().clamp(0, 100));
   }
 
   void _onVolumeChanged(int value) {
@@ -230,7 +223,15 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         }
         await RA_WidgetService.updateWidgetState(db: db);
       } else {
-        final nextTrigger = DateTime.now().add(_interval);
+        final dayStartSeconds = RA_DailyRingLimit.normalizeDayStartSeconds(
+          _dayStart.hour * 3600 + _dayStart.minute * 60,
+        );
+        final nextTrigger = RA_DailyRingLimit.initialTriggerTime(
+          now: DateTime.now(),
+          interval: _interval,
+          maxTimesPerDayEnabled: _maxTimesPerDayEnabled,
+          dayStartSeconds: dayStartSeconds,
+        );
         final routineId = await db.insertRoutineWithInitialState(
           routine: _companion(),
           nextTriggerTime: nextTrigger,

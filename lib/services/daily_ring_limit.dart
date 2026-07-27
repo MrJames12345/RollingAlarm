@@ -82,6 +82,23 @@ class RA_DailyRingLimit {
   static DateTime nextPeriodStartAfter(DateTime now, int dayStartSeconds) =>
       periodStart(now, dayStartSeconds).add(const Duration(days: 1));
 
+  /// First trigger when creating or importing a routine.
+  ///
+  /// When the daily cap is enabled, schedule the next "Start at time of day"
+  /// so the first ring opens the daily cycle. Otherwise use [now] plus
+  /// [interval].
+  static DateTime initialTriggerTime({
+    required DateTime now,
+    required Duration interval,
+    required bool maxTimesPerDayEnabled,
+    int dayStartSeconds = 0,
+  }) {
+    if (maxTimesPerDayEnabled) {
+      return nextPeriodStartAfter(now, dayStartSeconds);
+    }
+    return now.add(interval);
+  }
+
   /// Whether [nextTrigger] is the next "Start at time of day" after [now].
   ///
   /// True when the daily cap deferred the next ring to the period reset, so
