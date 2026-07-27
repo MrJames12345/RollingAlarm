@@ -49,11 +49,11 @@ Source of truth for “when does it fire next” is `RoutineStates.NextTriggerTi
 
 - Ends the ring cycle, recalculates next interval fire, resets snooze count, logs dismiss
 
-### Dismiss upcoming (Skip)
+### Start Fresh Interval (Skip)
 
-- Idle skip of the pending next fire
+- Idle skip of the pending next fire; retargets to `now + interval` (then daily / weekday filters)
 - Prompt: whether to count toward today’s daily total
-- Hidden when paused, or when next fire is already a day start boundary under a daily cap (skipping would not advance past that reset)
+- Available whenever the routine is not paused, including when next fire is already a day start ("Starts at") boundary
 
 ### Daily ring limit
 
@@ -393,9 +393,9 @@ If `InitialRingTime + Interval` is already in the past (long snooze chain), the 
 
 Ends ring as a dismiss style next time, stores it, does not schedule until resume.
 
-### Dismiss upcoming hidden
+### Start Fresh Interval while next is day start
 
-When next is already a day start under an enabled cap, skip would not advance past that reset, so the action is hidden.
+Still offered (unless paused). Skip calculates `now + interval` and then applies the usual daily / weekday filters, so under the cap it can leave a parked "Starts at" and begin a fresh cycle immediately.
 
 ---
 

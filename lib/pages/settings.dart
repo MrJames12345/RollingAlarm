@@ -183,17 +183,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           groupValue: settings.actionFor(direction),
           onChanged: (v) => Navigator.pop(ctx, v),
           options: const [
+            RA_RadioOption(value: RoutineSwipeActionEnum.Mute, title: 'Mute'),
+            RA_RadioOption(value: RoutineSwipeActionEnum.Pause, title: 'Pause'),
             RA_RadioOption(
-              value: RoutineSwipeActionEnum.Mute,
-              title: 'Mute',
-            ),
-            RA_RadioOption(
-              value: RoutineSwipeActionEnum.Pause,
-              title: 'Pause',
-            ),
-            RA_RadioOption(
-              value: RoutineSwipeActionEnum.DismissUpcoming,
-              title: 'Dismiss Upcoming',
+              value: RoutineSwipeActionEnum.StartFreshInterval,
+              title: 'Start Fresh Interval',
             ),
             RA_RadioOption(
               value: RoutineSwipeActionEnum.Delete,
@@ -347,10 +341,7 @@ class _SwipeActionsTileRow extends StatelessWidget {
   final RoutineSwipeActionsSettings settings;
   final ValueChanged<RoutineSwipeDirectionEnum> onSelect;
 
-  const _SwipeActionsTileRow({
-    required this.settings,
-    required this.onSelect,
-  });
+  const _SwipeActionsTileRow({required this.settings, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -363,9 +354,7 @@ class _SwipeActionsTileRow extends StatelessWidget {
             Expanded(
               child: _SwipeActionTile(
                 direction: RoutineSwipeDirectionEnum.values[i],
-                action: settings.actionFor(
-                  RoutineSwipeDirectionEnum.values[i],
-                ),
+                action: settings.actionFor(RoutineSwipeDirectionEnum.values[i]),
                 onTap: () => onSelect(RoutineSwipeDirectionEnum.values[i]),
               ),
             ),

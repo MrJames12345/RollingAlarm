@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/styles.dart';
 
-/// Asks whether a "Dismiss upcoming" skip should count toward today's total.
+/// Asks whether a "Start Fresh Interval" skip should count toward today's total.
 ///
 /// Returns `true` for Yes, `false` for No, and `null` when the dialog is
 /// dismissed without a choice (skip is aborted).

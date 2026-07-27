@@ -5,13 +5,13 @@ import 'package:rolling_alarm/styles.dart';
 enum RA_RoutineCardMenuAction {
   mute,
   pause,
-  dismissUpcoming,
+  startFreshInterval,
   edit,
   resetTodayCounter,
   delete,
 }
 
-/// Shows Mute, Pause, Dismiss Upcoming, Edit, Reset Today's Counter, and Delete.
+/// Shows Mute, Pause, Start Fresh Interval, Edit, Reset Today's Counter, and Delete.
 ///
 /// Returns the chosen action, or `null` when dismissed without a choice.
 Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
@@ -19,7 +19,7 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
   required String routineName,
   required bool isMuted,
   required bool isPaused,
-  required bool showDismissUpcoming,
+  required bool showStartFreshInterval,
 }) {
   return showDialog<RA_RoutineCardMenuAction>(
     context: context,
@@ -57,12 +57,14 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
             color: isPaused ? RA_ColourStyles.pauseOchre : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.pause),
           ),
-          if (showDismissUpcoming)
+          if (showStartFreshInterval)
             _ActionTile(
               icon: Icons.skip_next,
-              label: 'Dismiss Upcoming',
-              onTap: () =>
-                  Navigator.pop(ctx, RA_RoutineCardMenuAction.dismissUpcoming),
+              label: 'Start Fresh Interval',
+              onTap: () => Navigator.pop(
+                ctx,
+                RA_RoutineCardMenuAction.startFreshInterval,
+              ),
             ),
           _ActionTile(
             icon: Icons.edit_outlined,

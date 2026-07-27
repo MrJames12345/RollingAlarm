@@ -118,8 +118,7 @@ class RA_DailyRingLimit {
   /// Whether [trigger] lands exactly on a "Start at time of day" boundary.
   ///
   /// True for the immediate next day-start and for the day-start clock after
-  /// weekday deferral. Used so pause/resume keep absolute day-start targets and
-  /// Dismiss upcoming can hide when skipping would not advance past that reset.
+  /// weekday deferral. Used so pause/resume keep absolute day-start targets.
   ///
   /// Compares local time-of-day (hour/minute/second) so Drift round-trips and
   /// UTC/local representations of the same wall clock still match.
