@@ -192,6 +192,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(AppThemeModeProvider);
     // Keep native key remapping in sync if Settings change while ringing.
     ref.listen(AlarmSideButtonsProvider, (previous, next) {
       next.whenData((_) => unawaited(_syncSideButtonActions()));

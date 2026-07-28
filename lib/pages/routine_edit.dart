@@ -411,6 +411,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(AppThemeModeProvider);
     return RA_PageScaffold(
       title: _isEditing ? 'Edit Routine' : 'New Routine',
       leading: RA_AppBarIconButton(

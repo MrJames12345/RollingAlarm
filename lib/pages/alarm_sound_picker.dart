@@ -6,6 +6,7 @@ import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
+import 'package:rolling_alarm/components/common/app_theme_scope.dart';
 import 'package:rolling_alarm/components/field/input_decoration.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
@@ -104,6 +105,7 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
 
   @override
   Widget build(BuildContext context) {
+    RA_AppThemeScope.of(context);
     return RA_PageScaffold(
       title: 'Alarm sound',
       leading: RA_AppBarIconButton(

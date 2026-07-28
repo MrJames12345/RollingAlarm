@@ -17,13 +17,14 @@ import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/styles.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerWidget {
   final String dbPath;
 
   const HomePage({super.key, required this.dbPath});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(AppThemeModeProvider);
     final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
     // Scaffold chrome (AppBar / FAB) stays outside the list consumer so
     // RoutineListProvider emissions never rebuild the whole page shell.
@@ -107,6 +108,7 @@ class _HomeRoutineList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(AppThemeModeProvider);
     final routinesAsync = ref.watch(RoutineListProvider);
 
     return RA_AsyncListBody(

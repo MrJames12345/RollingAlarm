@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/components/common/alarm_ring_presenter.dart';
+import 'package:rolling_alarm/components/common/app_theme_scope.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
@@ -87,8 +88,15 @@ class RollingAlarmApp extends ConsumerWidget {
       navigatorKey: RA_navigatorKey,
       title: 'Rolling Alarm',
       debugShowCheckedModeBanner: false,
-      builder: (context, child) =>
-          RA_AlarmRingPresenter(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => RA_AppThemeScope(
+        mode: themeMode,
+        child: RA_ThemeRebuildGate(
+          mode: themeMode,
+          child: RA_AlarmRingPresenter(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      ),
       theme: RA_AppTheme.themeData(),
       home: HomePage(dbPath: dbPath),
     );

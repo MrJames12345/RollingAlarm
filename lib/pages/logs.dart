@@ -12,11 +12,12 @@ import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/pdf.dart';
 import 'package:rolling_alarm/styles.dart';
 
-class LogsPage extends StatelessWidget {
+class LogsPage extends ConsumerWidget {
   const LogsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(AppThemeModeProvider);
     // AppBar chrome is static; share action and list body watch independently
     // so list insertions do not rebuild the whole scaffold.
     return RA_PageScaffold(
@@ -64,6 +65,7 @@ class _LogsListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(AppThemeModeProvider);
     final logsAsync = ref.watch(LogEntriesProvider(null));
     final nameById =
         ref.watch(RoutineNamesByIdProvider).valueOrNull ?? const {};

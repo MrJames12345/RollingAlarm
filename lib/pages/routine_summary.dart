@@ -37,6 +37,7 @@ class RoutineSummaryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(AppThemeModeProvider);
     final routine = ref.watch(
       RoutineListProvider.select((async) {
         final list = async.valueOrNull;
