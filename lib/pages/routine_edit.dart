@@ -9,6 +9,7 @@ import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/section_label.dart';
+import 'package:rolling_alarm/components/common/unsaved_changes_dialog.dart';
 import 'package:rolling_alarm/components/field/duration_field.dart';
 import 'package:rolling_alarm/components/field/number_field.dart';
 import 'package:rolling_alarm/components/field/radio_group.dart';
@@ -130,6 +131,35 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       !RA_WeekdaySchedule.isEveryDay(_enabledWeekdays);
 
   bool get _dayStartEnabled => _maxTimesPerDayEnabled || _hasDisabledWeekday;
+
+  /// True when editing and the form differs from the persisted routine.
+  bool get _hasUnsavedChanges {
+    final r = widget.existingRoutine;
+    if (r == null) return false;
+
+    final dayStartSeconds = RA_DailyRingLimit.normalizeDayStartSeconds(
+      _dayStart.hour * 3600 + _dayStart.minute * 60,
+    );
+    final existingDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
+      r.DayStartSeconds,
+    );
+    final existingMaxTimes = r.MaxTimesPerDay < 1 ? 1 : r.MaxTimesPerDay;
+    final existingVolume = r.Volume.clamp(5, 100);
+    final existingSoundEncode = RA_AlarmSound.decode(r.AudioUri).encode();
+
+    return _nameController.text.trim() != r.Name ||
+        _interval.inSeconds != r.IntervalSeconds ||
+        _snoozeDuration.inSeconds != r.SnoozeSeconds ||
+        _maxTimesPerDayEnabled != r.MaxTimesPerDayEnabled ||
+        _maxTimesPerDay != existingMaxTimes ||
+        dayStartSeconds != existingDayStart ||
+        _enabledWeekdays != _normalizeEnabledWeekdays(r.EnabledWeekdays) ||
+        _compensation.index != r.DriftCompensationTypeCode ||
+        _vibrate != r.Vibrate ||
+        _volume.clamp(5, 100) != existingVolume ||
+        _fadeIn != r.FadeIn ||
+        _sound.encode() != existingSoundEncode;
+  }
 
   @override
   void initState() {
@@ -265,93 +295,100 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     setState(() => _highlightedField = null);
   }
 
-  Future<void> _save() async {
+  /// Writes form values to the DB. Returns the saved row, or null on
+  /// validation failure. Throws on persist / schedule errors.
+  Future<RoutineModel?> _persistRoutine() async {
     setState(() => _showValidationErrors = true);
     final invalidKey = _firstInvalidFieldKey;
     if (invalidKey != null) {
       unawaited(_scrollToField(invalidKey));
-      return;
+      return null;
     }
 
-    try {
-      final db = ref.read(RA_DatabaseProvider);
-      final name = _nameController.text.trim();
+    final db = ref.read(RA_DatabaseProvider);
+    final name = _nameController.text.trim();
 
-      if (_isEditing) {
-        final existing = widget.existingRoutine!;
-        final id = existing.Id;
-        final state = await db.getRoutineState(id);
-        final oldDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
-          existing.DayStartSeconds,
-        );
-        final newDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
-          _dayStart.hour * 3600 + _dayStart.minute * 60,
-        );
-        final previousNext = state?.NextTriggerTime;
+    if (_isEditing) {
+      final existing = widget.existingRoutine!;
+      final id = existing.Id;
+      final state = await db.getRoutineState(id);
+      final oldDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
+        existing.DayStartSeconds,
+      );
+      final newDayStart = RA_DailyRingLimit.normalizeDayStartSeconds(
+        _dayStart.hour * 3600 + _dayStart.minute * 60,
+      );
+      final previousNext = state?.NextTriggerTime;
 
-        await db.updateRoutine(_companion(id: id));
+      await db.updateRoutine(_companion(id: id));
 
-        // Keep the active timer as-is so interval / other edits apply next
-        // cycle. Retarget when day-start changes while waiting on that
-        // boundary, or when the daily cap crosses today's count.
-        final next = RA_DailyRingLimit.retargetNextAfterEdit(
-          previousNext: previousNext,
-          oldDayStartSeconds: oldDayStart,
-          newDayStartSeconds: newDayStart,
-          oldMaxTimesPerDayEnabled: existing.MaxTimesPerDayEnabled,
-          newMaxTimesPerDayEnabled: _maxTimesPerDayEnabled,
-          oldMaxTimesPerDay: existing.MaxTimesPerDay,
-          newMaxTimesPerDay: _maxTimesPerDay,
-          timesRingToday: state?.TimesRingToday ?? 0,
-          timesRingDay: state?.TimesRingDay,
-          now: DateTime.now(),
-          intervalSeconds: _interval.inSeconds,
-          enabledWeekdays: _enabledWeekdays,
-        );
-        if (next != null) {
-          if (previousNext == null ||
-              next.millisecondsSinceEpoch !=
-                  previousNext.millisecondsSinceEpoch) {
-            await db.updateRoutineState(
-              id,
-              RoutineStatesCompanion(NextTriggerTime: Value(next)),
-            );
-          }
-          await RA_AlarmService.scheduleNext(
-            routineId: id,
-            triggerTime: next,
-            dbPath: widget.dbPath,
-            routineName: name,
-            refreshWidget: false,
+      // Keep the active timer as-is so interval / other edits apply next
+      // cycle. Retarget when day-start changes while waiting on that
+      // boundary, or when the daily cap crosses today's count.
+      final next = RA_DailyRingLimit.retargetNextAfterEdit(
+        previousNext: previousNext,
+        oldDayStartSeconds: oldDayStart,
+        newDayStartSeconds: newDayStart,
+        oldMaxTimesPerDayEnabled: existing.MaxTimesPerDayEnabled,
+        newMaxTimesPerDayEnabled: _maxTimesPerDayEnabled,
+        oldMaxTimesPerDay: existing.MaxTimesPerDay,
+        newMaxTimesPerDay: _maxTimesPerDay,
+        timesRingToday: state?.TimesRingToday ?? 0,
+        timesRingDay: state?.TimesRingDay,
+        now: DateTime.now(),
+        intervalSeconds: _interval.inSeconds,
+        enabledWeekdays: _enabledWeekdays,
+      );
+      if (next != null) {
+        if (previousNext == null ||
+            next.millisecondsSinceEpoch !=
+                previousNext.millisecondsSinceEpoch) {
+          await db.updateRoutineState(
+            id,
+            RoutineStatesCompanion(NextTriggerTime: Value(next)),
           );
         }
-        await RA_WidgetService.updateWidgetState(db: db);
-      } else {
-        final dayStartSeconds = RA_DailyRingLimit.normalizeDayStartSeconds(
-          _dayStart.hour * 3600 + _dayStart.minute * 60,
-        );
-        final nextTrigger = RA_DailyRingLimit.initialTriggerTime(
-          now: DateTime.now(),
-          interval: _interval,
-          maxTimesPerDayEnabled: _maxTimesPerDayEnabled,
-          dayStartSeconds: dayStartSeconds,
-          enabledWeekdays: _enabledWeekdays,
-        );
-        final routineId = await db.insertRoutineWithInitialState(
-          routine: _companion(),
-          nextTriggerTime: nextTrigger,
-        );
         await RA_AlarmService.scheduleNext(
-          routineId: routineId,
-          triggerTime: nextTrigger,
+          routineId: id,
+          triggerTime: next,
           dbPath: widget.dbPath,
           routineName: name,
           refreshWidget: false,
         );
-        await RA_WidgetService.updateWidgetState(db: db);
       }
+      await RA_WidgetService.updateWidgetState(db: db);
+      return db.getRoutineById(id);
+    }
 
-      if (mounted) Navigator.pop(context);
+    final dayStartSeconds = RA_DailyRingLimit.normalizeDayStartSeconds(
+      _dayStart.hour * 3600 + _dayStart.minute * 60,
+    );
+    final nextTrigger = RA_DailyRingLimit.initialTriggerTime(
+      now: DateTime.now(),
+      interval: _interval,
+      maxTimesPerDayEnabled: _maxTimesPerDayEnabled,
+      dayStartSeconds: dayStartSeconds,
+      enabledWeekdays: _enabledWeekdays,
+    );
+    final routineId = await db.insertRoutineWithInitialState(
+      routine: _companion(),
+      nextTriggerTime: nextTrigger,
+    );
+    await RA_AlarmService.scheduleNext(
+      routineId: routineId,
+      triggerTime: nextTrigger,
+      dbPath: widget.dbPath,
+      routineName: name,
+      refreshWidget: false,
+    );
+    await RA_WidgetService.updateWidgetState(db: db);
+    return db.getRoutineById(routineId);
+  }
+
+  Future<void> _save() async {
+    try {
+      final saved = await _persistRoutine();
+      if (saved != null && mounted) Navigator.pop(context);
     } catch (_) {
       // Persist / schedule failures still leave the editor.
       if (mounted) Navigator.pop(context);
@@ -631,17 +668,35 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     );
   }
 
-  /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.
   Future<void> _duplicateRoutine() async {
     final existing = widget.existingRoutine;
     if (existing == null) return;
+
+    var source = existing;
+    if (_hasUnsavedChanges) {
+      final choice = await RA_showUnsavedChangesDialog(
+        context,
+        routineName: existing.Name,
+      );
+      if (choice == null || !mounted) return;
+
+      if (choice == RA_UnsavedChangesChoice.saveAndContinue) {
+        try {
+          final saved = await _persistRoutine();
+          if (saved == null || !mounted) return;
+          source = saved;
+        } catch (_) {
+          return;
+        }
+      }
+    }
 
     RA_Haptics.heavyUnawaited();
     final newId = await RA_tryAsync(() async {
       final db = ref.read(RA_DatabaseProvider);
       return RA_RoutineDuplicateService.duplicate(
         db: db,
-        source: existing,
+        source: source,
         dbPath: widget.dbPath,
       );
     });
