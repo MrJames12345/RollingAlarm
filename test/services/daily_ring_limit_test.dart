@@ -150,6 +150,44 @@ void main() {
       },
     );
 
+    test(
+      'deferIfDailyLimitReached at cap before day-start parks on tomorrow',
+      () {
+        // Cap exhausted while still before today's day-start: must not park
+        // on the upcoming day-start later today.
+        final early = DateTime(2026, 7, 26, 5, 0);
+        final period = RA_DailyRingLimit.periodStart(early, sixAm);
+        final proposed = DateTime(2026, 7, 26, 5, 30);
+        final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: proposed,
+          maxTimesPerDay: 2,
+          timesRingToday: 2,
+          timesRingDay: period,
+          now: early,
+          dayStartSeconds: sixAm,
+        );
+        expect(deferred, DateTime(2026, 7, 27, 6));
+      },
+    );
+
+    test(
+      'deferIfDailyLimitReached at cap before day-start ignores later-today proposed',
+      () {
+        final early = DateTime(2026, 7, 26, 5, 0);
+        final period = RA_DailyRingLimit.periodStart(early, sixAm);
+        final proposed = DateTime(2026, 7, 26, 7, 30);
+        final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
+          proposed: proposed,
+          maxTimesPerDay: 2,
+          timesRingToday: 2,
+          timesRingDay: period,
+          now: early,
+          dayStartSeconds: sixAm,
+        );
+        expect(deferred, DateTime(2026, 7, 27, 6));
+      },
+    );
+
     test('deferIfDailyLimitReached leaves proposed alone under the cap', () {
       final proposed = DateTime(2026, 7, 26, 19, 45);
       final deferred = RA_DailyRingLimit.deferIfDailyLimitReached(
@@ -175,6 +213,17 @@ void main() {
       expect(
         RA_DailyRingLimit.nextPeriodStartAfter(DateTime(2026, 7, 26, 5), sixAm),
         DateTime(2026, 7, 26, 6),
+      );
+    });
+
+    test('nextCalendarDayStart is always the next calendar day', () {
+      expect(
+        RA_DailyRingLimit.nextCalendarDayStart(now, sixAm),
+        DateTime(2026, 7, 27, 6),
+      );
+      expect(
+        RA_DailyRingLimit.nextCalendarDayStart(DateTime(2026, 7, 26, 5), sixAm),
+        DateTime(2026, 7, 27, 6),
       );
     });
 

@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:rolling_alarm/database/database.dart';
@@ -452,7 +451,7 @@ class RA_AlarmService {
         );
         if (!canRing) {
           final deferred = RA_WeekdaySchedule.deferToEnabledDay(
-            RA_DailyRingLimit.nextPeriodStartAfter(
+            RA_DailyRingLimit.nextCalendarDayStart(
               now,
               routine.DayStartSeconds,
             ),

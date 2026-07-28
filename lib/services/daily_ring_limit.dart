@@ -59,10 +59,12 @@ class RA_DailyRingLimit {
     return count < maxTimesPerDay;
   }
 
-  /// Prefer the next period start ("Start at time of day") over [proposed]
-  /// when the daily cap is enabled and either:
-  /// * the cap is exhausted, or
-  /// * [proposed] falls on or after that next day-start boundary.
+  /// Prefer a day-start parking point over [proposed] when the daily cap is
+  /// enabled and either:
+  /// * the cap is exhausted (always the next *calendar* day's day-start, never
+  ///   an upcoming day-start later today), or
+  /// * [proposed] falls on or after the next period boundary (even under the
+  ///   cap; long intervals must not skip into a new period).
   ///
   /// [maxTimesPerDay] of `0` means the feature is off; [proposed] is unchanged.
   static DateTime deferIfDailyLimitReached({
@@ -74,24 +76,41 @@ class RA_DailyRingLimit {
     int dayStartSeconds = 0,
   }) {
     if (maxTimesPerDay <= 0) return proposed;
-    final dayStart = nextPeriodStartAfter(now, dayStartSeconds);
-    // Interval math must not skip past the next day-start into a new period.
-    if (!proposed.isBefore(dayStart)) {
-      return dayStart;
-    }
     final count = countForDay(
       timesRingToday: timesRingToday,
       timesRingDay: timesRingDay,
       now: now,
       dayStartSeconds: dayStartSeconds,
     );
-    if (count < maxTimesPerDay) return proposed;
-    return dayStart;
+    if (count >= maxTimesPerDay) {
+      return nextCalendarDayStart(now, dayStartSeconds);
+    }
+    final nextPeriodStart = nextPeriodStartAfter(now, dayStartSeconds);
+    // Interval math must not skip past the next day-start into a new period.
+    if (!proposed.isBefore(nextPeriodStart)) {
+      return nextPeriodStart;
+    }
+    return proposed;
   }
 
   /// Next day-period boundary after [now] (the next "Start at time of day").
+  ///
+  /// When [now] is still before today's day-start clock, this is later *today*.
   static DateTime nextPeriodStartAfter(DateTime now, int dayStartSeconds) =>
       periodStart(now, dayStartSeconds).add(const Duration(days: 1));
+
+  /// Day-start on the next calendar day after [now].
+  ///
+  /// Used when the daily cap is exhausted so the next fire is never scheduled
+  /// for an upcoming day-start later on the same calendar day.
+  static DateTime nextCalendarDayStart(DateTime now, int dayStartSeconds) {
+    final offset = Duration(seconds: normalizeDayStartSeconds(dayStartSeconds));
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(const Duration(days: 1)).add(offset);
+  }
 
   /// First trigger when creating or importing a routine.
   ///
@@ -145,7 +164,7 @@ class RA_DailyRingLimit {
   /// Remaps [previousNext] after an edit to day-start and/or max-times.
   ///
   /// When the effective daily cap changes relative to today's count:
-  /// * newly at/over cap → next "Start at time of day"
+  /// * newly at/over cap → next calendar day's "Start at time of day"
   /// * newly under cap → [now] plus [intervalSeconds] (still snapped by
   ///   [deferIfDailyLimitReached] so it cannot skip past day-start)
   ///
@@ -195,7 +214,7 @@ class RA_DailyRingLimit {
 
     late final DateTime candidate;
     if (capChanged && isAtCap && !wasAtCap) {
-      candidate = nextPeriodStartAfter(now, newStart);
+      candidate = nextCalendarDayStart(now, newStart);
     } else if (capChanged && !isAtCap && wasAtCap) {
       candidate = deferIfDailyLimitReached(
         proposed: now.add(Duration(seconds: intervalSeconds)),
