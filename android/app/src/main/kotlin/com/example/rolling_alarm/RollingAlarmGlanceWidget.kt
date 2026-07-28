@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.example.rolling_alarm
 
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -186,7 +186,7 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
         }
     }
 
-    /** 4x3: Medium stack plus Current Phase and Edit/Open App cards. */
+    /** 4x3: hero card on top; Interval + Dismissed cards below (larger type). */
     @Composable
     private fun LargeWidgetUI(display: WidgetRoutineBridge.RoutineDisplay) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -236,27 +236,6 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
                     label = "Dismissed",
                     value = display.dismissalsToday,
                     valueColor = SoftCoral,
-                    modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
-                )
-            }
-
-            Spacer(modifier = GlanceModifier.height(8.dp))
-
-            Row(
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
-                verticalAlignment = Alignment.Vertical.CenterVertically,
-            ) {
-                MetricCard(
-                    label = "Current Phase",
-                    value = "Active",
-                    valueColor = SurgicalTeal,
-                    modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
-                )
-                Spacer(modifier = GlanceModifier.width(8.dp))
-                MetricCard(
-                    label = "Edit / Open App",
-                    value = "Tap",
-                    valueColor = Color.White,
                     modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
                 )
             }
