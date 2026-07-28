@@ -103,8 +103,14 @@ class _HomeRoutineList extends ConsumerWidget {
       listBuilder: (routines) => ListView.builder(
         padding: RA_ShapeStyles.bodyPaddingWithFab,
         itemCount: routines.length,
-        itemBuilder: (_, idx) =>
-            RA_RoutineCard(routine: routines[idx], dbPath: dbPath),
+        itemBuilder: (_, idx) {
+          final routine = routines[idx];
+          return RA_RoutineCard(
+            key: ValueKey(routine.Id),
+            routine: routine,
+            dbPath: dbPath,
+          );
+        },
       ),
     );
   }

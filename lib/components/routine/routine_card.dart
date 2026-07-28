@@ -54,6 +54,9 @@ class RA_RoutineCard extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
       child: _SwipeRoutineActions(
+        // Tie swipe State to this routine so a delete does not leave the
+        // reveal open on the next tile that reuses this list slot.
+        key: ValueKey(routine.Id),
         leftAction: swipeActions.left,
         rightAction: swipeActions.right,
         startFreshIntervalAllowed: showStartFreshInterval,
@@ -345,6 +348,7 @@ class _SwipeRoutineActions extends StatefulWidget {
   final Future<void> Function() onStartFreshInterval;
 
   const _SwipeRoutineActions({
+    super.key,
     required this.child,
     required this.leftAction,
     required this.rightAction,
