@@ -44,6 +44,8 @@ Widget RA_RadioGroup<T>({
 }
 
 class _RadioTile<T> extends StatelessWidget {
+  static const double _radioSize = 22;
+
   final RA_RadioOption<T> option;
   final T groupValue;
   final ValueChanged<T> onChanged;
@@ -54,9 +56,17 @@ class _RadioTile<T> extends StatelessWidget {
     required this.onChanged,
   });
 
+  TextStyle _titleStyle(bool selected) {
+    return RA_TextStyles.smallFont.copyWith(
+      height: 1,
+      color: selected ? RA_ColourStyles.secondary : RA_ColourStyles.primary,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = option.value == groupValue;
+    final titleStyle = _titleStyle(selected);
 
     return Material(
       color: Colors.transparent,
@@ -78,7 +88,7 @@ class _RadioTile<T> extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(RA_ShapeStyles.space16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
@@ -87,7 +97,7 @@ class _RadioTile<T> extends StatelessWidget {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
                   key: ValueKey(selected),
-                  size: 22,
+                  size: _radioSize,
                   color: selected
                       ? RA_ColourStyles.secondary
                       : RA_ColourStyles.mutedPrimary,
@@ -95,29 +105,28 @@ class _RadioTile<T> extends StatelessWidget {
               ),
               const SizedBox(width: RA_ShapeStyles.space16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.title,
-                      style: RA_TextStyles.smallFont.copyWith(
-                        color: selected
-                            ? RA_ColourStyles.secondary
-                            : RA_ColourStyles.primary,
-                      ),
-                    ),
-                    if (option.subtitle != null) ...[
-                      const SizedBox(height: RA_ShapeStyles.space8),
-                      Text(
-                        option.subtitle!,
-                        style: RA_TextStyles.tinyFont.copyWith(
-                          color: RA_ColourStyles.mutedPrimary,
-                          height: 1.35,
+                child: option.subtitle == null
+                    ? SizedBox(
+                        height: _radioSize,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(option.title, style: titleStyle),
                         ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(option.title, style: titleStyle),
+                          const SizedBox(height: RA_ShapeStyles.space8),
+                          Text(
+                            option.subtitle!,
+                            style: RA_TextStyles.tinyFont.copyWith(
+                              color: RA_ColourStyles.mutedPrimary,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ],
-                ),
               ),
             ],
           ),
