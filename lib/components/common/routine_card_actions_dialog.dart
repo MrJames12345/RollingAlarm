@@ -8,10 +8,11 @@ enum RA_RoutineCardMenuAction {
   resetInterval,
   resetTodayCounter,
   edit,
+  duplicate,
   delete,
 }
 
-/// Shows Mute, Pause, Reset Interval, Reset Today's Counter, Edit, and Delete.
+/// Shows Mute, Pause, Reset Interval, Reset Today's Counter, Edit, Duplicate, and Delete.
 ///
 /// Returns the chosen action, or `null` when dismissed without a choice.
 Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
@@ -74,6 +75,11 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
             icon: Icons.edit_outlined,
             label: 'Edit',
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.edit),
+          ),
+          _ActionTile(
+            icon: Icons.content_copy_outlined,
+            label: 'Duplicate',
+            onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.duplicate),
           ),
           _ActionTile(
             icon: Icons.delete_outline,

@@ -19,6 +19,7 @@ import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/routine_duplicate.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -302,6 +303,8 @@ class RA_RoutineCard extends ConsumerWidget {
             RoutineEditPage(dbPath: dbPath, existingRoutine: routine),
           ),
         );
+      case RA_RoutineCardMenuAction.duplicate:
+        await _duplicateRoutine(ref);
       case RA_RoutineCardMenuAction.resetTodayCounter:
         await _resetTodayCounter(context, ref);
       case RA_RoutineCardMenuAction.delete:
@@ -313,6 +316,18 @@ class RA_RoutineCard extends ConsumerWidget {
           await _deleteRoutine(ref);
         }
     }
+  }
+
+  Future<void> _duplicateRoutine(WidgetRef ref) async {
+    RA_Haptics.heavyUnawaited();
+    await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      await RA_RoutineDuplicateService.duplicate(
+        db: db,
+        source: routine,
+        dbPath: dbPath,
+      );
+    });
   }
 
   Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {

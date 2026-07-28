@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
+import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/section_label.dart';
 import 'package:rolling_alarm/components/field/duration_field.dart';
@@ -27,6 +28,7 @@ import 'package:rolling_alarm/pages/alarm_sound_picker.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/routine_duplicate.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -608,6 +610,11 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             ),
             if (_isEditing) ...[
               RA_Button(
+                text: 'Duplicate',
+                onClick: () => unawaited(_duplicateRoutine()),
+              ),
+              const SizedBox(height: RA_ShapeStyles.space16),
+              RA_Button(
                 text: 'Delete',
                 backgroundColor: RA_ColourStyles.softCoral,
                 foregroundColor: RA_ColourStyles.onAccent,
@@ -625,6 +632,32 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   }
 
   /// Same confirm + soft-delete path as a Delete swipe on the home routine tile.
+  Future<void> _duplicateRoutine() async {
+    final existing = widget.existingRoutine;
+    if (existing == null) return;
+
+    RA_Haptics.heavyUnawaited();
+    final newId = await RA_tryAsync(() async {
+      final db = ref.read(RA_DatabaseProvider);
+      return RA_RoutineDuplicateService.duplicate(
+        db: db,
+        source: existing,
+        dbPath: widget.dbPath,
+      );
+    });
+    if (newId == null || !mounted) return;
+
+    final db = ref.read(RA_DatabaseProvider);
+    final copy = await db.getRoutineById(newId);
+    if (!mounted) return;
+    await Navigator.pushReplacement(
+      context,
+      RA_Routes.fade(
+        RoutineEditPage(dbPath: widget.dbPath, existingRoutine: copy),
+      ),
+    );
+  }
+
   Future<void> _deleteRoutine() async {
     final existing = widget.existingRoutine;
     if (existing == null) return;
