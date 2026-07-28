@@ -1,4 +1,4 @@
-﻿package com.example.rolling_alarm
+package com.example.rolling_alarm
 
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
@@ -44,7 +45,8 @@ import es.antonborri.home_widget.actionStartActivity
  *
  * [SizeMode.Responsive] serves Small (2x1), Medium (4x2), and Large (4x3) layouts.
  * [routine_id] lives in per-instance Glance preferences; display strings are bridged
- * via HomeWidgetPreferences keys scoped by that id.
+ * via HomeWidgetPreferences keys scoped by that id. [ra_widget_refresh_at] is bumped
+ * on every snooze / dismiss / schedule so Glance cannot keep a stale composition.
  */
 class RollingAlarmGlanceWidget : GlanceAppWidget() {
 
@@ -67,6 +69,9 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
 
         provideContent {
             val prefs = currentState<Preferences>()
+            // Depend on refresh stamp so a WidgetRefresh bump invalidates composition.
+            @Suppress("UNUSED_VARIABLE")
+            val refreshAt = prefs[longPreferencesKey("ra_widget_refresh_at")]
             val pinnedRoutineId =
                 prefs[intPreferencesKey(WidgetRoutineBridge.PREFS_ROUTINE_ID_KEY)]
             val display = freshDisplay

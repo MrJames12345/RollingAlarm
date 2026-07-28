@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:rolling_alarm/database/database.dart';
@@ -20,6 +21,9 @@ class RA_WidgetService {
   /// up `package.package.Class` and the redraw never runs.
   static const String _appWidgetProvider =
       'com.example.rolling_alarm.RollingAlarmWidgetReceiver';
+
+  static const String _uiSchedulerChannel =
+      'com.example.rolling_alarm/alarm_ui_scheduler';
 
   /// Absolute clock time for the widget (e.g. "07:30 AM"), never a countdown.
   static final DateFormat _alarmClockFormat = DateFormat('hh:mm a');
@@ -91,8 +95,19 @@ class RA_WidgetService {
     }
   }
 
+  /// Asks Android to redraw every Glance instance.
+  ///
+  /// Uses both home_widget's AppWidget broadcast (works in alarm isolates where
+  /// the plugin is registered) and the native Glance [WidgetRefresh] path
+  /// (bumps preferences so composition cannot stay stale).
   static Future<void> _requestWidgetRedraw() async {
-    await HomeWidget.updateWidget(qualifiedAndroidName: _appWidgetProvider);
+    try {
+      await HomeWidget.updateWidget(qualifiedAndroidName: _appWidgetProvider);
+    } catch (_) {}
+    try {
+      const channel = MethodChannel(_uiSchedulerChannel);
+      await channel.invokeMethod<void>('refreshWidgets');
+    } catch (_) {}
   }
 
   static Future<RA_Database?> _openDbFromPrefs() async {

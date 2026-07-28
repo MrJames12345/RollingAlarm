@@ -6,6 +6,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
@@ -376,6 +377,7 @@ class RA_AlarmService {
 
   @pragma('vm:entry-point')
   static Future<void> _alarmCallback(int alarmId) async {
+    WidgetsFlutterBinding.ensureInitialized();
     RA_Database? db;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -394,6 +396,7 @@ class RA_AlarmService {
       final routine = await db.getRoutineById(routineId);
       if (routine.Deleted || !routine.IsActive) {
         await cancel(routineId);
+        await RA_WidgetService.updateWidgetState(db: db);
         return;
       }
 
@@ -432,7 +435,9 @@ class RA_AlarmService {
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
+            refreshWidget: false,
           );
+          await RA_WidgetService.updateWidgetState(db: db);
           return;
         }
 
@@ -467,7 +472,9 @@ class RA_AlarmService {
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
+            refreshWidget: false,
           );
+          await RA_WidgetService.updateWidgetState(db: db);
           return;
         }
       }
@@ -559,6 +566,7 @@ class RA_AlarmService {
 
   @pragma('vm:entry-point')
   static Future<void> _watchdogCallback(int alarmId) async {
+    WidgetsFlutterBinding.ensureInitialized();
     RA_Database? db;
     try {
       final routineId = alarmId - _watchdogIdBase;
@@ -571,6 +579,7 @@ class RA_AlarmService {
       final routine = await db.getRoutineById(routineId);
       if (routine.Deleted || !routine.IsActive) {
         await cancel(routineId);
+        await RA_WidgetService.updateWidgetState(db: db);
         return;
       }
 
@@ -953,10 +962,10 @@ class RA_AlarmService {
         triggerTime: newNext,
         dbPath: dbPath,
         routineName: routine.Name,
+        refreshWidget: false,
       );
-    } else {
-      await RA_WidgetService.updateWidgetState(db: db);
     }
+    await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
 
@@ -1092,10 +1101,10 @@ class RA_AlarmService {
         triggerTime: next,
         dbPath: dbPath,
         routineName: routine.Name,
+        refreshWidget: false,
       );
-    } else {
-      await RA_WidgetService.updateWidgetState(db: db);
     }
+    await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
 
@@ -1192,6 +1201,7 @@ class RA_AlarmService {
       triggerTime: next,
       dbPath: dbPath,
       routineName: routine.Name,
+      refreshWidget: false,
     );
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);

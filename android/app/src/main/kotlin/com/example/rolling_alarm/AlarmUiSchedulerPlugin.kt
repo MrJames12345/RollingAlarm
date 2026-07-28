@@ -97,6 +97,14 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     result.error("vibrate_stop_failed", e.message, null)
                 }
             }
+            "refreshWidgets" -> {
+                try {
+                    WidgetRefresh.refreshAll(context)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("widget_refresh_failed", e.message, null)
+                }
+            }
             else -> result.notImplemented()
         }
     }

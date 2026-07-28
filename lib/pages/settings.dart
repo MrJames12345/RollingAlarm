@@ -17,6 +17,7 @@ import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/export.dart';
+import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -244,8 +245,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         triggerTime: next,
         dbPath: widget.dbPath,
         routineName: routine.Name,
+        refreshWidget: false,
       );
     }
+    await RA_WidgetService.updateWidgetState(db: db);
   }
 }
 
