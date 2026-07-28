@@ -273,7 +273,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                         ignoring: _busy,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: RA_ShapeStyles.space16,
+                            horizontal: RA_ShapeStyles.space32,
                           ),
                           child: _RingActions(
                             layout:
@@ -291,7 +291,9 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                         ),
                       ),
                     ),
-                    const SizedBox(height: RA_ShapeStyles.space48),
+                    const SizedBox(
+                      height: RA_ShapeStyles.space48 + RA_ShapeStyles.space24,
+                    ),
                   ],
                 ),
               ],
