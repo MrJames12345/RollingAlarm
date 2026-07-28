@@ -575,7 +575,7 @@ class _LiveClockState extends State<_LiveClock> {
     return Text(
       RA_Utils.formatClock(_now),
       style: RA_TextStyles.largeFont.copyWith(
-        color: RA_ColourStyles.primary.withValues(alpha: 0.55),
+        color: RA_ColourStyles.mutedPrimary,
         fontFeatures: RA_TextStyles.tabularFeatures,
       ),
     );

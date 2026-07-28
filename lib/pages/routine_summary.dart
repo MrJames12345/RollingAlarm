@@ -102,7 +102,7 @@ class RoutineSummaryPage extends ConsumerWidget {
                 unselectedLabelStyle: RA_TextStyles.smallFont,
                 indicatorColor: RA_ColourStyles.secondary,
                 indicatorSize: TabBarIndicatorSize.label,
-                dividerColor: RA_ColourStyles.surface,
+                dividerColor: RA_ColourStyles.divider,
                 tabs: const [
                   Tab(text: 'Summary'),
                   Tab(text: 'History'),

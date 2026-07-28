@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Volume slider bound to the device hardware alarm stream (5 to 100).
@@ -22,7 +23,9 @@ Widget RA_VolumeField({
       ? RA_ColourStyles.secondary
       : RA_ColourStyles.mutedPrimary.withValues(alpha: 0.35);
   final inactiveTrack = RA_ColourStyles.primary.withValues(
-    alpha: enabled ? 0.12 : 0.06,
+    alpha: enabled
+        ? (RA_ColourStyles.mode == AppThemeModeEnum.Light ? 0.18 : 0.12)
+        : (RA_ColourStyles.mode == AppThemeModeEnum.Light ? 0.1 : 0.06),
   );
   final thumb = enabled
       ? RA_ColourStyles.secondary

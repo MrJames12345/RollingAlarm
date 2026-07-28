@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Shared [InputDecoration] chrome for form fields and dense dialog inputs.
@@ -8,13 +9,18 @@ InputDecoration RA_InputDecoration({
   bool dense = false,
   bool hasError = false,
 }) {
+  final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
   final radius = dense
       ? RA_ShapeStyles.tinyBorderRadius
       : RA_ShapeStyles.largeBorderRadius;
   final idleSide = hasError
       ? BorderSide(color: RA_ColourStyles.softCoral, width: 1.5)
       : dense
-          ? BorderSide(color: RA_ColourStyles.secondary.withValues(alpha: 0.22))
+          ? BorderSide(
+              color: RA_ColourStyles.secondary.withValues(
+                alpha: isLight ? 0.32 : 0.22,
+              ),
+            )
           : BorderSide(color: RA_ShapeStyles.idleSurfaceBorder);
   final focusedSide = BorderSide(
     color: hasError
@@ -29,6 +35,7 @@ InputDecoration RA_InputDecoration({
     hintText: hintText,
     hintStyle: hintStyle,
     filled: true,
+    // Dense dialog fields: recessed paper on light, scaffold black on dark.
     fillColor: dense ? RA_ColourStyles.offBlack : RA_ColourStyles.surface,
     contentPadding: const EdgeInsets.all(RA_ShapeStyles.space16),
     border: OutlineInputBorder(

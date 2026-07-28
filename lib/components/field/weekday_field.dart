@@ -68,7 +68,7 @@ class _WeekdayButton extends StatelessWidget {
             style: RA_TextStyles.smallFont.copyWith(
               color: enabled
                   ? RA_ColourStyles.primary
-                  : RA_ColourStyles.primary.withValues(alpha: 0.45),
+                  : RA_ColourStyles.faintPrimary,
               fontWeight: enabled ? FontWeight.w600 : FontWeight.w400,
             ),
           ),

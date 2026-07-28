@@ -10,6 +10,7 @@ import 'package:rolling_alarm/components/common/routine_card_actions_dialog.dart
 import 'package:rolling_alarm/components/routine/routine_countdown.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
@@ -541,7 +542,7 @@ class _SwipeActionBackground extends StatelessWidget {
             left: alignEnd ? 0 : RA_ShapeStyles.space24,
             right: alignEnd ? RA_ShapeStyles.space24 : 0,
           ),
-          child: Icon(action.icon, color: RA_ColourStyles.onAccent, size: 28),
+          child: Icon(action.icon, color: action.iconColor, size: 28),
         ),
       ),
     );
@@ -566,51 +567,55 @@ class _CardChrome {
   });
 }
 
-_CardChrome _chromeFor(RA_RoutineUiPhase phase) => switch (phase) {
-  RA_RoutineUiPhase.ringing => _CardChrome(
-    fill: RA_ColourStyles.offBlack,
-    border: RA_ColourStyles.softCoral.withValues(alpha: 0.7),
-    borderWidth: 1.5,
-    glow: RA_ShapeStyles.softCoralGlow,
-    splash: RA_ColourStyles.softCoral.withValues(alpha: 0.12),
-    highlight: RA_ColourStyles.softCoral.withValues(alpha: 0.05),
-  ),
-  RA_RoutineUiPhase.countingDown => _CardChrome(
-    fill: RA_ColourStyles.offBlack,
-    border: RA_ColourStyles.secondary.withValues(alpha: 0.35),
-    borderWidth: 1.5,
-    glow: RA_ShapeStyles.tealGlow,
-    splash: RA_ColourStyles.secondary.withValues(alpha: 0.1),
-    highlight: RA_ColourStyles.secondary.withValues(alpha: 0.04),
-  ),
-  RA_RoutineUiPhase.muted => _CardChrome(
-    fill: RA_ColourStyles.offBlack,
-    border: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.4),
-    borderWidth: 1.5,
-    glow: null,
-    splash: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.12),
-    highlight: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.05),
-  ),
-  RA_RoutineUiPhase.paused => _CardChrome(
-    fill: RA_ColourStyles.surface,
-    border: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.45),
-    borderWidth: 1.5,
-    glow: null,
-    splash: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.12),
-    highlight: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.05),
-  ),
-  RA_RoutineUiPhase.idle ||
-  RA_RoutineUiPhase.notScheduled ||
-  RA_RoutineUiPhase.loading ||
-  RA_RoutineUiPhase.error => _CardChrome(
-    fill: RA_ColourStyles.offBlack,
-    border: RA_ShapeStyles.idleSurfaceBorder,
-    borderWidth: 1,
-    glow: null,
-    splash: RA_ColourStyles.secondary.withValues(alpha: 0.14),
-    highlight: RA_ColourStyles.secondary.withValues(alpha: 0.06),
-  ),
-};
+_CardChrome _chromeFor(RA_RoutineUiPhase phase) {
+  final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
+  final fill = RA_ColourStyles.cardFill;
+  return switch (phase) {
+    RA_RoutineUiPhase.ringing => _CardChrome(
+      fill: fill,
+      border: RA_ColourStyles.softCoral.withValues(alpha: 0.7),
+      borderWidth: 1.5,
+      glow: RA_ShapeStyles.softCoralGlow,
+      splash: RA_ColourStyles.softCoral.withValues(alpha: 0.12),
+      highlight: RA_ColourStyles.softCoral.withValues(alpha: 0.05),
+    ),
+    RA_RoutineUiPhase.countingDown => _CardChrome(
+      fill: fill,
+      border: RA_ColourStyles.secondary.withValues(alpha: isLight ? 0.45 : 0.35),
+      borderWidth: 1.5,
+      glow: RA_ShapeStyles.tealGlow,
+      splash: RA_ColourStyles.secondary.withValues(alpha: 0.1),
+      highlight: RA_ColourStyles.secondary.withValues(alpha: 0.04),
+    ),
+    RA_RoutineUiPhase.muted => _CardChrome(
+      fill: fill,
+      border: RA_ColourStyles.sleepIndigo.withValues(alpha: isLight ? 0.55 : 0.4),
+      borderWidth: 1.5,
+      glow: null,
+      splash: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.12),
+      highlight: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.05),
+    ),
+    RA_RoutineUiPhase.paused => _CardChrome(
+      fill: fill,
+      border: RA_ColourStyles.sleepIndigo.withValues(alpha: isLight ? 0.55 : 0.45),
+      borderWidth: 1.5,
+      glow: null,
+      splash: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.12),
+      highlight: RA_ColourStyles.sleepIndigo.withValues(alpha: 0.05),
+    ),
+    RA_RoutineUiPhase.idle ||
+    RA_RoutineUiPhase.notScheduled ||
+    RA_RoutineUiPhase.loading ||
+    RA_RoutineUiPhase.error => _CardChrome(
+      fill: fill,
+      border: RA_ShapeStyles.idleSurfaceBorder,
+      borderWidth: 1,
+      glow: null,
+      splash: RA_ColourStyles.secondary.withValues(alpha: 0.14),
+      highlight: RA_ColourStyles.secondary.withValues(alpha: 0.06),
+    ),
+  };
+}
 
 /// Compact MTWTFSS strip along the card bottom when any weekday is disabled.
 class _RoutineCardWeekdays extends StatelessWidget {

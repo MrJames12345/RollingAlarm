@@ -20,6 +20,14 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.softCoral,
   };
 
+  /// Icon ink on the swipe reveal. Mute uses light ink on dark indigo.
+  Color get iconColor => switch (this) {
+    RoutineSwipeActionEnum.Mute => RA_ColourStyles.onDarkAccent,
+    RoutineSwipeActionEnum.Pause ||
+    RoutineSwipeActionEnum.ResetInterval ||
+    RoutineSwipeActionEnum.Delete => RA_ColourStyles.onAccent,
+  };
+
   IconData get icon => switch (this) {
     RoutineSwipeActionEnum.Mute => Icons.notifications_off_outlined,
     RoutineSwipeActionEnum.Pause => Icons.pause_rounded,

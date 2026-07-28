@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Primary action button matching Rolling Alarm chrome.
@@ -23,7 +24,11 @@ Widget RA_Button({
       (isPrimary ? RA_ColourStyles.onAccent : RA_ColourStyles.primary);
   final side =
       sideColor ??
-      (isPrimary ? null : RA_ColourStyles.secondary.withValues(alpha: 0.3));
+      (isPrimary
+          ? null
+          : RA_ColourStyles.secondary.withValues(
+              alpha: RA_ColourStyles.mode == AppThemeModeEnum.Light ? 0.4 : 0.3,
+            ));
 
   return RA_PressScale(
     enabled: onClick != null,
