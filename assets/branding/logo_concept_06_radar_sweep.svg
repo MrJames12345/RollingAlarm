@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Rolling Alarm concept 06 radar sweep">
+  <defs>
+    <clipPath id="sq"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="512" height="512" fill="#0A0A0A"/>
+    <!-- Radial ticks only, no full ring -->
+    <g stroke="#4A4766" stroke-width="10" stroke-linecap="round" opacity="0.55">
+      <line x1="256" y1="88" x2="256" y2="128"/>
+      <line x1="368" y1="112" x2="348" y2="144"/>
+      <line x1="424" y1="200" x2="388" y2="212"/>
+      <line x1="424" y1="312" x2="388" y2="300"/>
+      <line x1="368" y1="400" x2="348" y2="368"/>
+      <line x1="256" y1="424" x2="256" y2="384"/>
+      <line x1="144" y1="400" x2="164" y2="368"/>
+      <line x1="88" y1="312" x2="124" y2="300"/>
+      <line x1="88" y1="200" x2="124" y2="212"/>
+      <line x1="144" y1="112" x2="164" y2="144"/>
+    </g>
+    <!-- Sweep wedge -->
+    <path fill="#6B9A92" d="M256 256 L256 100 A156 156 0 0 1 392 200 Z" opacity="0.9"/>
+    <circle cx="256" cy="256" r="20" fill="#D4D2CF" opacity="0.4"/>
+    <!-- Coral blip on sweep edge -->
+    <circle cx="360" cy="148" r="20" fill="#C17F74"/>
+  </g>
+</svg>

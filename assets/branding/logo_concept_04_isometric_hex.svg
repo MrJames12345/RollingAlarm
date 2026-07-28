@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Rolling Alarm concept 04 isometric hex">
+  <defs>
+    <clipPath id="sq"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="512" height="512" fill="#0A0A0A"/>
+    <!-- Isometric hexagon tile (instrument / module) -->
+    <path fill="#4A4766" d="M256 96 L400 176 V336 L256 416 L112 336 V176 Z"/>
+    <path fill="#6B9A92" d="M256 96 L400 176 L256 256 L112 176 Z"/>
+    <path fill="#557E77" d="M256 256 L400 176 V336 L256 416 Z"/>
+    <path fill="#3E615B" d="M256 256 L112 176 V336 L256 416 Z"/>
+    <!-- Coral top facet accent -->
+    <path fill="#C17F74" d="M256 148 L330 190 L256 232 L182 190 Z"/>
+  </g>
+</svg>

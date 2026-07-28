@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Rolling Alarm concept 07 ribbon infinity">
+  <defs>
+    <clipPath id="sq"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="512" height="512" fill="#0A0A0A"/>
+    <!-- True infinity ribbon, filled band -->
+    <path fill="none" stroke="#6B9A92" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"
+      d="M120 256
+         C120 180, 170 140, 220 180
+         C260 210, 252 256, 256 256
+         C260 256, 252 302, 292 332
+         C342 372, 392 332, 392 256
+         C392 180, 342 140, 292 180
+         C252 210, 260 256, 256 256
+         C252 256, 260 302, 220 332
+         C170 372, 120 332, 120 256"/>
+    <!-- Coral knot at center crossing -->
+    <circle cx="256" cy="256" r="24" fill="#C17F74"/>
+  </g>
+</svg>

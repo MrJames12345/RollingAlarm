@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img"
+    aria-label="Rolling Alarm concept 09 vertical metronome">
+    <defs>
+        <clipPath id="sq">
+            <rect width="512" height="512" rx="112" />
+        </clipPath>
+    </defs>
+    <g clip-path="url(#sq)">
+        <rect width="512" height="512" fill="#0A0A0A" />
+        <!-- Metronome / pendulum wedge (interval rhythm) -->
+        <path fill="#4A4766" d="M210 400 H302 L278 140 H234 Z" />
+        <path fill="#6B9A92" d="M234 140 H278 L320 88 H192 Z" />
+        <!-- Pendulum arm tilted -->
+        <line x1="256" y1="150" x2="360" y2="280" stroke="#D4D2CF" stroke-width="18"
+            stroke-linecap="round" opacity="0.85" />
+        <circle cx="360" cy="280" r="36" fill="#C17F74" />
+        <!-- Base -->
+        <rect x="160" y="392" width="192" height="36" rx="10" fill="#6B9A92" />
+    </g>
+</svg>
