@@ -27,7 +27,7 @@ class RA_ColourStyles {
   static const Color sleepIndigo = Color(0xFF4A4766); // quiet indigo
   static const Color softCoral = Color(0xFFC17F74); // dusty coral (alerts)
   static const Color pauseOchre = Color(0xFFA68B5C); // dusty warm ochre (pause)
-  /// Near-black ink on sage / coral fills (stable across themes).
+  /// Near-black ink on sage / coral / ochre fills (stable across themes).
   static const Color onAccent = Color(0xFF0A0A0A);
 
   // Dark palette
@@ -39,6 +39,9 @@ class RA_ColourStyles {
   static const Color _lightPrimary = Color(0xFF2C2B2A); // warm charcoal text
   static const Color _lightScaffold = Color(0xFFF5F4F1); // warm paper
   static const Color _lightSurface = Color(0xFFFFFFFF); // elevated white
+
+  /// Soft warm white ink on dark accent fills (e.g. mute indigo).
+  static const Color onDarkAccent = _darkPrimary;
 
   /// Body text / icons.
   static Color get primary =>
@@ -52,9 +55,13 @@ class RA_ColourStyles {
   static Color get surface =>
       _mode == AppThemeModeEnum.Light ? _lightSurface : _darkSurface;
 
+  /// Home routine card fill: white on paper, near-black on OLED.
+  static Color get cardFill =>
+      _mode == AppThemeModeEnum.Light ? _lightSurface : _darkScaffold;
+
   /// Hairline dividers on elevated surfaces.
   static Color get divider => _mode == AppThemeModeEnum.Light
-      ? _lightPrimary.withValues(alpha: 0.08)
+      ? _lightPrimary.withValues(alpha: 0.12)
       : _darkScaffold.withValues(alpha: 0.55);
 
   /// Field / summary value digits: sage on dark, black on light.
@@ -62,10 +69,14 @@ class RA_ColourStyles {
       _mode == AppThemeModeEnum.Light ? onAccent : secondary;
 
   /// Secondary copy / timestamps; never a washed Material grey.
-  static Color get mutedPrimary => primary.withValues(alpha: 0.5);
+  static Color get mutedPrimary => _mode == AppThemeModeEnum.Light
+      ? onAccent.withValues(alpha: 0.72)
+      : primary.withValues(alpha: 0.5);
 
   /// Dimmer metadata on dense rows.
-  static Color get faintPrimary => primary.withValues(alpha: 0.35);
+  static Color get faintPrimary => _mode == AppThemeModeEnum.Light
+      ? onAccent.withValues(alpha: 0.48)
+      : primary.withValues(alpha: 0.35);
 }
 
 // -------- //
@@ -214,7 +225,7 @@ class RA_ShapeStyles {
 
   /// Idle elevated surfaces: quiet sage hairline, no muddy grey fill.
   static Color get idleSurfaceBorder => RA_ColourStyles.secondary.withValues(
-    alpha: RA_ColourStyles.mode == AppThemeModeEnum.Light ? 0.18 : 0.1,
+    alpha: RA_ColourStyles.mode == AppThemeModeEnum.Light ? 0.28 : 0.1,
   );
 
   /// Elevated charcoal panel with optional active border / glow.
@@ -292,7 +303,7 @@ class RA_AppTheme {
       scaffoldBackgroundColor: scaffold,
       canvasColor: scaffold,
       cardColor: surface,
-      dividerColor: surface,
+      dividerColor: RA_ColourStyles.divider,
       visualDensity: VisualDensity.standard,
       splashFactory: InkSparkle.splashFactory,
       colorScheme: isLight
@@ -312,7 +323,7 @@ class RA_AppTheme {
               onPrimary: RA_ColourStyles.onAccent,
               onSecondary: RA_ColourStyles.onAccent,
               onSurface: primary,
-              onSurfaceVariant: primary.withValues(alpha: 0.55),
+              onSurfaceVariant: RA_ColourStyles.mutedPrimary,
               onError: RA_ColourStyles.onAccent,
               outline: RA_ColourStyles.secondary.withValues(alpha: 0.35),
               outlineVariant: RA_ColourStyles.secondary.withValues(alpha: 0.16),
@@ -336,7 +347,7 @@ class RA_AppTheme {
               onPrimary: RA_ColourStyles.onAccent,
               onSecondary: RA_ColourStyles.onAccent,
               onSurface: primary,
-              onSurfaceVariant: primary.withValues(alpha: 0.55),
+              onSurfaceVariant: RA_ColourStyles.mutedPrimary,
               onError: RA_ColourStyles.onAccent,
               outline: RA_ColourStyles.secondary.withValues(alpha: 0.28),
               outlineVariant: RA_ColourStyles.secondary.withValues(alpha: 0.1),
@@ -368,9 +379,17 @@ class RA_AppTheme {
         focusElevation: 0,
         hoverElevation: 0,
         highlightElevation: 0,
-        splashColor: primary.withValues(alpha: 0.22),
-        shape: const RoundedRectangleBorder(
+        splashColor: isLight
+            ? RA_ColourStyles.onAccent.withValues(alpha: 0.18)
+            : primary.withValues(alpha: 0.22),
+        shape: RoundedRectangleBorder(
           borderRadius: RA_ShapeStyles.largeBorderRadius,
+          side: isLight
+              ? BorderSide(
+                  color: RA_ColourStyles.onAccent.withValues(alpha: 0.14),
+                  width: 1,
+                )
+              : BorderSide.none,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -413,13 +432,13 @@ class RA_AppTheme {
           if (states.contains(WidgetState.selected)) {
             return RA_ColourStyles.secondary;
           }
-          return primary.withValues(alpha: 0.55);
+          return primary.withValues(alpha: isLight ? 0.65 : 0.55);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return RA_ColourStyles.secondary.withValues(alpha: 0.28);
           }
-          return primary.withValues(alpha: 0.12);
+          return primary.withValues(alpha: isLight ? 0.2 : 0.12);
         }),
       ),
       radioTheme: RadioThemeData(
@@ -427,7 +446,7 @@ class RA_AppTheme {
           if (states.contains(WidgetState.selected)) {
             return RA_ColourStyles.secondary;
           }
-          return primary.withValues(alpha: 0.45);
+          return primary.withValues(alpha: isLight ? 0.55 : 0.45);
         }),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
@@ -442,6 +461,10 @@ class RA_AppTheme {
         backgroundColor: surface,
         contentTextStyle: RA_TextStyles.smallFont,
         actionTextColor: RA_ColourStyles.secondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          side: BorderSide(color: RA_ShapeStyles.idleSurfaceBorder),
+        ),
       ),
     );
   }
