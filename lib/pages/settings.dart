@@ -187,8 +187,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             RA_RadioOption(value: RoutineSwipeActionEnum.Mute, title: 'Mute'),
             RA_RadioOption(value: RoutineSwipeActionEnum.Pause, title: 'Pause'),
             RA_RadioOption(
-              value: RoutineSwipeActionEnum.StartFreshInterval,
-              title: 'Start Fresh Interval',
+              value: RoutineSwipeActionEnum.ResetInterval,
+              title: 'Reset Interval',
             ),
             RA_RadioOption(
               value: RoutineSwipeActionEnum.Delete,

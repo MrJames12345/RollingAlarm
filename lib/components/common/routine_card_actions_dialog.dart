@@ -5,13 +5,13 @@ import 'package:rolling_alarm/styles.dart';
 enum RA_RoutineCardMenuAction {
   mute,
   pause,
-  startFreshInterval,
-  edit,
+  resetInterval,
   resetTodayCounter,
+  edit,
   delete,
 }
 
-/// Shows Mute, Pause, Start Fresh Interval, Edit, Reset Today's Counter, and Delete.
+/// Shows Mute, Pause, Reset Interval, Reset Today's Counter, Edit, and Delete.
 ///
 /// Returns the chosen action, or `null` when dismissed without a choice.
 Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
@@ -19,7 +19,7 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
   required String routineName,
   required bool isMuted,
   required bool isPaused,
-  required bool showStartFreshInterval,
+  required bool showResetInterval,
 }) {
   return showDialog<RA_RoutineCardMenuAction>(
     context: context,
@@ -57,25 +57,23 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
             color: isPaused ? RA_ColourStyles.pauseOchre : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.pause),
           ),
-          if (showStartFreshInterval)
+          if (showResetInterval)
             _ActionTile(
               icon: Icons.skip_next,
-              label: 'Start Fresh Interval',
-              onTap: () => Navigator.pop(
-                ctx,
-                RA_RoutineCardMenuAction.startFreshInterval,
-              ),
+              label: 'Reset Interval',
+              onTap: () =>
+                  Navigator.pop(ctx, RA_RoutineCardMenuAction.resetInterval),
             ),
-          _ActionTile(
-            icon: Icons.edit_outlined,
-            label: 'Edit',
-            onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.edit),
-          ),
           _ActionTile(
             icon: Icons.restart_alt_rounded,
             label: "Reset Today's Counter",
             onTap: () =>
                 Navigator.pop(ctx, RA_RoutineCardMenuAction.resetTodayCounter),
+          ),
+          _ActionTile(
+            icon: Icons.edit_outlined,
+            label: 'Edit',
+            onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.edit),
           ),
           _ActionTile(
             icon: Icons.delete_outline,

@@ -43,9 +43,9 @@ class RA_RoutineCard extends ConsumerWidget {
     );
     final isPaused = phase == RA_RoutineUiPhase.paused;
     final isMuted = phase == RA_RoutineUiPhase.muted;
-    // Start Fresh Interval stays available even when next is a day-start
+    // Reset Interval stays available even when next is a day-start
     // ("Starts at") fire; only pause hides it.
-    final showStartFreshInterval = !isPaused;
+    final showResetInterval = !isPaused;
     final chrome = _chromeFor(phase);
     final swipeActions =
         ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
@@ -59,13 +59,13 @@ class RA_RoutineCard extends ConsumerWidget {
         key: ValueKey(routine.Id),
         leftAction: swipeActions.left,
         rightAction: swipeActions.right,
-        startFreshIntervalAllowed: showStartFreshInterval,
+        resetIntervalAllowed: showResetInterval,
         confirmDelete: () =>
             RA_showDeleteRoutineDialog(context, routineName: routine.Name),
         onDeleteConfirmed: () => _deleteRoutine(ref),
         onMute: () => _toggleMute(ref),
         onPause: () => _togglePause(ref),
-        onStartFreshInterval: () => _handleStartFreshInterval(context, ref),
+        onResetInterval: () => _handleResetInterval(context, ref),
         child: AnimatedContainer(
           duration: RA_ShapeStyles.stateTransitionDuration,
           curve: Curves.easeInOut,
@@ -114,7 +114,7 @@ class RA_RoutineCard extends ConsumerWidget {
                   ref,
                   isMuted: isMuted,
                   isPaused: isPaused,
-                  showStartFreshInterval: showStartFreshInterval,
+                  showResetInterval: showResetInterval,
                 ),
               ),
               child: AnimatedOpacity(
@@ -252,10 +252,7 @@ class RA_RoutineCard extends ConsumerWidget {
     });
   }
 
-  Future<void> _handleStartFreshInterval(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _handleResetInterval(BuildContext context, WidgetRef ref) async {
     final countTowardsDaily = await RA_showCountDailySkipDialog(context);
     if (countTowardsDaily == null) return;
 
@@ -279,7 +276,7 @@ class RA_RoutineCard extends ConsumerWidget {
     WidgetRef ref, {
     required bool isMuted,
     required bool isPaused,
-    required bool showStartFreshInterval,
+    required bool showResetInterval,
   }) async {
     RA_Haptics.heavyUnawaited();
     final action = await RA_showRoutineCardActionsDialog(
@@ -287,7 +284,7 @@ class RA_RoutineCard extends ConsumerWidget {
       routineName: routine.Name,
       isMuted: isMuted,
       isPaused: isPaused,
-      showStartFreshInterval: showStartFreshInterval,
+      showResetInterval: showResetInterval,
     );
     if (action == null || !context.mounted) return;
 
@@ -296,8 +293,8 @@ class RA_RoutineCard extends ConsumerWidget {
         await _toggleMute(ref);
       case RA_RoutineCardMenuAction.pause:
         await _togglePause(ref);
-      case RA_RoutineCardMenuAction.startFreshInterval:
-        await _handleStartFreshInterval(context, ref);
+      case RA_RoutineCardMenuAction.resetInterval:
+        await _handleResetInterval(context, ref);
       case RA_RoutineCardMenuAction.edit:
         await Navigator.push(
           context,
@@ -340,24 +337,24 @@ class _SwipeRoutineActions extends StatefulWidget {
   final Widget child;
   final RoutineSwipeActionEnum leftAction;
   final RoutineSwipeActionEnum rightAction;
-  final bool startFreshIntervalAllowed;
+  final bool resetIntervalAllowed;
   final Future<bool?> Function() confirmDelete;
   final Future<bool> Function() onDeleteConfirmed;
   final Future<void> Function() onMute;
   final Future<void> Function() onPause;
-  final Future<void> Function() onStartFreshInterval;
+  final Future<void> Function() onResetInterval;
 
   const _SwipeRoutineActions({
     super.key,
     required this.child,
     required this.leftAction,
     required this.rightAction,
-    required this.startFreshIntervalAllowed,
+    required this.resetIntervalAllowed,
     required this.confirmDelete,
     required this.onDeleteConfirmed,
     required this.onMute,
     required this.onPause,
-    required this.onStartFreshInterval,
+    required this.onResetInterval,
   });
 
   @override
@@ -393,8 +390,8 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
   }
 
   bool _actionAvailable(RoutineSwipeActionEnum action) {
-    if (action == RoutineSwipeActionEnum.StartFreshInterval) {
-      return widget.startFreshIntervalAllowed;
+    if (action == RoutineSwipeActionEnum.ResetInterval) {
+      return widget.resetIntervalAllowed;
     }
     return true;
   }
@@ -448,8 +445,8 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
         await widget.onMute();
       case RoutineSwipeActionEnum.Pause:
         await widget.onPause();
-      case RoutineSwipeActionEnum.StartFreshInterval:
-        await widget.onStartFreshInterval();
+      case RoutineSwipeActionEnum.ResetInterval:
+        await widget.onResetInterval();
       case RoutineSwipeActionEnum.Delete:
         break;
     }

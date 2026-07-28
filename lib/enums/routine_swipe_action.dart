@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Action performed when swiping a home routine card left or right.
-enum RoutineSwipeActionEnum { Mute, Pause, StartFreshInterval, Delete }
+enum RoutineSwipeActionEnum { Mute, Pause, ResetInterval, Delete }
 
 extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   String get label => switch (this) {
     RoutineSwipeActionEnum.Mute => 'Mute',
     RoutineSwipeActionEnum.Pause => 'Pause',
-    RoutineSwipeActionEnum.StartFreshInterval => 'Start Fresh Interval',
+    RoutineSwipeActionEnum.ResetInterval => 'Reset Interval',
     RoutineSwipeActionEnum.Delete => 'Delete',
   };
 
@@ -16,14 +16,14 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   Color get color => switch (this) {
     RoutineSwipeActionEnum.Mute => RA_ColourStyles.sleepIndigo,
     RoutineSwipeActionEnum.Pause => RA_ColourStyles.pauseOchre,
-    RoutineSwipeActionEnum.StartFreshInterval => RA_ColourStyles.secondary,
+    RoutineSwipeActionEnum.ResetInterval => RA_ColourStyles.secondary,
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.softCoral,
   };
 
   IconData get icon => switch (this) {
     RoutineSwipeActionEnum.Mute => Icons.notifications_off_outlined,
     RoutineSwipeActionEnum.Pause => Icons.pause_rounded,
-    RoutineSwipeActionEnum.StartFreshInterval => Icons.skip_next,
+    RoutineSwipeActionEnum.ResetInterval => Icons.skip_next,
     RoutineSwipeActionEnum.Delete => Icons.delete_outline,
   };
 }

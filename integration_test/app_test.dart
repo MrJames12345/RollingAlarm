@@ -58,11 +58,11 @@ void main() {
       // 7. Verify routine appears on Home Page
       expect($('E2E Test Routine'), findsOneWidget);
 
-      // 8. Long-press the tile and start a fresh interval from the menu
+      // 8. Long-press the tile and reset the interval from the menu
       await $('E2E Test Routine').longPress();
       await pumpFrames($.tester);
-      expect($('Start Fresh Interval'), findsOneWidget);
-      await $('Start Fresh Interval').tap();
+      expect($('Reset Interval'), findsOneWidget);
+      await $('Reset Interval').tap();
       await pumpFrames($.tester);
     },
   );
