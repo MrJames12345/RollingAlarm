@@ -273,7 +273,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                         ignoring: _busy,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: RA_ShapeStyles.space32,
+                            horizontal: RA_ShapeStyles.space24,
                           ),
                           child: _RingActions(
                             layout:
@@ -292,7 +292,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                       ),
                     ),
                     const SizedBox(
-                      height: RA_ShapeStyles.space48 + RA_ShapeStyles.space24,
+                      height: RA_ShapeStyles.space48 + RA_ShapeStyles.space8,
                     ),
                   ],
                 ),
@@ -333,7 +333,7 @@ class _RingActions extends StatelessWidget {
               onPressed: onSnooze,
             ),
           ),
-          const SizedBox(width: RA_ShapeStyles.space16),
+          const SizedBox(width: RA_ShapeStyles.space24),
           Expanded(
             child: _RingActionButton(
               key: const Key('ra_ring_dismiss'),
