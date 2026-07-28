@@ -13,6 +13,7 @@ import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/logs.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/pages/settings.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/styles.dart';
 
@@ -23,6 +24,7 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
     // Scaffold chrome (AppBar / FAB) stays outside the list consumer so
     // RoutineListProvider emissions never rebuild the whole page shell.
     return RA_PageScaffold(
@@ -63,7 +65,19 @@ class HomePage extends StatelessWidget {
             foregroundColor: RA_ColourStyles.onAccent,
             elevation: 0,
             highlightElevation: 0,
-            splashColor: RA_ColourStyles.primary.withValues(alpha: 0.22),
+            // Ink on sage: near-black on light paper, soft white on OLED.
+            splashColor: isLight
+                ? RA_ColourStyles.onAccent.withValues(alpha: 0.18)
+                : RA_ColourStyles.primary.withValues(alpha: 0.22),
+            shape: RoundedRectangleBorder(
+              borderRadius: RA_ShapeStyles.largeBorderRadius,
+              side: isLight
+                  ? BorderSide(
+                      color: RA_ColourStyles.onAccent.withValues(alpha: 0.14),
+                      width: 1,
+                    )
+                  : BorderSide.none,
+            ),
             onPressed: () {
               RA_Haptics.heavyUnawaited();
               unawaited(
@@ -73,7 +87,11 @@ class HomePage extends StatelessWidget {
                 ),
               );
             },
-            child: const Icon(Icons.add, size: 28),
+            child: Icon(
+              Icons.add,
+              size: 28,
+              color: RA_ColourStyles.onAccent,
+            ),
           ),
         ),
       ),

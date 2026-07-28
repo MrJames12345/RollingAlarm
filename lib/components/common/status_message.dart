@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Centered empty or error message used by list pages so the UI never
@@ -45,6 +46,21 @@ class RA_StatusMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = accentColor ?? RA_ColourStyles.secondary;
     final isAlert = accent == RA_ColourStyles.softCoral;
+    final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
+
+    // Light: soft accent wash so the disc reads on warm paper; dark: charcoal.
+    final circleFill = isLight
+        ? accent.withValues(alpha: 0.14)
+        : RA_ColourStyles.surface;
+    final circleBorder = accent.withValues(alpha: isLight ? 0.4 : 0.28);
+    final iconColor = accent.withValues(alpha: isLight ? 1 : 0.85);
+    // Light empty/error copy stays near-black for contrast on paper.
+    final titleColor = isLight
+        ? RA_ColourStyles.onAccent
+        : RA_ColourStyles.primary.withValues(alpha: 0.9);
+    final messageColor = isLight
+        ? RA_ColourStyles.onAccent.withValues(alpha: 0.72)
+        : RA_ColourStyles.mutedPrimary;
 
     return Semantics(
       header: true,
@@ -66,10 +82,10 @@ class RA_StatusMessage extends StatelessWidget {
                       Transform.scale(scale: scale, child: child),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: RA_ColourStyles.surface,
+                      color: circleFill,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: accent.withValues(alpha: 0.28),
+                        color: circleBorder,
                         width: 1,
                       ),
                     ),
@@ -78,7 +94,7 @@ class RA_StatusMessage extends StatelessWidget {
                       child: Icon(
                         icon,
                         size: RA_ShapeStyles.space48,
-                        color: accent.withValues(alpha: 0.85),
+                        color: iconColor,
                       ),
                     ),
                   ),
@@ -88,7 +104,7 @@ class RA_StatusMessage extends StatelessWidget {
                   title,
                   textAlign: TextAlign.center,
                   style: RA_TextStyles.mediumFont.copyWith(
-                    color: RA_ColourStyles.primary.withValues(alpha: 0.9),
+                    color: titleColor,
                   ),
                 ),
                 const SizedBox(height: RA_ShapeStyles.space8),
@@ -96,7 +112,7 @@ class RA_StatusMessage extends StatelessWidget {
                   message,
                   textAlign: TextAlign.center,
                   style: RA_TextStyles.smallFont.copyWith(
-                    color: RA_ColourStyles.mutedPrimary,
+                    color: messageColor,
                     height: 1.4,
                   ),
                 ),

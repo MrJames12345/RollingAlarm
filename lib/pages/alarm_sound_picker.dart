@@ -8,6 +8,7 @@ import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
 import 'package:rolling_alarm/components/field/input_decoration.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/services/alarm_sound_picker.dart';
 import 'package:rolling_alarm/services/audio.dart';
@@ -131,7 +132,20 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
                   foregroundColor: RA_ColourStyles.onAccent,
                   elevation: 0,
                   highlightElevation: 0,
-                  splashColor: RA_ColourStyles.primary.withValues(alpha: 0.22),
+                  splashColor: RA_ColourStyles.mode == AppThemeModeEnum.Light
+                      ? RA_ColourStyles.onAccent.withValues(alpha: 0.18)
+                      : RA_ColourStyles.primary.withValues(alpha: 0.22),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: RA_ShapeStyles.largeBorderRadius,
+                    side: RA_ColourStyles.mode == AppThemeModeEnum.Light
+                        ? BorderSide(
+                            color: RA_ColourStyles.onAccent.withValues(
+                              alpha: 0.14,
+                            ),
+                            width: 1,
+                          )
+                        : BorderSide.none,
+                  ),
                   tooltip: _isPlaying ? 'Pause preview' : 'Play preview',
                   onPressed: () {
                     RA_Haptics.heavyUnawaited();
@@ -140,6 +154,7 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
                   child: Icon(
                     _isPlaying ? Icons.pause : Icons.play_arrow,
                     size: 28,
+                    color: RA_ColourStyles.onAccent,
                   ),
                 ),
               ),
