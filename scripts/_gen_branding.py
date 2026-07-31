@@ -1,8 +1,7 @@
 from PIL import Image
 from pathlib import Path
 
-src_logo = Path(r"C:\Users\jayms\.cursor\projects\c-repo-RollingAlarm\assets\logo_1024.png")
-src_fav = Path(r"C:\Users\jayms\.cursor\projects\c-repo-RollingAlarm\assets\favicon_flat.png")
+src_logo = Path(r"C:\Users\jayms\Downloads\Frame 36 (1).png")
 out = Path(r"C:\repo\RollingAlarm\assets\branding")
 out.mkdir(parents=True, exist_ok=True)
 
@@ -12,13 +11,19 @@ def load_rgba(p: Path) -> Image.Image:
 
 
 def fit_square(im: Image.Image, size: int, bg=(10, 10, 10, 255)) -> Image.Image:
-    base = Image.new("RGBA", im.size, bg)
-    base = Image.alpha_composite(base, im)
+    # Center-crop to square if needed, then composite onto opaque bg and resize.
+    w, h = im.size
+    side = min(w, h)
+    left = (w - side) // 2
+    top = (h - side) // 2
+    cropped = im.crop((left, top, left + side, top + side))
+    base = Image.new("RGBA", cropped.size, bg)
+    base = Image.alpha_composite(base, cropped)
     return base.resize((size, size), Image.Resampling.LANCZOS).convert("RGBA")
 
 
 logo = load_rgba(src_logo)
-fav = load_rgba(src_fav)
+fav = logo
 
 fit_square(logo, 1024).save(out / "logo_1024.png", optimize=True)
 fit_square(logo, 1024).save(out / "logo.png", optimize=True)
