@@ -525,6 +525,12 @@ class RA_AlarmService {
       }
       if (rows == 0) return;
 
+      await db.insertActivityLog(
+        routineId: routineId,
+        action: LogActionTypeCodeEnum.Ring,
+        timestamp: now,
+      );
+
       // Wake UI / lock-screen paths BEFORE audio. just_audio init can hang or
       // fail on OEM devices; the ring page must still appear on time.
       // Prefs only: never post a local notification (full-page ring only).
@@ -887,6 +893,12 @@ class RA_AlarmService {
       );
     }
 
+    await db.insertActivityLog(
+      routineId: routineId,
+      action: LogActionTypeCodeEnum.Pause,
+      timestamp: now,
+    );
+
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
@@ -897,11 +909,15 @@ class RA_AlarmService {
   /// Interval targets shift by frozen remaining. Day-start targets that are
   /// still ahead keep their absolute time; missed day-starts use
   /// [RA_DailyRingLimit.earliestResumeAfterMissedDayStart].
+  ///
+  /// Pass [logHistory] false when resume is an internal step of another
+  /// user action (e.g. mute clears pause first).
   static Future<void> resumeRoutine({
     required int routineId,
     required RA_Database db,
     required RoutineModel routine,
     required String dbPath,
+    bool logHistory = true,
   }) async {
     final now = DateTime.now();
     final state = await db.getRoutineState(routineId);
@@ -964,6 +980,15 @@ class RA_AlarmService {
         refreshWidget: false,
       );
     }
+
+    if (logHistory) {
+      await db.insertActivityLog(
+        routineId: routineId,
+        action: LogActionTypeCodeEnum.Resume,
+        timestamp: now,
+      );
+    }
+
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
@@ -986,6 +1011,7 @@ class RA_AlarmService {
         db: db,
         routine: routine,
         dbPath: dbPath,
+        logHistory: false,
       );
     }
 
@@ -1016,6 +1042,12 @@ class RA_AlarmService {
       );
     }
 
+    await db.insertActivityLog(
+      routineId: routineId,
+      action: LogActionTypeCodeEnum.Mute,
+      timestamp: mutedAt,
+    );
+
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
@@ -1025,9 +1057,15 @@ class RA_AlarmService {
     required int routineId,
     required RA_Database db,
   }) async {
+    final now = DateTime.now();
     await db.updateRoutineState(
       routineId,
       const RoutineStatesCompanion(MutedAt: Value(null)),
+    );
+    await db.insertActivityLog(
+      routineId: routineId,
+      action: LogActionTypeCodeEnum.Unmute,
+      timestamp: now,
     );
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
@@ -1092,6 +1130,12 @@ class RA_AlarmService {
         TimesRingDay: Value(period),
         NextTriggerTime: nextChanged ? Value(next) : const Value.absent(),
       ),
+    );
+
+    await db.insertActivityLog(
+      routineId: routineId,
+      action: LogActionTypeCodeEnum.ResetCounter,
+      timestamp: now,
     );
 
     if (nextChanged && next != null && routine.IsActive) {
@@ -1214,7 +1258,12 @@ class RA_AlarmService {
 
   static LogActionTypeCodeEnum _mapToLogAction(
     RA_AlarmActionTypeCodeEnum action,
-  ) => LogActionTypeCodeEnum.values[action.index];
+  ) => switch (action) {
+    RA_AlarmActionTypeCodeEnum.Dismiss => LogActionTypeCodeEnum.Dismiss,
+    RA_AlarmActionTypeCodeEnum.Snooze => LogActionTypeCodeEnum.Snooze,
+    RA_AlarmActionTypeCodeEnum.Skip => LogActionTypeCodeEnum.Skip,
+    RA_AlarmActionTypeCodeEnum.AutoSnooze => LogActionTypeCodeEnum.AutoSnooze,
+  };
 
   /// Sends a ping to the UI isolate via IsolateNameServer.
   static void _pingUiIsolate(int routineId) {

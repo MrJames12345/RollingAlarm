@@ -27,6 +27,16 @@ class RA_ColourStyles {
   static const Color sleepIndigo = Color(0xFF4A4766); // quiet indigo
   static const Color softCoral = Color(0xFFC17F74); // dusty coral (alerts)
   static const Color pauseOchre = Color(0xFFA68B5C); // dusty warm ochre (pause)
+  /// History / activity accents (each log action type gets a unique hue).
+  static const Color mossGreen = Color(0xFF7A9E7E); // Create
+  static const Color slateBlue = Color(0xFF5B7C99); // Edit
+  static const Color dustyWine = Color(0xFF9E6B6B); // Delete
+  static const Color softPlum = Color(0xFF8B7A9E); // Duplicate
+  static const Color oliveMist = Color(0xFF8A9A6B); // Resume
+  static const Color mutedViolet = Color(0xFF6E5F8A); // Mute
+  static const Color softSky = Color(0xFF6B8FA3); // Unmute
+  static const Color warmAmber = Color(0xFFB89A5C); // ResetCounter
+  static const Color ringEmber = Color(0xFFC49A6C); // Ring
   /// Near-black ink on sage / coral / ochre fills (stable across themes).
   static const Color onAccent = Color(0xFF0A0A0A);
 

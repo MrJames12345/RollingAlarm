@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:rolling_alarm/database/database.dart';
+import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/widget.dart';
@@ -53,6 +54,7 @@ class RA_RoutineDuplicateService {
     final routineId = await db.insertRoutineWithInitialState(
       routine: companion,
       nextTriggerTime: nextTrigger,
+      activityLog: LogActionTypeCodeEnum.Duplicate,
     );
     await RA_AlarmService.scheduleNext(
       routineId: routineId,

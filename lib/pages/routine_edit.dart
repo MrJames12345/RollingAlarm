@@ -21,6 +21,7 @@ import 'package:rolling_alarm/components/field/volume_field.dart';
 import 'package:rolling_alarm/components/field/weekday_field.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
+import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
@@ -321,6 +322,10 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       final previousNext = state?.NextTriggerTime;
 
       await db.updateRoutine(_companion(id: id));
+      await db.insertActivityLog(
+        routineId: id,
+        action: LogActionTypeCodeEnum.Edit,
+      );
 
       // Keep the active timer as-is so interval / other edits apply next
       // cycle. Retarget when day-start changes while waiting on that

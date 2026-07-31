@@ -26,6 +26,22 @@ class MockDatabase extends Mock implements RA_Database {
   }) {
     return action();
   }
+
+  /// Forward to [insertLogEntry] so activity helpers work with the same stubs.
+  @override
+  Future<int> insertActivityLog({
+    required int routineId,
+    required LogActionTypeCodeEnum action,
+    DateTime? timestamp,
+  }) {
+    return insertLogEntry(
+      LogEntriesCompanion(
+        RoutineId: Value(routineId),
+        Timestamp: Value(timestamp ?? DateTime.now()),
+        LogActionTypeCode: Value(action.index),
+      ),
+    );
+  }
 }
 
 class FakeRoutineStatesCompanion extends Fake

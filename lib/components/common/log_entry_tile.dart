@@ -63,7 +63,7 @@ Widget RA_LogEntryTile({
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      action?.name ?? 'Unknown',
+                      action?.displayName ?? 'Unknown',
                       style: RA_TextStyles.smallFont.copyWith(
                         color: actionColor,
                       ),

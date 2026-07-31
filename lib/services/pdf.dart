@@ -35,7 +35,7 @@ class RA_PdfService {
                   .map(
                     (log) => [
                       RA_Utils.formatDateTime(log.Timestamp),
-                      RA_logActionFromCode(log.LogActionTypeCode)?.name ??
+                      RA_logActionFromCode(log.LogActionTypeCode)?.displayName ??
                           'Unknown',
                       log.TimeSinceLastDismissalSeconds != null
                           ? RA_Utils.formatSecondsAsDuration(

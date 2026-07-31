@@ -176,9 +176,13 @@ class RA_Database extends _$RA_Database {
   /// Inserts a routine and its initial state row in one transaction so a
   /// crash cannot leave an active routine without [RoutineStates] (alarm
   /// scheduling would then have nothing to CAS against).
+  ///
+  /// When [activityLog] is set (default [LogActionTypeCodeEnum.Create]),
+  /// writes a matching history row in the same transaction.
   Future<int> insertRoutineWithInitialState({
     required RoutinesCompanion routine,
     required DateTime nextTriggerTime,
+    LogActionTypeCodeEnum? activityLog = LogActionTypeCodeEnum.Create,
   }) {
     return transaction(() async {
       final routineId = await insertRoutine(routine);
@@ -188,6 +192,9 @@ class RA_Database extends _$RA_Database {
           NextTriggerTime: Value(nextTriggerTime),
         ),
       );
+      if (activityLog != null) {
+        await insertActivityLog(routineId: routineId, action: activityLog);
+      }
       return routineId;
     });
   }
@@ -209,9 +216,15 @@ class RA_Database extends _$RA_Database {
   ///
   /// Both writes run in one transaction so a kill mid-delete cannot leave a
   /// deleted routine with a still-live ringing state (or the reverse).
+  /// Also records a [LogActionTypeCodeEnum.Delete] history entry.
   Future<void> softDeleteRoutine(int id) async {
     final now = DateTime.now();
     await transaction(() async {
+      await insertActivityLog(
+        routineId: id,
+        action: LogActionTypeCodeEnum.Delete,
+        timestamp: now,
+      );
       await (update(routines)..where((r) => r.Id.equals(id))).write(
         RoutinesCompanion(Deleted: const Value(true), ModifiedAt: Value(now)),
       );
@@ -327,6 +340,21 @@ class RA_Database extends _$RA_Database {
 
   Future<int> insertLogEntry(LogEntriesCompanion entry) {
     return into(logEntries).insert(entry);
+  }
+
+  /// Convenience writer for routine lifecycle / activity history rows.
+  Future<int> insertActivityLog({
+    required int routineId,
+    required LogActionTypeCodeEnum action,
+    DateTime? timestamp,
+  }) {
+    return insertLogEntry(
+      LogEntriesCompanion(
+        RoutineId: Value(routineId),
+        Timestamp: Value(timestamp ?? DateTime.now()),
+        LogActionTypeCode: Value(action.index),
+      ),
+    );
   }
 
   Future<List<LogEntryModel>> getAllLogEntries() {
