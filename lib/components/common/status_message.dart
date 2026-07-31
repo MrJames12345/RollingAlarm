@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/styles.dart';
 
@@ -13,6 +14,12 @@ class RA_StatusMessage extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
+  /// When set, the circular icon (including its background) is tappable.
+  final VoidCallback? onIconTap;
+
+  /// Accessibility label for the tappable icon disc.
+  final String? iconSemanticsLabel;
+
   const RA_StatusMessage({
     super.key,
     required this.icon,
@@ -21,6 +28,8 @@ class RA_StatusMessage extends StatelessWidget {
     this.accentColor,
     this.actionLabel,
     this.onAction,
+    this.onIconTap,
+    this.iconSemanticsLabel,
   });
 
   /// Friendly error surface without stack traces or exception toString().
@@ -80,23 +89,15 @@ class RA_StatusMessage extends StatelessWidget {
                   curve: Curves.easeOut,
                   builder: (context, scale, child) =>
                       Transform.scale(scale: scale, child: child),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: circleFill,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: circleBorder,
-                        width: 1,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(RA_ShapeStyles.space24),
-                      child: Icon(
-                        icon,
-                        size: RA_ShapeStyles.space48,
-                        color: iconColor,
-                      ),
-                    ),
+                  child: _StatusIconDisc(
+                    icon: icon,
+                    iconColor: iconColor,
+                    circleFill: circleFill,
+                    circleBorder: circleBorder,
+                    onTap: onIconTap,
+                    semanticsLabel: iconSemanticsLabel,
+                    splashColor: accent.withValues(alpha: 0.22),
+                    highlightColor: accent.withValues(alpha: 0.1),
                   ),
                 ),
                 const SizedBox(height: RA_ShapeStyles.space24),
@@ -128,6 +129,70 @@ class RA_StatusMessage extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular status icon; optionally the full disc is a press target.
+class _StatusIconDisc extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color circleFill;
+  final Color circleBorder;
+  final VoidCallback? onTap;
+  final String? semanticsLabel;
+  final Color splashColor;
+  final Color highlightColor;
+
+  const _StatusIconDisc({
+    required this.icon,
+    required this.iconColor,
+    required this.circleFill,
+    required this.circleBorder,
+    required this.splashColor,
+    required this.highlightColor,
+    this.onTap,
+    this.semanticsLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconPad = Padding(
+      padding: const EdgeInsets.all(RA_ShapeStyles.space24),
+      child: Icon(icon, size: RA_ShapeStyles.space48, color: iconColor),
+    );
+
+    if (onTap == null) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: circleFill,
+          shape: BoxShape.circle,
+          border: Border.all(color: circleBorder, width: 1),
+        ),
+        child: iconPad,
+      );
+    }
+
+    return RA_PressScale(
+      pressedScale: 0.94,
+      child: Semantics(
+        button: true,
+        label: semanticsLabel,
+        child: Material(
+          color: circleFill,
+          shape: CircleBorder(
+            side: BorderSide(color: circleBorder, width: 1),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            splashColor: splashColor,
+            highlightColor: highlightColor,
+            child: iconPad,
           ),
         ),
       ),

@@ -113,10 +113,21 @@ class _HomeRoutineList extends ConsumerWidget {
 
     return RA_AsyncListBody(
       async: routinesAsync,
-      empty: const RA_StatusMessage(
+      empty: RA_StatusMessage(
         icon: Icons.alarm_add,
         title: 'No Routines Yet',
-        message: 'Tap + below to create your first automated alarm routine.',
+        message:
+            'Tap the icon or + below to create your first automated alarm routine.',
+        iconSemanticsLabel: 'Add routine',
+        onIconTap: () {
+          RA_Haptics.heavyUnawaited();
+          unawaited(
+            Navigator.push(
+              context,
+              RA_Routes.fade(RoutineEditPage(dbPath: dbPath)),
+            ),
+          );
+        },
       ),
       errorTitle: 'Could Not Load Routines',
       onRetry: () => ref.invalidate(RoutineListProvider),
