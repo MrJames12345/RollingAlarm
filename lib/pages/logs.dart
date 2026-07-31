@@ -7,13 +7,20 @@ import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/fade_switcher.dart';
 import 'package:rolling_alarm/components/common/log_entry_tile.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/recover_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
+import 'package:rolling_alarm/database/database.dart';
+import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/providers/providers.dart';
+import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/pdf.dart';
 import 'package:rolling_alarm/styles.dart';
+import 'package:rolling_alarm/utils.dart';
 
 class LogsPage extends ConsumerWidget {
-  const LogsPage({super.key});
+  final String dbPath;
+
+  const LogsPage({super.key, required this.dbPath});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,7 +30,7 @@ class LogsPage extends ConsumerWidget {
     return RA_PageScaffold(
       title: 'Alarm Logs',
       actions: const [_LogsShareAction()],
-      body: const _LogsListBody(),
+      body: _LogsListBody(dbPath: dbPath),
     );
   }
 }
@@ -61,7 +68,9 @@ class _LogsShareAction extends ConsumerWidget {
 }
 
 class _LogsListBody extends ConsumerWidget {
-  const _LogsListBody();
+  final String dbPath;
+
+  const _LogsListBody({required this.dbPath});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,6 +78,8 @@ class _LogsListBody extends ConsumerWidget {
     final logsAsync = ref.watch(LogEntriesProvider(null));
     final nameById =
         ref.watch(RoutineNamesByIdProvider).valueOrNull ?? const {};
+    final deletedById =
+        ref.watch(RoutineDeletedByIdProvider).valueOrNull ?? const {};
 
     return RA_AsyncListBody(
       async: logsAsync,
@@ -85,12 +96,53 @@ class _LogsListBody extends ConsumerWidget {
         itemCount: entries.length,
         itemBuilder: (_, index) {
           final entry = entries[index];
+          final isDelete =
+              entry.LogActionTypeCode == LogActionTypeCodeEnum.Delete.index;
+          final isSoftDeleted = deletedById[entry.RoutineId] == true;
           return RA_LogEntryTile(
             entry: entry,
             routineName: nameById[entry.RoutineId],
+            showRecover: isDelete && isSoftDeleted,
+            onRecover: isDelete && isSoftDeleted
+                ? () => unawaited(
+                    _recoverFromLog(
+                      context,
+                      ref,
+                      entry: entry,
+                      routineName: nameById[entry.RoutineId],
+                      dbPath: dbPath,
+                    ),
+                  )
+                : null,
           );
         },
       ),
     );
   }
+}
+
+Future<void> _recoverFromLog(
+  BuildContext context,
+  WidgetRef ref, {
+  required LogEntryModel entry,
+  required String? routineName,
+  required String dbPath,
+}) async {
+  final name = (routineName != null && routineName.trim().isNotEmpty)
+      ? routineName.trim()
+      : 'this routine';
+  final confirmed = await RA_showRecoverRoutineDialog(
+    context,
+    routineName: name,
+  );
+  if (confirmed != true) return;
+
+  await RA_tryAsync(() async {
+    final db = ref.read(RA_DatabaseProvider);
+    await RA_AlarmService.recoverRoutine(
+      routineId: entry.RoutineId,
+      db: db,
+      dbPath: dbPath,
+    );
+  });
 }

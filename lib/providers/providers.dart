@@ -133,6 +133,13 @@ final RoutineNamesByIdProvider =
       return db.watchRoutineNamesById();
     });
 
+/// Soft-deleted flag per routine id (includes live and deleted rows).
+final RoutineDeletedByIdProvider =
+    StreamProvider.autoDispose<Map<int, bool>>((ref) {
+      final db = ref.watch(RA_DatabaseProvider);
+      return db.watchRoutineDeletedById();
+    });
+
 /// Watches the [RoutineStateModel] for a given routine ID.
 final ActiveRoutineStateProvider = StreamProvider.autoDispose
     .family<RoutineStateModel?, int>((ref, routineId) {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
+import 'package:rolling_alarm/components/common/haptics.dart';
+import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -10,15 +12,20 @@ import 'package:rolling_alarm/utils.dart';
 ///
 /// Pass [routineName] on the global logs page so tiles identify which
 /// routine the event belongs to. Omit it on per-routine history.
+///
+/// When [showRecover] is true (Delete entry for a still soft-deleted
+/// routine), a Recover control appears on the right and calls [onRecover].
 Widget RA_LogEntryTile({
   required LogEntryModel entry,
   String? routineName,
+  bool showRecover = false,
+  VoidCallback? onRecover,
 }) {
   final action = RA_logActionFromCode(entry.LogActionTypeCode);
   final actionColor = action?.color ?? RA_ColourStyles.primary;
   final resolvedName = routineName?.trim();
-  final showRoutineName =
-      resolvedName != null && resolvedName.isNotEmpty;
+  final showRoutineName = resolvedName != null && resolvedName.isNotEmpty;
+  final canRecover = showRecover && onRecover != null;
 
   return Padding(
     padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space8),
@@ -100,7 +107,10 @@ Widget RA_LogEntryTile({
                   ],
                 ),
               ),
-              if (entry.TimeSinceLastDismissalSeconds != null) ...[
+              if (canRecover) ...[
+                const SizedBox(width: RA_ShapeStyles.space8),
+                _RecoverButton(onPressed: onRecover!),
+              ] else if (entry.TimeSinceLastDismissalSeconds != null) ...[
                 const SizedBox(width: RA_ShapeStyles.space8),
                 RA_FittedText(
                   RA_Utils.formatSecondsAsDuration(
@@ -115,4 +125,41 @@ Widget RA_LogEntryTile({
       ),
     ),
   );
+}
+
+class _RecoverButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _RecoverButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return RA_PressScale(
+      pressedScale: 0.94,
+      child: TextButton(
+        onPressed: () {
+          RA_Haptics.heavyUnawaited();
+          onPressed();
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: RA_ColourStyles.recoverSeafoam,
+          minimumSize: const Size(
+            RA_ShapeStyles.minTouchTarget,
+            RA_ShapeStyles.minTouchTarget,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: RA_ShapeStyles.space8,
+          ),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          'Recover',
+          style: RA_TextStyles.smallFont.copyWith(
+            color: RA_ColourStyles.recoverSeafoam,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -114,7 +114,11 @@ class RoutineSummaryPage extends ConsumerWidget {
               child: TabBarView(
                 children: [
                   _SummaryTab(routine: routine, dbPath: dbPath),
-                  RA_RoutineHistoryList(routineId: routine.Id),
+                  RA_RoutineHistoryList(
+                    routineId: routine.Id,
+                    dbPath: dbPath,
+                    routineName: routine.Name,
+                  ),
                 ],
               ),
             ),

@@ -48,7 +48,10 @@ class HomePage extends ConsumerWidget {
           tooltip: 'Alarm Logs',
           onPressed: () {
             unawaited(
-              Navigator.push(context, RA_Routes.fade(const LogsPage())),
+              Navigator.push(
+                context,
+                RA_Routes.fade(LogsPage(dbPath: dbPath)),
+              ),
             );
           },
         ),
