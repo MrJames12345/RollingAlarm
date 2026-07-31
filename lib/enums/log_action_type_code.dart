@@ -51,7 +51,7 @@ extension LogActionTypeCodeDisplay on LogActionTypeCodeEnum {
         LogActionTypeCodeEnum.Unmute => RA_ColourStyles.softSky,
         LogActionTypeCodeEnum.ResetCounter => RA_ColourStyles.warmAmber,
         LogActionTypeCodeEnum.Ring => RA_ColourStyles.ringEmber,
-        LogActionTypeCodeEnum.Recover => RA_ColourStyles.recoverSeafoam,
+        LogActionTypeCodeEnum.Recover => RA_ColourStyles.mossGreen,
       };
 
   /// Soft bloom behind log tiles for the most salient action types.
