@@ -1,7 +1,7 @@
 from PIL import Image
 from pathlib import Path
 
-src_logo = Path(r"C:\Users\jayms\Downloads\Frame 36 (1).png")
+src_logo = Path(r"C:\Users\jayms\Downloads\NEW ONE.png")
 out = Path(r"C:\repo\RollingAlarm\assets\branding")
 out.mkdir(parents=True, exist_ok=True)
 
