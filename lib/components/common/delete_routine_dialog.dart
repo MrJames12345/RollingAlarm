@@ -18,7 +18,7 @@ Future<bool?> RA_showDeleteRoutineDialog(
       ),
       title: Text('Delete routine?', style: RA_TextStyles.mediumFont),
       content: Text(
-        'Delete "$routineName"? This removes the routine and cancels its alarm.',
+        'Remove "$routineName" from your list and cancel its alarm? The routine is not permanently erased; you can recover it later from Alarm Logs.',
         style: RA_TextStyles.smallFont.copyWith(height: 1.35),
       ),
       actions: [

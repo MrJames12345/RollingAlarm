@@ -472,5 +472,51 @@ void main() {
       expect(await db.getRoutineState(routineId), isNull);
       expect(await db.getRingingRoutineStates(), isEmpty);
     });
+
+    test('recoverRoutine clears soft-delete and restores live state', () async {
+      final routineId = await db.insertRoutineWithInitialState(
+        routine: RoutinesCompanion(
+          Name: const Value('Recover Me'),
+          IntervalSeconds: const Value(3600),
+          DriftCompensationTypeCode: Value(
+            DriftCompensationTypeCodeEnum.ActualDismissal.index,
+          ),
+        ),
+        nextTriggerTime: DateTime(2026, 1, 1, 12, 0, 0),
+      );
+      await db.softDeleteRoutine(routineId);
+
+      final next = DateTime(2026, 1, 2, 8, 0, 0);
+      final recovered = await db.recoverRoutine(
+        id: routineId,
+        nextTriggerTime: next,
+      );
+      expect(recovered, isTrue);
+
+      final routine = await db.getRoutineById(routineId);
+      expect(routine.Deleted, isFalse);
+      expect(routine.IsActive, isTrue);
+      final state = await db.getRoutineState(routineId);
+      expect(state, isNotNull);
+      expect(state!.Deleted, isFalse);
+      expect(state.NextTriggerTime, equals(next));
+      expect(state.IsRinging, isFalse);
+
+      final logs = await db.getAllLogEntries();
+      expect(
+        logs.map((l) => l.LogActionTypeCode),
+        containsAll([
+          LogActionTypeCodeEnum.Create.index,
+          LogActionTypeCodeEnum.Delete.index,
+          LogActionTypeCodeEnum.Recover.index,
+        ]),
+      );
+
+      // Already live: second recover is a no-op.
+      expect(
+        await db.recoverRoutine(id: routineId, nextTriggerTime: next),
+        isFalse,
+      );
+    });
   });
 }

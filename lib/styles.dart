@@ -37,6 +37,7 @@ class RA_ColourStyles {
   static const Color softSky = Color(0xFF6B8FA3); // Unmute
   static const Color warmAmber = Color(0xFFB89A5C); // ResetCounter
   static const Color ringEmber = Color(0xFFC49A6C); // Ring
+  static const Color recoverSeafoam = Color(0xFF6BA89A); // Recover
   /// Near-black ink on sage / coral / ochre fills (stable across themes).
   static const Color onAccent = Color(0xFF0A0A0A);
 

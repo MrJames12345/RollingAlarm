@@ -156,6 +156,13 @@ class RA_Database extends _$RA_Database {
     ).watch().map((rows) => {for (final r in rows) r.Id: r.Name});
   }
 
+  /// Soft-deleted flag per routine id (includes live and deleted rows).
+  Stream<Map<int, bool>> watchRoutineDeletedById() {
+    return select(
+      routines,
+    ).watch().map((rows) => {for (final r in rows) r.Id: r.Deleted});
+  }
+
   Future<RoutineModel> getRoutineById(int id) {
     return (select(routines)..where((r) => r.Id.equals(id))).getSingle();
   }
@@ -214,6 +221,9 @@ class RA_Database extends _$RA_Database {
   /// Soft deletes the routine and clears its live state so ringing /
   /// countdown watches cannot resurrect a deleted alarm cycle.
   ///
+  /// Routines are never hard deleted: only the [Deleted] flag is set so
+  /// history can still resolve names and [recoverRoutine] can restore them.
+  ///
   /// Both writes run in one transaction so a kill mid-delete cannot leave a
   /// deleted routine with a still-live ringing state (or the reverse).
   /// Also records a [LogActionTypeCodeEnum.Delete] history entry.
@@ -239,6 +249,49 @@ class RA_Database extends _$RA_Database {
         ),
       );
     });
+  }
+
+  /// Clears soft-delete on the routine and its state, then sets
+  /// [NextTriggerTime]. Does not schedule the OS alarm (caller does).
+  ///
+  /// No-ops when the routine is missing or not soft-deleted.
+  /// Records a [LogActionTypeCodeEnum.Recover] history entry on success.
+  Future<bool> recoverRoutine({
+    required int id,
+    required DateTime nextTriggerTime,
+  }) async {
+    final routine = await getRoutineById(id);
+    if (!routine.Deleted) return false;
+
+    final now = DateTime.now();
+    await transaction(() async {
+      await (update(routines)..where((r) => r.Id.equals(id))).write(
+        RoutinesCompanion(
+          Deleted: const Value(false),
+          IsActive: const Value(true),
+          ModifiedAt: Value(now),
+        ),
+      );
+      // Soft-deleted state rows are filtered out of [updateRoutineState];
+      // write the live row directly so Deleted can flip back to false.
+      await (update(routineStates)..where((s) => s.RoutineId.equals(id))).write(
+        RoutineStatesCompanion(
+          Deleted: const Value(false),
+          IsRinging: const Value(false),
+          PausedAt: const Value(null),
+          MutedAt: const Value(null),
+          NextTriggerTime: Value(nextTriggerTime),
+          CurrentSnoozeCount: const Value(0),
+          ModifiedAt: Value(now),
+        ),
+      );
+      await insertActivityLog(
+        routineId: id,
+        action: LogActionTypeCodeEnum.Recover,
+        timestamp: now,
+      );
+    });
+    return true;
   }
 
   // --------------------------------------------------------------------- //

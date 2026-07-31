@@ -1071,6 +1071,44 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
+  /// Restores a soft-deleted routine: clears [Deleted], arms a fresh next
+  /// trigger (same rules as create), and re-schedules the OS alarm.
+  ///
+  /// No-ops when the routine is missing or already live.
+  static Future<bool> recoverRoutine({
+    required int routineId,
+    required RA_Database db,
+    required String dbPath,
+  }) async {
+    final routine = await db.getRoutineById(routineId);
+    if (!routine.Deleted) return false;
+
+    final next = RA_DailyRingLimit.initialTriggerTime(
+      now: DateTime.now(),
+      interval: Duration(seconds: routine.IntervalSeconds),
+      maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
+      dayStartSeconds: routine.DayStartSeconds,
+      enabledWeekdays: routine.EnabledWeekdays,
+    );
+
+    final recovered = await db.recoverRoutine(
+      id: routineId,
+      nextTriggerTime: next,
+    );
+    if (!recovered) return false;
+
+    await scheduleNext(
+      routineId: routineId,
+      triggerTime: next,
+      dbPath: dbPath,
+      routineName: routine.Name,
+      refreshWidget: false,
+    );
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+    return true;
+  }
+
   /// Zeros today's ring counter for the current day period.
   ///
   /// When the prior count had exhausted the daily cap and [NextTriggerTime]

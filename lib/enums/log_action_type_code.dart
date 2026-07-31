@@ -20,6 +20,7 @@ enum LogActionTypeCodeEnum {
   Unmute,
   ResetCounter,
   Ring,
+  Recover,
 }
 
 LogActionTypeCodeEnum? RA_logActionFromCode(int code) =>
@@ -50,6 +51,7 @@ extension LogActionTypeCodeDisplay on LogActionTypeCodeEnum {
         LogActionTypeCodeEnum.Unmute => RA_ColourStyles.softSky,
         LogActionTypeCodeEnum.ResetCounter => RA_ColourStyles.warmAmber,
         LogActionTypeCodeEnum.Ring => RA_ColourStyles.ringEmber,
+        LogActionTypeCodeEnum.Recover => RA_ColourStyles.recoverSeafoam,
       };
 
   /// Soft bloom behind log tiles for the most salient action types.
