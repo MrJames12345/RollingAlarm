@@ -54,6 +54,10 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   late final ValueNotifier<double> _escalation;
   Timer? _escalationTimer;
 
+  /// Applied at the next pulse turnaround so mid-cycle duration changes never
+  /// restart the controller (which caused a visible jump).
+  Duration _pulseDuration = const Duration(milliseconds: 780);
+
   /// 0.0 at open, climbs toward 1.0 so the coral pulse grows more aggressive.
   bool _busy = false;
 
@@ -64,10 +68,18 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     _escalation = ValueNotifier(0);
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 780),
+      duration: _pulseDuration,
     );
-    unawaited(_pulseController.repeat(reverse: true));
-    _pulse = CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut);
+    // easeInOut on both legs keeps velocity at 0 at the peaks so reverse is
+    // seamless. Ping-pong via status listener instead of repeat() so escalation
+    // can retarget duration only between half-cycles.
+    _pulse = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeInOut,
+    );
+    _pulseController.addStatusListener(_onPulseStatus);
+    unawaited(_pulseController.forward());
     _escalationTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted || _escalation.value >= 1) {
         if (_escalation.value >= 1) _escalationTimer?.cancel();
@@ -75,14 +87,24 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       }
       final next = (_escalation.value + 0.08).clamp(0.0, 1.0);
       _escalation.value = next;
-      // Quicken the pulse as urgency climbs without rebuilding the page shell.
+      // Quicken the pulse as urgency climbs; duration takes effect on the next
+      // half-cycle so the in-flight scale never snaps.
       final ms = (780 - (280 * next)).round();
-      _pulseController.duration = Duration(milliseconds: ms);
-      unawaited(_pulseController.repeat(reverse: true));
+      _pulseDuration = Duration(milliseconds: ms);
     });
     _alarmSoundChannel.setMethodCallHandler(_onPlatformCall);
     unawaited(_startAlarmAudio());
     unawaited(_syncSideButtonActions());
+  }
+
+  void _onPulseStatus(AnimationStatus status) {
+    if (!mounted) return;
+    _pulseController.duration = _pulseDuration;
+    if (status == AnimationStatus.completed) {
+      unawaited(_pulseController.reverse());
+    } else if (status == AnimationStatus.dismissed) {
+      unawaited(_pulseController.forward());
+    }
   }
 
   Future<dynamic> _onPlatformCall(MethodCall call) async {
@@ -183,6 +205,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   void dispose() {
     _escalationTimer?.cancel();
     _escalation.dispose();
+    _pulseController.removeStatusListener(_onPulseStatus);
     _pulseController.dispose();
     _alarmSoundChannel.setMethodCallHandler(null);
     unawaited(_clearSideButtonActions());
