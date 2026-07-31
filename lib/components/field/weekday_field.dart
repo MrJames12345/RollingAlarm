@@ -57,10 +57,10 @@ class _WeekdayButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: RA_ShapeStyles.space8),
           decoration: RA_ShapeStyles.elevatedSurface(
             borderColor: enabled
-                ? RA_ColourStyles.secondary.withValues(alpha: 0.28)
+                ? RA_ColourStyles.secondary.withValues(alpha: 0.42)
                 : null,
             fill: enabled
-                ? RA_ColourStyles.secondary.withValues(alpha: 0.12)
+                ? RA_ColourStyles.secondary.withValues(alpha: 0.22)
                 : null,
           ),
           child: Text(
