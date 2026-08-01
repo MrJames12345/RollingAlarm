@@ -61,6 +61,7 @@ class RA_RoutineCard extends ConsumerWidget {
         key: ValueKey(routine.Id),
         leftAction: swipeActions.left,
         rightAction: swipeActions.right,
+        isPaused: isPaused,
         resetIntervalAllowed: showResetInterval,
         confirmDelete: () =>
             RA_showDeleteRoutineDialog(context, routineName: routine.Name),
@@ -353,6 +354,7 @@ class _SwipeRoutineActions extends StatefulWidget {
   final Widget child;
   final RoutineSwipeActionEnum leftAction;
   final RoutineSwipeActionEnum rightAction;
+  final bool isPaused;
   final bool resetIntervalAllowed;
   final Future<bool?> Function() confirmDelete;
   final Future<bool> Function() onDeleteConfirmed;
@@ -365,6 +367,7 @@ class _SwipeRoutineActions extends StatefulWidget {
     required this.child,
     required this.leftAction,
     required this.rightAction,
+    required this.isPaused,
     required this.resetIntervalAllowed,
     required this.confirmDelete,
     required this.onDeleteConfirmed,
@@ -500,6 +503,7 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
                       child: _SwipeActionBackground(
                         action: widget.leftAction,
                         alignEnd: true,
+                        isPaused: widget.isPaused,
                       ),
                     ),
                   if (value > 0)
@@ -507,6 +511,7 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
                       child: _SwipeActionBackground(
                         action: widget.rightAction,
                         alignEnd: false,
+                        isPaused: widget.isPaused,
                       ),
                     ),
                   Transform.translate(offset: Offset(value, 0), child: child),
@@ -525,14 +530,19 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
 class _SwipeActionBackground extends StatelessWidget {
   final RoutineSwipeActionEnum action;
   final bool alignEnd;
+  final bool isPaused;
 
-  const _SwipeActionBackground({required this.action, required this.alignEnd});
+  const _SwipeActionBackground({
+    required this.action,
+    required this.alignEnd,
+    required this.isPaused,
+  });
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: action.color,
+        color: action.color(isPaused: isPaused),
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
       child: Align(
@@ -542,7 +552,11 @@ class _SwipeActionBackground extends StatelessWidget {
             left: alignEnd ? 0 : RA_ShapeStyles.space24,
             right: alignEnd ? RA_ShapeStyles.space24 : 0,
           ),
-          child: Icon(action.icon, color: action.iconColor, size: 28),
+          child: Icon(
+            action.icon(isPaused: isPaused),
+            color: action.iconColor,
+            size: 28,
+          ),
         ),
       ),
     );

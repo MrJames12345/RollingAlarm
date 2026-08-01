@@ -185,7 +185,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           onChanged: (v) => Navigator.pop(ctx, v),
           options: const [
             RA_RadioOption(value: RoutineSwipeActionEnum.Mute, title: 'Mute'),
-            RA_RadioOption(value: RoutineSwipeActionEnum.Pause, title: 'Pause'),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.Pause,
+              title: 'Pause/Resume',
+            ),
             RA_RadioOption(
               value: RoutineSwipeActionEnum.ResetInterval,
               title: 'Reset Interval',
@@ -413,7 +416,7 @@ class _SwipeActionTile extends StatelessWidget {
                     action.label,
                     alignment: Alignment.center,
                     style: RA_TextStyles.smallFont.copyWith(
-                      color: action.color,
+                      color: action.color(),
                     ),
                   ),
                 ],

@@ -7,15 +7,19 @@ enum RoutineSwipeActionEnum { Mute, Pause, ResetInterval, Delete }
 extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   String get label => switch (this) {
     RoutineSwipeActionEnum.Mute => 'Mute',
-    RoutineSwipeActionEnum.Pause => 'Pause',
+    RoutineSwipeActionEnum.Pause => 'Pause/Resume',
     RoutineSwipeActionEnum.ResetInterval => 'Reset Interval',
     RoutineSwipeActionEnum.Delete => 'Delete',
   };
 
   /// Swipe reveal background colour for this action.
-  Color get color => switch (this) {
+  ///
+  /// When [isPaused] is true and the action is Pause, uses resume green.
+  Color color({bool isPaused = false}) => switch (this) {
     RoutineSwipeActionEnum.Mute => RA_ColourStyles.sleepIndigo,
-    RoutineSwipeActionEnum.Pause => RA_ColourStyles.pauseOchre,
+    RoutineSwipeActionEnum.Pause => isPaused
+        ? RA_ColourStyles.oliveMist
+        : RA_ColourStyles.pauseOchre,
     RoutineSwipeActionEnum.ResetInterval => RA_ColourStyles.secondary,
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.softCoral,
   };
@@ -28,9 +32,13 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.onAccent,
   };
 
-  IconData get icon => switch (this) {
+  /// Swipe reveal icon for this action.
+  ///
+  /// When [isPaused] is true and the action is Pause, shows play (resume).
+  IconData icon({bool isPaused = false}) => switch (this) {
     RoutineSwipeActionEnum.Mute => Icons.notifications_off_outlined,
-    RoutineSwipeActionEnum.Pause => Icons.pause_rounded,
+    RoutineSwipeActionEnum.Pause =>
+      isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
     RoutineSwipeActionEnum.ResetInterval => Icons.skip_next,
     RoutineSwipeActionEnum.Delete => Icons.delete_outline,
   };
