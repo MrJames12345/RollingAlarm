@@ -71,9 +71,7 @@ class RA_WeekdaySchedule {
     final second = offset % 60;
 
     for (var i = 0; i < 7; i++) {
-      final day = DateTime(local.year, local.month, local.day).add(
-        Duration(days: i),
-      );
+      final day = DateTime(local.year, local.month, local.day + i);
       if (!isDateEnabled(effective, day)) continue;
       if (i == 0) return proposed;
       return DateTime(day.year, day.month, day.day, hour, minute, second);
