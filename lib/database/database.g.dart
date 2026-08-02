@@ -1144,6 +1144,17 @@ class $RoutineStatesTable extends RoutineStates
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _ExtraMaxTimesTodayMeta =
+      const VerificationMeta('ExtraMaxTimesToday');
+  @override
+  late final GeneratedColumn<int> ExtraMaxTimesToday = GeneratedColumn<int>(
+    'extra_max_times_today',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _IsRingingMeta = const VerificationMeta(
     'IsRinging',
   );
@@ -1240,6 +1251,7 @@ class $RoutineStatesTable extends RoutineStates
     CurrentSnoozeCount,
     TimesRingToday,
     TimesRingDay,
+    ExtraMaxTimesToday,
     IsRinging,
     LastDismissedAt,
     PausedAt,
@@ -1313,6 +1325,15 @@ class $RoutineStatesTable extends RoutineStates
         TimesRingDay.isAcceptableOrUnknown(
           data['times_ring_day']!,
           _TimesRingDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('extra_max_times_today')) {
+      context.handle(
+        _ExtraMaxTimesTodayMeta,
+        ExtraMaxTimesToday.isAcceptableOrUnknown(
+          data['extra_max_times_today']!,
+          _ExtraMaxTimesTodayMeta,
         ),
       );
     }
@@ -1402,6 +1423,10 @@ class $RoutineStatesTable extends RoutineStates
         DriftSqlType.dateTime,
         data['${effectivePrefix}times_ring_day'],
       ),
+      ExtraMaxTimesToday: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}extra_max_times_today'],
+      )!,
       IsRinging: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_ringing'],
@@ -1452,6 +1477,9 @@ class RoutineStateModel extends DataClass
 
   /// Start of the day period that [TimesRingToday] applies to.
   final DateTime? TimesRingDay;
+
+  /// Bonus daily cap additions for the current [TimesRingDay].
+  final int ExtraMaxTimesToday;
   final bool IsRinging;
   final DateTime? LastDismissedAt;
 
@@ -1473,6 +1501,7 @@ class RoutineStateModel extends DataClass
     required this.CurrentSnoozeCount,
     required this.TimesRingToday,
     this.TimesRingDay,
+    required this.ExtraMaxTimesToday,
     required this.IsRinging,
     this.LastDismissedAt,
     this.PausedAt,
@@ -1497,6 +1526,7 @@ class RoutineStateModel extends DataClass
     if (!nullToAbsent || TimesRingDay != null) {
       map['times_ring_day'] = Variable<DateTime>(TimesRingDay);
     }
+    map['extra_max_times_today'] = Variable<int>(ExtraMaxTimesToday);
     map['is_ringing'] = Variable<bool>(IsRinging);
     if (!nullToAbsent || LastDismissedAt != null) {
       map['last_dismissed_at'] = Variable<DateTime>(LastDismissedAt);
@@ -1530,6 +1560,7 @@ class RoutineStateModel extends DataClass
       TimesRingDay: TimesRingDay == null && nullToAbsent
           ? const Value.absent()
           : Value(TimesRingDay),
+      ExtraMaxTimesToday: Value(ExtraMaxTimesToday),
       IsRinging: Value(IsRinging),
       LastDismissedAt: LastDismissedAt == null && nullToAbsent
           ? const Value.absent()
@@ -1561,6 +1592,7 @@ class RoutineStateModel extends DataClass
       CurrentSnoozeCount: serializer.fromJson<int>(json['CurrentSnoozeCount']),
       TimesRingToday: serializer.fromJson<int>(json['TimesRingToday']),
       TimesRingDay: serializer.fromJson<DateTime?>(json['TimesRingDay']),
+      ExtraMaxTimesToday: serializer.fromJson<int>(json['ExtraMaxTimesToday']),
       IsRinging: serializer.fromJson<bool>(json['IsRinging']),
       LastDismissedAt: serializer.fromJson<DateTime?>(json['LastDismissedAt']),
       PausedAt: serializer.fromJson<DateTime?>(json['PausedAt']),
@@ -1581,6 +1613,7 @@ class RoutineStateModel extends DataClass
       'CurrentSnoozeCount': serializer.toJson<int>(CurrentSnoozeCount),
       'TimesRingToday': serializer.toJson<int>(TimesRingToday),
       'TimesRingDay': serializer.toJson<DateTime?>(TimesRingDay),
+      'ExtraMaxTimesToday': serializer.toJson<int>(ExtraMaxTimesToday),
       'IsRinging': serializer.toJson<bool>(IsRinging),
       'LastDismissedAt': serializer.toJson<DateTime?>(LastDismissedAt),
       'PausedAt': serializer.toJson<DateTime?>(PausedAt),
@@ -1599,6 +1632,7 @@ class RoutineStateModel extends DataClass
     int? CurrentSnoozeCount,
     int? TimesRingToday,
     Value<DateTime?> TimesRingDay = const Value.absent(),
+    int? ExtraMaxTimesToday,
     bool? IsRinging,
     Value<DateTime?> LastDismissedAt = const Value.absent(),
     Value<DateTime?> PausedAt = const Value.absent(),
@@ -1618,6 +1652,7 @@ class RoutineStateModel extends DataClass
     CurrentSnoozeCount: CurrentSnoozeCount ?? this.CurrentSnoozeCount,
     TimesRingToday: TimesRingToday ?? this.TimesRingToday,
     TimesRingDay: TimesRingDay.present ? TimesRingDay.value : this.TimesRingDay,
+    ExtraMaxTimesToday: ExtraMaxTimesToday ?? this.ExtraMaxTimesToday,
     IsRinging: IsRinging ?? this.IsRinging,
     LastDismissedAt: LastDismissedAt.present
         ? LastDismissedAt.value
@@ -1647,6 +1682,9 @@ class RoutineStateModel extends DataClass
       TimesRingDay: data.TimesRingDay.present
           ? data.TimesRingDay.value
           : this.TimesRingDay,
+      ExtraMaxTimesToday: data.ExtraMaxTimesToday.present
+          ? data.ExtraMaxTimesToday.value
+          : this.ExtraMaxTimesToday,
       IsRinging: data.IsRinging.present ? data.IsRinging.value : this.IsRinging,
       LastDismissedAt: data.LastDismissedAt.present
           ? data.LastDismissedAt.value
@@ -1671,6 +1709,7 @@ class RoutineStateModel extends DataClass
           ..write('CurrentSnoozeCount: $CurrentSnoozeCount, ')
           ..write('TimesRingToday: $TimesRingToday, ')
           ..write('TimesRingDay: $TimesRingDay, ')
+          ..write('ExtraMaxTimesToday: $ExtraMaxTimesToday, ')
           ..write('IsRinging: $IsRinging, ')
           ..write('LastDismissedAt: $LastDismissedAt, ')
           ..write('PausedAt: $PausedAt, ')
@@ -1691,6 +1730,7 @@ class RoutineStateModel extends DataClass
     CurrentSnoozeCount,
     TimesRingToday,
     TimesRingDay,
+    ExtraMaxTimesToday,
     IsRinging,
     LastDismissedAt,
     PausedAt,
@@ -1710,6 +1750,7 @@ class RoutineStateModel extends DataClass
           other.CurrentSnoozeCount == this.CurrentSnoozeCount &&
           other.TimesRingToday == this.TimesRingToday &&
           other.TimesRingDay == this.TimesRingDay &&
+          other.ExtraMaxTimesToday == this.ExtraMaxTimesToday &&
           other.IsRinging == this.IsRinging &&
           other.LastDismissedAt == this.LastDismissedAt &&
           other.PausedAt == this.PausedAt &&
@@ -1727,6 +1768,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
   final Value<int> CurrentSnoozeCount;
   final Value<int> TimesRingToday;
   final Value<DateTime?> TimesRingDay;
+  final Value<int> ExtraMaxTimesToday;
   final Value<bool> IsRinging;
   final Value<DateTime?> LastDismissedAt;
   final Value<DateTime?> PausedAt;
@@ -1742,6 +1784,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     this.CurrentSnoozeCount = const Value.absent(),
     this.TimesRingToday = const Value.absent(),
     this.TimesRingDay = const Value.absent(),
+    this.ExtraMaxTimesToday = const Value.absent(),
     this.IsRinging = const Value.absent(),
     this.LastDismissedAt = const Value.absent(),
     this.PausedAt = const Value.absent(),
@@ -1758,6 +1801,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     this.CurrentSnoozeCount = const Value.absent(),
     this.TimesRingToday = const Value.absent(),
     this.TimesRingDay = const Value.absent(),
+    this.ExtraMaxTimesToday = const Value.absent(),
     this.IsRinging = const Value.absent(),
     this.LastDismissedAt = const Value.absent(),
     this.PausedAt = const Value.absent(),
@@ -1774,6 +1818,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     Expression<int>? CurrentSnoozeCount,
     Expression<int>? TimesRingToday,
     Expression<DateTime>? TimesRingDay,
+    Expression<int>? ExtraMaxTimesToday,
     Expression<bool>? IsRinging,
     Expression<DateTime>? LastDismissedAt,
     Expression<DateTime>? PausedAt,
@@ -1791,6 +1836,8 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
         'current_snooze_count': CurrentSnoozeCount,
       if (TimesRingToday != null) 'times_ring_today': TimesRingToday,
       if (TimesRingDay != null) 'times_ring_day': TimesRingDay,
+      if (ExtraMaxTimesToday != null)
+        'extra_max_times_today': ExtraMaxTimesToday,
       if (IsRinging != null) 'is_ringing': IsRinging,
       if (LastDismissedAt != null) 'last_dismissed_at': LastDismissedAt,
       if (PausedAt != null) 'paused_at': PausedAt,
@@ -1809,6 +1856,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     Value<int>? CurrentSnoozeCount,
     Value<int>? TimesRingToday,
     Value<DateTime?>? TimesRingDay,
+    Value<int>? ExtraMaxTimesToday,
     Value<bool>? IsRinging,
     Value<DateTime?>? LastDismissedAt,
     Value<DateTime?>? PausedAt,
@@ -1825,6 +1873,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
       CurrentSnoozeCount: CurrentSnoozeCount ?? this.CurrentSnoozeCount,
       TimesRingToday: TimesRingToday ?? this.TimesRingToday,
       TimesRingDay: TimesRingDay ?? this.TimesRingDay,
+      ExtraMaxTimesToday: ExtraMaxTimesToday ?? this.ExtraMaxTimesToday,
       IsRinging: IsRinging ?? this.IsRinging,
       LastDismissedAt: LastDismissedAt ?? this.LastDismissedAt,
       PausedAt: PausedAt ?? this.PausedAt,
@@ -1858,6 +1907,9 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
     }
     if (TimesRingDay.present) {
       map['times_ring_day'] = Variable<DateTime>(TimesRingDay.value);
+    }
+    if (ExtraMaxTimesToday.present) {
+      map['extra_max_times_today'] = Variable<int>(ExtraMaxTimesToday.value);
     }
     if (IsRinging.present) {
       map['is_ringing'] = Variable<bool>(IsRinging.value);
@@ -1893,6 +1945,7 @@ class RoutineStatesCompanion extends UpdateCompanion<RoutineStateModel> {
           ..write('CurrentSnoozeCount: $CurrentSnoozeCount, ')
           ..write('TimesRingToday: $TimesRingToday, ')
           ..write('TimesRingDay: $TimesRingDay, ')
+          ..write('ExtraMaxTimesToday: $ExtraMaxTimesToday, ')
           ..write('IsRinging: $IsRinging, ')
           ..write('LastDismissedAt: $LastDismissedAt, ')
           ..write('PausedAt: $PausedAt, ')
@@ -2974,6 +3027,7 @@ typedef $$RoutineStatesTableCreateCompanionBuilder =
       Value<int> CurrentSnoozeCount,
       Value<int> TimesRingToday,
       Value<DateTime?> TimesRingDay,
+      Value<int> ExtraMaxTimesToday,
       Value<bool> IsRinging,
       Value<DateTime?> LastDismissedAt,
       Value<DateTime?> PausedAt,
@@ -2991,6 +3045,7 @@ typedef $$RoutineStatesTableUpdateCompanionBuilder =
       Value<int> CurrentSnoozeCount,
       Value<int> TimesRingToday,
       Value<DateTime?> TimesRingDay,
+      Value<int> ExtraMaxTimesToday,
       Value<bool> IsRinging,
       Value<DateTime?> LastDismissedAt,
       Value<DateTime?> PausedAt,
@@ -3041,6 +3096,11 @@ class $$RoutineStatesTableFilterComposer
 
   ColumnFilters<DateTime> get TimesRingDay => $composableBuilder(
     column: $table.TimesRingDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ExtraMaxTimesToday => $composableBuilder(
+    column: $table.ExtraMaxTimesToday,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3124,6 +3184,11 @@ class $$RoutineStatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get ExtraMaxTimesToday => $composableBuilder(
+    column: $table.ExtraMaxTimesToday,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get IsRinging => $composableBuilder(
     column: $table.IsRinging,
     builder: (column) => ColumnOrderings(column),
@@ -3200,6 +3265,11 @@ class $$RoutineStatesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get ExtraMaxTimesToday => $composableBuilder(
+    column: $table.ExtraMaxTimesToday,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get IsRinging =>
       $composableBuilder(column: $table.IsRinging, builder: (column) => column);
 
@@ -3268,6 +3338,7 @@ class $$RoutineStatesTableTableManager
                 Value<int> CurrentSnoozeCount = const Value.absent(),
                 Value<int> TimesRingToday = const Value.absent(),
                 Value<DateTime?> TimesRingDay = const Value.absent(),
+                Value<int> ExtraMaxTimesToday = const Value.absent(),
                 Value<bool> IsRinging = const Value.absent(),
                 Value<DateTime?> LastDismissedAt = const Value.absent(),
                 Value<DateTime?> PausedAt = const Value.absent(),
@@ -3283,6 +3354,7 @@ class $$RoutineStatesTableTableManager
                 CurrentSnoozeCount: CurrentSnoozeCount,
                 TimesRingToday: TimesRingToday,
                 TimesRingDay: TimesRingDay,
+                ExtraMaxTimesToday: ExtraMaxTimesToday,
                 IsRinging: IsRinging,
                 LastDismissedAt: LastDismissedAt,
                 PausedAt: PausedAt,
@@ -3300,6 +3372,7 @@ class $$RoutineStatesTableTableManager
                 Value<int> CurrentSnoozeCount = const Value.absent(),
                 Value<int> TimesRingToday = const Value.absent(),
                 Value<DateTime?> TimesRingDay = const Value.absent(),
+                Value<int> ExtraMaxTimesToday = const Value.absent(),
                 Value<bool> IsRinging = const Value.absent(),
                 Value<DateTime?> LastDismissedAt = const Value.absent(),
                 Value<DateTime?> PausedAt = const Value.absent(),
@@ -3315,6 +3388,7 @@ class $$RoutineStatesTableTableManager
                 CurrentSnoozeCount: CurrentSnoozeCount,
                 TimesRingToday: TimesRingToday,
                 TimesRingDay: TimesRingDay,
+                ExtraMaxTimesToday: ExtraMaxTimesToday,
                 IsRinging: IsRinging,
                 LastDismissedAt: LastDismissedAt,
                 PausedAt: PausedAt,

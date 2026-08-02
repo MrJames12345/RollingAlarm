@@ -370,7 +370,7 @@ void main() {
         Action: RA_AlarmActionTypeCodeEnum.Dismiss,
         Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
         IntervalSeconds: actualDismissalRoutine.IntervalSeconds,
-        SnoozeMinutes: actualDismissalRoutine.SnoozeMinutes,
+        SnoozeSeconds: actualDismissalRoutine.SnoozeSeconds,
         InitialRingTime: actualInitialRing,
         Now: dismissAt,
       );
@@ -391,7 +391,7 @@ void main() {
         Action: RA_AlarmActionTypeCodeEnum.Dismiss,
         Compensation: DriftCompensationTypeCodeEnum.InitialRing,
         IntervalSeconds: actualDismissalRoutine.IntervalSeconds,
-        SnoozeMinutes: actualDismissalRoutine.SnoozeMinutes,
+        SnoozeSeconds: actualDismissalRoutine.SnoozeSeconds,
         InitialRingTime: actualInitialRing,
         Now: dismissAt,
       );

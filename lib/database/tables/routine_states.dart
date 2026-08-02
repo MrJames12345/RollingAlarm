@@ -16,6 +16,10 @@ class RoutineStates extends Table {
 
   /// Start of the day period that [TimesRingToday] applies to.
   DateTimeColumn get TimesRingDay => dateTime().nullable()();
+
+  /// Bonus daily cap additions for the current [TimesRingDay].
+  IntColumn get ExtraMaxTimesToday => integer().withDefault(const Constant(0))();
+
   BoolColumn get IsRinging => boolean().withDefault(const Constant(false))();
   DateTimeColumn get LastDismissedAt => dateTime().nullable()();
 

@@ -519,6 +519,9 @@ class RA_AlarmService {
             CurrentSnoozeCount: const Value(0),
             TimesRingToday: Value(priorCount + 1),
             TimesRingDay: Value(period),
+            ExtraMaxTimesToday: (state.TimesRingDay != period) 
+                ? const Value(0) 
+                : const Value.absent(),
           ),
           requireIsRinging: false,
         );
@@ -691,6 +694,7 @@ class RA_AlarmService {
                 maxTimesPerDay: routine.MaxTimesPerDayEnabled
                     ? routine.MaxTimesPerDay
                     : 0,
+                extraMaxTimesToday: fresh.ExtraMaxTimesToday,
                 timesRingToday: timesRingToday,
                 timesRingDay: timesRingDay,
                 now: now,
@@ -847,6 +851,7 @@ class RA_AlarmService {
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
               ? routine.MaxTimesPerDay
               : 0,
+          extraMaxTimesToday: state?.ExtraMaxTimesToday ?? 0,
           timesRingToday: state?.TimesRingToday ?? 0,
           timesRingDay: state?.TimesRingDay,
           now: now,
@@ -1189,6 +1194,99 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
+  /// Sets a new max limit for today by adjusting the extra max offset.
+  /// 
+  /// If this causes the counter to hit or exceed the daily cap, it retargets 
+  /// the next trigger time to the next enabled day-start boundary.
+  static Future<void> setTodayMaxCount({
+    required int routineId,
+    required RA_Database db,
+    required RoutineModel routine,
+    required String dbPath,
+    required int newTotalMax,
+  }) async {
+    final now = DateTime.now();
+    final state = await db.getRoutineState(routineId);
+    if (state == null) return;
+
+    final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    final samePeriod = state.TimesRingDay != null && RA_DailyRingLimit.isSamePeriod(state.TimesRingDay!, now, routine.DayStartSeconds);
+    final currentExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
+    
+    final baseMax = routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0;
+    final newExtra = newTotalMax - baseMax;
+
+    final priorCount = RA_DailyRingLimit.countForDay(
+      timesRingToday: state.TimesRingToday,
+      timesRingDay: state.TimesRingDay,
+      now: now,
+      dayStartSeconds: routine.DayStartSeconds,
+    );
+
+    final wasAtCap = RA_DailyRingLimit.isAtOrOverCap(
+      count: priorCount,
+      maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
+      maxTimesPerDay: routine.MaxTimesPerDay,
+      extraMaxTimesToday: currentExtra,
+    );
+
+    final isAtCap = RA_DailyRingLimit.isAtOrOverCap(
+      count: priorCount,
+      maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
+      maxTimesPerDay: routine.MaxTimesPerDay,
+      extraMaxTimesToday: newExtra,
+    );
+
+    DateTime? next = state.NextTriggerTime;
+    bool nextChanged = false;
+
+    if (!isAtCap && wasAtCap && next != null) {
+      final candidate = RA_DailyRingLimit.deferIfDailyLimitReached(
+        proposed: now.add(Duration(seconds: routine.IntervalSeconds)),
+        maxTimesPerDay: routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0,
+        extraMaxTimesToday: newExtra,
+        timesRingToday: priorCount,
+        timesRingDay: period,
+        now: now,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+      next = RA_WeekdaySchedule.deferToEnabledDay(
+        candidate,
+        routine.EnabledWeekdays,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+      nextChanged = true;
+    }
+
+    await db.updateRoutineState(
+      routineId,
+      RoutineStatesCompanion(
+        ExtraMaxTimesToday: Value(newExtra),
+        TimesRingDay: Value(period),
+        NextTriggerTime: nextChanged ? Value(next) : const Value.absent(),
+      ),
+    );
+
+    await db.insertActivityLog(
+      routineId: routineId,
+      action: LogActionTypeCodeEnum.Edit,
+      timestamp: now,
+    );
+
+    if (nextChanged && next != null && routine.IsActive) {
+      await scheduleNext(
+        routineId: routineId,
+        triggerTime: next,
+        dbPath: dbPath,
+        routineName: routine.Name,
+        refreshWidget: false,
+      );
+    }
+
+    await RA_WidgetService.updateWidgetState(db: db);
+    _pingUiIsolate(routineId);
+  }
+
   /// Silent muted fire: count (fresh rings only), dismiss-schedule next, no UX.
   static Future<void> _handleMutedFire({
     required int routineId,
@@ -1231,6 +1329,7 @@ class RA_AlarmService {
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
             ? routine.MaxTimesPerDay
             : 0,
+        extraMaxTimesToday: state?.ExtraMaxTimesToday ?? 0,
         timesRingToday: timesRingToday,
         timesRingDay: timesRingDay,
         now: now,

@@ -19,7 +19,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +133,9 @@ class RA_Database extends _$RA_Database {
       }
       if (from < 16) {
         await m.addColumn(logEntries, logEntries.WasMuted);
+      }
+      if (from < 17) {
+        await m.addColumn(routineStates, routineStates.ExtraMaxTimesToday);
       }
     },
   );

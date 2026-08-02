@@ -13,12 +13,22 @@ class RA_DailyRingLimit {
   static int normalizeDayStartSeconds(int dayStartSeconds) =>
       dayStartSeconds.clamp(0, secondsPerDay - 1);
 
-  /// Start of the current day period containing [now].
   static DateTime periodStart(DateTime now, int dayStartSeconds) {
-    final offset = Duration(seconds: normalizeDayStartSeconds(dayStartSeconds));
-    final todayStart = DateTime(now.year, now.month, now.day).add(offset);
+    final offset = normalizeDayStartSeconds(dayStartSeconds);
+    final hour = offset ~/ 3600;
+    final minute = (offset % 3600) ~/ 60;
+    final second = offset % 60;
+
+    final todayStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+      second,
+    );
     if (now.isBefore(todayStart)) {
-      return todayStart.subtract(const Duration(days: 1));
+      return DateTime(now.year, now.month, now.day - 1, hour, minute, second);
     }
     return todayStart;
   }
@@ -47,6 +57,7 @@ class RA_DailyRingLimit {
     required int timesRingToday,
     required DateTime? timesRingDay,
     required DateTime now,
+    int extraMaxTimesToday = 0,
     int dayStartSeconds = 0,
   }) {
     if (maxTimesPerDay <= 0) return true;
@@ -56,7 +67,9 @@ class RA_DailyRingLimit {
       now: now,
       dayStartSeconds: dayStartSeconds,
     );
-    return count < maxTimesPerDay;
+    final isSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, dayStartSeconds);
+    final effectiveExtra = isSameDay ? extraMaxTimesToday : 0;
+    return count < (maxTimesPerDay + effectiveExtra);
   }
 
   /// Prefer a day-start parking point over [proposed] when the daily cap is
@@ -73,6 +86,7 @@ class RA_DailyRingLimit {
     required int timesRingToday,
     required DateTime? timesRingDay,
     required DateTime now,
+    int extraMaxTimesToday = 0,
     int dayStartSeconds = 0,
   }) {
     if (maxTimesPerDay <= 0) return proposed;
@@ -82,7 +96,9 @@ class RA_DailyRingLimit {
       now: now,
       dayStartSeconds: dayStartSeconds,
     );
-    if (count >= maxTimesPerDay) {
+    final isSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, dayStartSeconds);
+    final effectiveExtra = isSameDay ? extraMaxTimesToday : 0;
+    if (count >= (maxTimesPerDay + effectiveExtra)) {
       return nextCalendarDayStart(now, dayStartSeconds);
     }
     final nextPeriodStart = nextPeriodStartAfter(now, dayStartSeconds);
@@ -96,20 +112,32 @@ class RA_DailyRingLimit {
   /// Next day-period boundary after [now] (the next "Start at time of day").
   ///
   /// When [now] is still before today's day-start clock, this is later *today*.
-  static DateTime nextPeriodStartAfter(DateTime now, int dayStartSeconds) =>
-      periodStart(now, dayStartSeconds).add(const Duration(days: 1));
+  static DateTime nextPeriodStartAfter(DateTime now, int dayStartSeconds) {
+    final start = periodStart(now, dayStartSeconds);
+    final offset = normalizeDayStartSeconds(dayStartSeconds);
+    final hour = offset ~/ 3600;
+    final minute = (offset % 3600) ~/ 60;
+    final second = offset % 60;
+    return DateTime(
+      start.year,
+      start.month,
+      start.day + 1,
+      hour,
+      minute,
+      second,
+    );
+  }
 
   /// Day-start on the next calendar day after [now].
   ///
   /// Used when the daily cap is exhausted so the next fire is never scheduled
   /// for an upcoming day-start later on the same calendar day.
   static DateTime nextCalendarDayStart(DateTime now, int dayStartSeconds) {
-    final offset = Duration(seconds: normalizeDayStartSeconds(dayStartSeconds));
-    return DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).add(const Duration(days: 1)).add(offset);
+    final offset = normalizeDayStartSeconds(dayStartSeconds);
+    final hour = offset ~/ 3600;
+    final minute = (offset % 3600) ~/ 60;
+    final second = offset % 60;
+    return DateTime(now.year, now.month, now.day + 1, hour, minute, second);
   }
 
   /// First trigger when creating or importing a routine.
@@ -156,9 +184,10 @@ class RA_DailyRingLimit {
     required int count,
     required bool maxTimesPerDayEnabled,
     required int maxTimesPerDay,
+    int extraMaxTimesToday = 0,
   }) {
     if (!maxTimesPerDayEnabled || maxTimesPerDay <= 0) return false;
-    return count >= maxTimesPerDay;
+    return count >= (maxTimesPerDay + extraMaxTimesToday);
   }
 
   /// Remaps [previousNext] after an edit to day-start and/or max-times.
@@ -183,6 +212,8 @@ class RA_DailyRingLimit {
     required DateTime now,
     required int intervalSeconds,
     required int enabledWeekdays,
+    int oldExtraMaxTimesToday = 0,
+    int newExtraMaxTimesToday = 0,
   }) {
     if (previousNext == null) return null;
 
@@ -199,17 +230,24 @@ class RA_DailyRingLimit {
         oldMaxTimesPerDayEnabled != newMaxTimesPerDayEnabled ||
         (oldMaxTimesPerDayEnabled &&
             newMaxTimesPerDayEnabled &&
-            oldMaxTimesPerDay != newMaxTimesPerDay);
+            (oldMaxTimesPerDay != newMaxTimesPerDay || oldExtraMaxTimesToday != newExtraMaxTimesToday));
 
+    final oldSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, oldStart);
+    final oldEffectiveExtra = oldSameDay ? oldExtraMaxTimesToday : 0;
     final wasAtCap = isAtOrOverCap(
       count: count,
       maxTimesPerDayEnabled: oldMaxTimesPerDayEnabled,
       maxTimesPerDay: oldMaxTimesPerDay,
+      extraMaxTimesToday: oldEffectiveExtra,
     );
+
+    final newSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, newStart);
+    final newEffectiveExtra = newSameDay ? newExtraMaxTimesToday : 0;
     final isAtCap = isAtOrOverCap(
       count: count,
       maxTimesPerDayEnabled: newMaxTimesPerDayEnabled,
       maxTimesPerDay: newMaxTimesPerDay,
+      extraMaxTimesToday: newEffectiveExtra,
     );
 
     late final DateTime candidate;
@@ -219,6 +257,7 @@ class RA_DailyRingLimit {
       candidate = deferIfDailyLimitReached(
         proposed: now.add(Duration(seconds: intervalSeconds)),
         maxTimesPerDay: newMaxTimesPerDayEnabled ? newMaxTimesPerDay : 0,
+        extraMaxTimesToday: newEffectiveExtra,
         timesRingToday: timesRingToday,
         timesRingDay: timesRingDay,
         now: now,
@@ -299,6 +338,7 @@ class RA_DailyRingLimit {
     required int intervalSeconds,
     required int dayStartSeconds,
     required int enabledWeekdays,
+    int extraMaxTimesToday = 0,
   }) {
     if (previousNext == null) return null;
 
@@ -309,10 +349,13 @@ class RA_DailyRingLimit {
       now: now,
       dayStartSeconds: dayStart,
     );
+    final isSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, dayStart);
+    final effectiveExtra = isSameDay ? extraMaxTimesToday : 0;
     final wasAtCap = isAtOrOverCap(
       count: priorCount,
       maxTimesPerDayEnabled: maxTimesPerDayEnabled,
       maxTimesPerDay: maxTimesPerDay,
+      extraMaxTimesToday: effectiveExtra,
     );
     if (!wasAtCap ||
         !isPeriodStartTrigger(
