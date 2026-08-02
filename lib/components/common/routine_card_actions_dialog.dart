@@ -6,13 +6,14 @@ enum RA_RoutineCardMenuAction {
   mute,
   pause,
   resetInterval,
+  addTodayCount,
   resetTodayCounter,
   edit,
   duplicate,
   delete,
 }
 
-/// Shows Mute, Pause, Reset Interval, Reset Today's Counter, Edit, Duplicate, and Delete.
+/// Shows Mute, Pause, Dismiss Early, Reset Today's Counter, Edit, Duplicate, and Delete.
 ///
 /// Returns the chosen action, or `null` when dismissed without a choice.
 Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
@@ -55,16 +56,22 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
           _ActionTile(
             icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
             label: isPaused ? 'Resume' : 'Pause',
-            color: isPaused ? RA_ColourStyles.pauseOchre : null,
+            color: isPaused ? RA_ColourStyles.oliveMist : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.pause),
           ),
           if (showResetInterval)
             _ActionTile(
               icon: Icons.skip_next,
-              label: 'Reset Interval',
+              label: 'Dismiss Early',
               onTap: () =>
                   Navigator.pop(ctx, RA_RoutineCardMenuAction.resetInterval),
             ),
+          _ActionTile(
+            icon: Icons.add,
+            label: 'Adjust Today\'s Max',
+            onTap: () =>
+                Navigator.pop(ctx, RA_RoutineCardMenuAction.addTodayCount),
+          ),
           _ActionTile(
             icon: Icons.restart_alt_rounded,
             label: "Reset Today's Counter",

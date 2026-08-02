@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Action performed when swiping a home routine card left or right.
-enum RoutineSwipeActionEnum { Mute, Pause, ResetInterval, Delete }
+enum RoutineSwipeActionEnum { Mute, Pause, ResetInterval, AddForToday, Delete }
 
 extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
   String get label => switch (this) {
     RoutineSwipeActionEnum.Mute => 'Mute',
     RoutineSwipeActionEnum.Pause => 'Pause/Resume',
-    RoutineSwipeActionEnum.ResetInterval => 'Reset Interval',
+    RoutineSwipeActionEnum.ResetInterval => 'Dismiss Early',
+    RoutineSwipeActionEnum.AddForToday => 'Adjust Today\'s Max',
     RoutineSwipeActionEnum.Delete => 'Delete',
   };
 
@@ -21,6 +22,7 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
         ? RA_ColourStyles.oliveMist
         : RA_ColourStyles.pauseOchre,
     RoutineSwipeActionEnum.ResetInterval => RA_ColourStyles.secondary,
+    RoutineSwipeActionEnum.AddForToday => RA_ColourStyles.oliveMist,
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.softCoral,
   };
 
@@ -29,6 +31,7 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
     RoutineSwipeActionEnum.Mute => RA_ColourStyles.onDarkAccent,
     RoutineSwipeActionEnum.Pause ||
     RoutineSwipeActionEnum.ResetInterval ||
+    RoutineSwipeActionEnum.AddForToday ||
     RoutineSwipeActionEnum.Delete => RA_ColourStyles.onAccent,
   };
 
@@ -40,6 +43,7 @@ extension RoutineSwipeActionEnumX on RoutineSwipeActionEnum {
     RoutineSwipeActionEnum.Pause =>
       isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
     RoutineSwipeActionEnum.ResetInterval => Icons.skip_next,
+    RoutineSwipeActionEnum.AddForToday => Icons.add,
     RoutineSwipeActionEnum.Delete => Icons.delete_outline,
   };
 }
@@ -81,6 +85,49 @@ class RoutineSwipeActionsSettings {
         right: right,
       ),
       RoutineSwipeDirectionEnum.Right => RoutineSwipeActionsSettings(
+        left: left,
+        right: action,
+      ),
+    };
+  }
+}
+
+/// Which position the button applies to.
+enum RoutineCardButtonPositionEnum { Left, Right }
+
+extension RoutineCardButtonPositionEnumX on RoutineCardButtonPositionEnum {
+  String get label => switch (this) {
+    RoutineCardButtonPositionEnum.Left => 'Bottom Left Button',
+    RoutineCardButtonPositionEnum.Right => 'Bottom Right Button',
+  };
+}
+
+class RoutineCardButtonsSettings {
+  final RoutineSwipeActionEnum left;
+  final RoutineSwipeActionEnum right;
+
+  const RoutineCardButtonsSettings({
+    this.left = RoutineSwipeActionEnum.AddForToday,
+    this.right = RoutineSwipeActionEnum.ResetInterval,
+  });
+
+  RoutineSwipeActionEnum actionFor(RoutineCardButtonPositionEnum position) {
+    return switch (position) {
+      RoutineCardButtonPositionEnum.Left => left,
+      RoutineCardButtonPositionEnum.Right => right,
+    };
+  }
+
+  RoutineCardButtonsSettings copyWithPosition({
+    required RoutineCardButtonPositionEnum position,
+    required RoutineSwipeActionEnum action,
+  }) {
+    return switch (position) {
+      RoutineCardButtonPositionEnum.Left => RoutineCardButtonsSettings(
+        left: action,
+        right: right,
+      ),
+      RoutineCardButtonPositionEnum.Right => RoutineCardButtonsSettings(
         left: left,
         right: action,
       ),

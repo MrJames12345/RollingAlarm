@@ -115,6 +115,37 @@ class RoutineSwipeActionsNotifier
   }
 }
 
+/// Left/right button actions on home routine cards.
+final RoutineCardButtonsProvider =
+    AsyncNotifierProvider<
+      RoutineCardButtonsNotifier,
+      RoutineCardButtonsSettings
+    >(RoutineCardButtonsNotifier.new);
+
+class RoutineCardButtonsNotifier
+    extends AsyncNotifier<RoutineCardButtonsSettings> {
+  @override
+  Future<RoutineCardButtonsSettings> build() {
+    return RA_SettingsService.getCardButtons();
+  }
+
+  Future<void> setPositionAction({
+    required RoutineCardButtonPositionEnum position,
+    required RoutineSwipeActionEnum action,
+  }) async {
+    final current = state.valueOrNull ?? const RoutineCardButtonsSettings();
+    final next = current.copyWithPosition(
+      position: position,
+      action: action,
+    );
+    state = AsyncData(next);
+    await RA_SettingsService.setCardButtonAction(
+      position: position,
+      action: action,
+    );
+  }
+}
+
 /// Watches all non-deleted routines as a reactive stream.
 ///
 /// [autoDispose] cancels the Riverpod subscription on leave, which cancels

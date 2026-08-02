@@ -13,6 +13,8 @@ class RA_SettingsService {
   static const String sideButtonVolumeDownKey = 'ra_side_button_volume_down';
   static const String swipeActionLeftKey = 'ra_swipe_action_left';
   static const String swipeActionRightKey = 'ra_swipe_action_right';
+  static const String cardButtonLeftKey = 'ra_card_button_left';
+  static const String cardButtonRightKey = 'ra_card_button_right';
 
   static Future<AlarmSnoozeDismissLayoutEnum>
   getAlarmSnoozeDismissLayout() async {
@@ -126,5 +128,33 @@ class RA_SettingsService {
       return fallback;
     }
     return RoutineSwipeActionEnum.values[index];
+  }
+
+  static Future<RoutineCardButtonsSettings> getCardButtons() async {
+    final prefs = await SharedPreferences.getInstance();
+    return RoutineCardButtonsSettings(
+      left: _readSwipeAction(
+        prefs,
+        cardButtonLeftKey,
+        RoutineSwipeActionEnum.AddForToday,
+      ),
+      right: _readSwipeAction(
+        prefs,
+        cardButtonRightKey,
+        RoutineSwipeActionEnum.ResetInterval,
+      ),
+    );
+  }
+
+  static Future<void> setCardButtonAction({
+    required RoutineCardButtonPositionEnum position,
+    required RoutineSwipeActionEnum action,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = switch (position) {
+      RoutineCardButtonPositionEnum.Left => cardButtonLeftKey,
+      RoutineCardButtonPositionEnum.Right => cardButtonRightKey,
+    };
+    await prefs.setInt(key, action.index);
   }
 }

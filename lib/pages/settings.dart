@@ -44,6 +44,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final swipeActions =
         ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
         const RoutineSwipeActionsSettings();
+    final cardButtons =
+        ref.watch(RoutineCardButtonsProvider).valueOrNull ??
+        const RoutineCardButtonsSettings();
 
     return RA_PageScaffold(
       title: 'Settings',
@@ -98,6 +101,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               settings: swipeActions,
               onSelect: (direction) => unawaited(
                 _pickSwipeAction(context, ref, direction, swipeActions),
+              ),
+            ),
+          ),
+          RA_FormSection(
+            label: 'Card Buttons',
+            child: _CardButtonsTileRow(
+              settings: cardButtons,
+              onSelect: (position) => unawaited(
+                _pickCardButtonAction(context, ref, position, cardButtons),
               ),
             ),
           ),
@@ -191,7 +203,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
             RA_RadioOption(
               value: RoutineSwipeActionEnum.ResetInterval,
-              title: 'Reset Interval',
+              title: 'Dismiss Early',
+            ),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.AddForToday,
+              title: 'Adjust Today\'s Max',
             ),
             RA_RadioOption(
               value: RoutineSwipeActionEnum.Delete,
@@ -205,6 +221,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await ref
         .read(RoutineSwipeActionsProvider.notifier)
         .setDirectionAction(direction: direction, action: selected);
+  }
+
+  Future<void> _pickCardButtonAction(
+    BuildContext context,
+    WidgetRef ref,
+    RoutineCardButtonPositionEnum position,
+    RoutineCardButtonsSettings settings,
+  ) async {
+    final selected = await showDialog<RoutineSwipeActionEnum>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: RA_ColourStyles.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+        ),
+        title: Text(position.label, style: RA_TextStyles.mediumFont),
+        content: RA_RadioGroup<RoutineSwipeActionEnum>(
+          groupValue: settings.actionFor(position),
+          onChanged: (v) => Navigator.pop(ctx, v),
+          options: const [
+            RA_RadioOption(value: RoutineSwipeActionEnum.Mute, title: 'Mute'),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.Pause,
+              title: 'Pause/Resume',
+            ),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.ResetInterval,
+              title: 'Dismiss Early',
+            ),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.AddForToday,
+              title: 'Adjust Today\'s Max',
+            ),
+            RA_RadioOption(
+              value: RoutineSwipeActionEnum.Delete,
+              title: 'Delete',
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !context.mounted) return;
+    await ref
+        .read(RoutineCardButtonsProvider.notifier)
+        .setPositionAction(position: position, action: selected);
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
@@ -477,6 +538,92 @@ class _SettingsAction extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Equal height tiles for Left / Right card button actions.
+class _CardButtonsTileRow extends StatelessWidget {
+  final RoutineCardButtonsSettings settings;
+  final ValueChanged<RoutineCardButtonPositionEnum> onSelect;
+
+  const _CardButtonsTileRow({required this.settings, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < RoutineCardButtonPositionEnum.values.length; i++) ...[
+            if (i > 0) const SizedBox(width: RA_ShapeStyles.space8),
+            Expanded(
+              child: _CardButtonTile(
+                position: RoutineCardButtonPositionEnum.values[i],
+                action: settings.actionFor(RoutineCardButtonPositionEnum.values[i]),
+                onTap: () => onSelect(RoutineCardButtonPositionEnum.values[i]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CardButtonTile extends StatelessWidget {
+  final RoutineCardButtonPositionEnum position;
+  final RoutineSwipeActionEnum action;
+  final VoidCallback onTap;
+
+  const _CardButtonTile({
+    required this.position,
+    required this.action,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RA_PressScale(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            RA_Haptics.heavyUnawaited();
+            onTap();
+          },
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          splashColor: RA_ColourStyles.secondary.withValues(alpha: 0.16),
+          highlightColor: RA_ColourStyles.secondary.withValues(alpha: 0.08),
+          child: DecoratedBox(
+            decoration: RA_ShapeStyles.elevatedSurface(),
+            child: Padding(
+              padding: const EdgeInsets.all(RA_ShapeStyles.space8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  RA_FittedText(
+                    position.label,
+                    alignment: Alignment.center,
+                    style: RA_TextStyles.tinyFont.copyWith(
+                      color: RA_ColourStyles.mutedPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space8),
+                  RA_FittedText(
+                    action.label,
+                    alignment: Alignment.center,
+                    style: RA_TextStyles.smallFont.copyWith(
+                      color: action.color(),
                     ),
                   ),
                 ],

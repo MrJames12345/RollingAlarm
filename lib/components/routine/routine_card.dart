@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rolling_alarm/components/common/adjust_today_max_dialog.dart';
 import 'package:rolling_alarm/components/common/count_daily_skip_dialog.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
@@ -45,13 +46,16 @@ class RA_RoutineCard extends ConsumerWidget {
     );
     final isPaused = phase == RA_RoutineUiPhase.paused;
     final isMuted = phase == RA_RoutineUiPhase.muted;
-    // Reset Interval stays available even when next is a day-start
-    // ("Starts at") fire; only pause hides it.
-    final showResetInterval = !isPaused;
+    // Buttons are hidden when paused to keep the card compact, unless
+    // they are Pause/Resume, but for simplicity we keep the old behavior.
+    final showButtons = !isPaused;
     final chrome = _chromeFor(phase);
     final swipeActions =
         ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
         const RoutineSwipeActionsSettings();
+    final cardButtons =
+        ref.watch(RoutineCardButtonsProvider).valueOrNull ??
+        const RoutineCardButtonsSettings();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: RA_ShapeStyles.space16),
@@ -62,13 +66,14 @@ class RA_RoutineCard extends ConsumerWidget {
         leftAction: swipeActions.left,
         rightAction: swipeActions.right,
         isPaused: isPaused,
-        resetIntervalAllowed: showResetInterval,
+        resetIntervalAllowed: showButtons,
         confirmDelete: () =>
             RA_showDeleteRoutineDialog(context, routineName: routine.Name),
         onDeleteConfirmed: () => _deleteRoutine(ref),
         onMute: () => _toggleMute(ref),
         onPause: () => _togglePause(ref),
         onResetInterval: () => _handleResetInterval(context, ref),
+        onAddForToday: () => _adjustTodayMax(context, ref),
         child: AnimatedContainer(
           duration: RA_ShapeStyles.stateTransitionDuration,
           curve: Curves.easeInOut,
@@ -117,7 +122,7 @@ class RA_RoutineCard extends ConsumerWidget {
                   ref,
                   isMuted: isMuted,
                   isPaused: isPaused,
-                  showResetInterval: showResetInterval,
+                  showResetInterval: showButtons,
                 ),
               ),
               child: AnimatedOpacity(
@@ -170,7 +175,56 @@ class RA_RoutineCard extends ConsumerWidget {
                                 muted: isPaused,
                               ),
                               const SizedBox(height: RA_ShapeStyles.space16),
-                              _RoutineCardStatus(routineId: routine.Id),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (showButtons)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 8,
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: RA_ShapeStyles.tinyBorderRadius,
+                                          onTap: () => _runCardButtonAction(context, ref, cardButtons.left),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: Icon(
+                                              cardButtons.left.icon(isPaused: isPaused),
+                                              color: RA_ColourStyles.secondary,
+                                              size: 28,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: _RoutineCardStatus(routineId: routine.Id),
+                                  ),
+                                  if (showButtons)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 8,
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: RA_ShapeStyles.tinyBorderRadius,
+                                          onTap: () => _runCardButtonAction(context, ref, cardButtons.right),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: Icon(
+                                              cardButtons.right.icon(isPaused: isPaused),
+                                              color: RA_ColourStyles.secondary,
+                                              size: 28,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
                           if (isMuted)
@@ -199,6 +253,31 @@ class RA_RoutineCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _runCardButtonAction(
+    BuildContext context,
+    WidgetRef ref,
+    RoutineSwipeActionEnum action,
+  ) async {
+    switch (action) {
+      case RoutineSwipeActionEnum.Mute:
+        await _toggleMute(ref);
+      case RoutineSwipeActionEnum.Pause:
+        await _togglePause(ref);
+      case RoutineSwipeActionEnum.ResetInterval:
+        await _handleResetInterval(context, ref);
+      case RoutineSwipeActionEnum.AddForToday:
+        await _adjustTodayMax(context, ref);
+      case RoutineSwipeActionEnum.Delete:
+        final confirmed = await RA_showDeleteRoutineDialog(
+          context,
+          routineName: routine.Name,
+        );
+        if (confirmed == true && context.mounted) {
+          await _deleteRoutine(ref);
+        }
+    }
   }
 
   Future<bool> _deleteRoutine(WidgetRef ref) async {
@@ -274,6 +353,33 @@ class RA_RoutineCard extends ConsumerWidget {
     });
   }
 
+  Future<void> _adjustTodayMax(BuildContext context, WidgetRef ref) async {
+    final db = ref.read(RA_DatabaseProvider);
+    final state = await db.getRoutineState(routine.Id);
+    if (state == null || !context.mounted) return;
+
+    final now = DateTime.now();
+    final samePeriod = state.TimesRingDay != null && 
+        RA_DailyRingLimit.isSamePeriod(state.TimesRingDay!, now, routine.DayStartSeconds);
+    final currentExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
+    
+    final currentMax = (routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0) + currentExtra;
+
+    final newTotalMax = await RA_showAdjustTodayMaxDialog(context, currentMax: currentMax);
+    if (newTotalMax == null || newTotalMax < 0) return;
+
+    RA_Haptics.heavyUnawaited();
+    await RA_tryAsync(() async {
+      await RA_AlarmService.setTodayMaxCount(
+        routineId: routine.Id,
+        db: db,
+        routine: routine,
+        dbPath: dbPath,
+        newTotalMax: newTotalMax,
+      );
+    });
+  }
+
   Future<void> _openActionsMenu(
     BuildContext context,
     WidgetRef ref, {
@@ -298,6 +404,9 @@ class RA_RoutineCard extends ConsumerWidget {
         await _togglePause(ref);
       case RA_RoutineCardMenuAction.resetInterval:
         await _handleResetInterval(context, ref);
+      case RA_RoutineCardMenuAction.addTodayCount:
+        await _adjustTodayMax(context, ref);
+        break;
       case RA_RoutineCardMenuAction.edit:
         await Navigator.push(
           context,
@@ -361,6 +470,7 @@ class _SwipeRoutineActions extends StatefulWidget {
   final Future<void> Function() onMute;
   final Future<void> Function() onPause;
   final Future<void> Function() onResetInterval;
+  final Future<void> Function() onAddForToday;
 
   const _SwipeRoutineActions({
     super.key,
@@ -374,6 +484,7 @@ class _SwipeRoutineActions extends StatefulWidget {
     required this.onMute,
     required this.onPause,
     required this.onResetInterval,
+    required this.onAddForToday,
   });
 
   @override
@@ -466,6 +577,8 @@ class _SwipeRoutineActionsState extends State<_SwipeRoutineActions>
         await widget.onPause();
       case RoutineSwipeActionEnum.ResetInterval:
         await widget.onResetInterval();
+      case RoutineSwipeActionEnum.AddForToday:
+        await widget.onAddForToday();
       case RoutineSwipeActionEnum.Delete:
         break;
     }
@@ -703,21 +816,29 @@ class _TodayRingCount extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(
+    final data = ref.watch(
       ActiveRoutineStateProvider(routine.Id).select((async) {
         final state = async.valueOrNull;
-        if (state == null) return 0;
-        return RA_DailyRingLimit.countForDay(
+        if (state == null) return (count: 0, extra: 0);
+        final now = DateTime.now();
+        final count = RA_DailyRingLimit.countForDay(
           timesRingToday: state.TimesRingToday,
           timesRingDay: state.TimesRingDay,
-          now: DateTime.now(),
+          now: now,
           dayStartSeconds: routine.DayStartSeconds,
         );
+        final samePeriod = state.TimesRingDay != null && 
+            RA_DailyRingLimit.isSamePeriod(state.TimesRingDay!, now, routine.DayStartSeconds);
+        final extra = samePeriod ? state.ExtraMaxTimesToday : 0;
+        return (count: count, extra: extra);
       }),
     );
 
+    final count = data.count;
+    final maxTimes = routine.MaxTimesPerDay + data.extra;
+
     final label = routine.MaxTimesPerDayEnabled
-        ? '$count/${routine.MaxTimesPerDay} times today'
+        ? '$count/$maxTimes times today'
         : count == 1
         ? '1 time today'
         : '$count times today';
