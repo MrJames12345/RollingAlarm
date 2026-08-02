@@ -61,8 +61,8 @@ void main() {
       // 8. Long-press the tile and reset the interval from the menu
       await $('E2E Test Routine').longPress();
       await pumpFrames($.tester);
-      expect($('Reset Interval'), findsOneWidget);
-      await $('Reset Interval').tap();
+      expect($('Dismiss Early'), findsOneWidget);
+      await $('Dismiss Early').tap();
       await pumpFrames($.tester);
     },
   );

@@ -25,7 +25,7 @@ That is the heart of the brand: **rolling cycle + precise next fire**, not a bel
 3. **Ring:** Full screen takeover. Copy like `ALARM RINGING`. Soft coral pulse. Snooze and Dismiss are the primary actions.
 4. **Snooze / Auto snooze:** Delays the next ring. If ignored, the system auto snoozes. Unlimited.
 5. **Dismiss:** Ends the ring; next fire is recalculated from the interval and drift mode.
-6. **Skip / Reset Interval:** While idle, jump the pending fire to `now + interval`.
+6. **Skip / Dismiss Early:** While idle, jump the pending fire to `now + interval`.
 7. **Pause / Mute:** Freeze the countdown, or keep schedule but fire silently.
 8. **Widget:** Quiet dark dashboard: next clock time, interval, dismissals today (not a live countdown).
 
