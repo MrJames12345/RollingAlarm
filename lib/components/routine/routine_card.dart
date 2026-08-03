@@ -46,9 +46,7 @@ class RA_RoutineCard extends ConsumerWidget {
     );
     final isPaused = phase == RA_RoutineUiPhase.paused;
     final isMuted = phase == RA_RoutineUiPhase.muted;
-    // Buttons are hidden when paused to keep the card compact, unless
-    // they are Pause/Resume, but for simplicity we keep the old behavior.
-    final showButtons = !isPaused;
+    final showButtons = true;
     final chrome = _chromeFor(phase);
     final swipeActions =
         ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
@@ -230,11 +228,14 @@ class RA_RoutineCard extends ConsumerWidget {
                           if (isMuted)
                             const Positioned(
                               right: 0,
+                              top: 0,
                               bottom: 0,
-                              child: Icon(
-                                Icons.notifications_off_rounded,
-                                color: RA_ColourStyles.sleepIndigo,
-                                size: 20,
+                              child: Center(
+                                child: Icon(
+                                  Icons.notifications_off_rounded,
+                                  color: RA_ColourStyles.sleepIndigo,
+                                  size: 20,
+                                ),
                               ),
                             ),
                         ],
@@ -911,11 +912,11 @@ class _RoutineCardStatus extends ConsumerWidget {
         final next = snapshot.nextTriggerTime!;
         return Column(
           key: ValueKey(
-            '${snapshot.phase.name}_${next.millisecondsSinceEpoch}',
+            snapshot.phase.name,
           ),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            RA_Countdown(nextTriggerTime: next),
+            RA_Countdown(routineId: routineId, nextTriggerTime: next),
             const SizedBox(height: RA_ShapeStyles.space8),
             Text(
               RA_Utils.formatNextFireCaption(
@@ -927,22 +928,33 @@ class _RoutineCardStatus extends ConsumerWidget {
           ],
         );
       case RA_RoutineUiPhase.paused:
-        final remaining = snapshot.pausedRemaining;
-        if (remaining == null) {
-          return Text(
-            'Paused',
-            key: ValueKey(
-              'paused_idle_${snapshot.pausedAt?.millisecondsSinceEpoch}',
-            ),
-            style: mutedStyle,
-          );
-        }
-        return RA_Countdown(
+        final pausedRemaining = snapshot.pausedRemaining;
+        return Column(
           key: ValueKey(
-            'paused_${snapshot.pausedAt?.millisecondsSinceEpoch}_'
-            '${snapshot.nextTriggerTime?.millisecondsSinceEpoch}',
+            snapshot.phase.name,
           ),
-          frozenRemaining: remaining,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (pausedRemaining != null) ...[
+              RA_Countdown(routineId: routineId, frozenRemaining: pausedRemaining),
+              const SizedBox(height: RA_ShapeStyles.space8),
+            ],
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.pause_rounded,
+                  color: RA_ColourStyles.mutedPrimary,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Paused',
+                  style: mutedStyle,
+                ),
+              ],
+            ),
+          ],
         );
       case RA_RoutineUiPhase.loading:
         return SizedBox(
