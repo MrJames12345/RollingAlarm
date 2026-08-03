@@ -173,6 +173,13 @@ class RA_AlarmService {
     }
   }
 
+  /// Proactively fires the ring logic for a given routine.
+  /// Used by the foreground UI when it observes a countdown reaching zero,
+  /// bypassing any OS alarm delays.
+  static Future<void> forceRingIfDue(int routineId) async {
+    await _alarmCallback(_alarmIdBase + routineId);
+  }
+
   /// Cancels any pending alarm for the given routine.
   static Future<void> cancel(int routineId) async {
     try {
@@ -488,6 +495,7 @@ class RA_AlarmService {
           dbPath: dbPath,
           now: now,
           isResumingFromSnooze: isResumingFromSnooze,
+          callerNextTriggerTime: state.NextTriggerTime,
         );
         return;
       }
@@ -1296,6 +1304,7 @@ class RA_AlarmService {
     required String dbPath,
     required DateTime now,
     required bool isResumingFromSnooze,
+    required DateTime? callerNextTriggerTime,
   }) async {
     final compensation =
         DriftCompensationTypeCodeEnum.values[routine.DriftCompensationTypeCode];
@@ -1329,7 +1338,7 @@ class RA_AlarmService {
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
             ? routine.MaxTimesPerDay
             : 0,
-        extraMaxTimesToday: state?.ExtraMaxTimesToday ?? 0,
+        extraMaxTimesToday: state.ExtraMaxTimesToday,
         timesRingToday: timesRingToday,
         timesRingDay: timesRingDay,
         now: now,
@@ -1344,37 +1353,44 @@ class RA_AlarmService {
       timeSinceLastDismissal = now.difference(state.LastDismissedAt!).inSeconds;
     }
 
-    await db.transaction(() async {
-      await db.updateRoutineState(
-        routineId,
-        RoutineStatesCompanion(
-          NextTriggerTime: Value(next),
-          IsRinging: const Value(false),
-          CurrentSnoozeCount: const Value(0),
-          LastDismissedAt: Value(now),
-          InitialRingTime: shouldCount ? Value(now) : const Value.absent(),
-          TimesRingToday: shouldCount
-              ? Value(timesRingToday)
-              : const Value.absent(),
-          TimesRingDay: shouldCount
-              ? Value(timesRingDay)
-              : const Value.absent(),
-        ),
-        requireIsRinging: false,
-      );
+    // CAS on NextTriggerTime: only the first callback to process this fire
+    // commits. Duplicate callbacks from AndroidAlarmManager, AlarmReceiver
+    // native wake, _triggerDueAlarms, or the foreground watchdog see rows==0
+    // and bail out, preventing the count from incrementing multiple times.
+    final rows = await db.updateRoutineState(
+      routineId,
+      RoutineStatesCompanion(
+        NextTriggerTime: Value(next),
+        IsRinging: const Value(false),
+        CurrentSnoozeCount: const Value(0),
+        LastDismissedAt: Value(now),
+        InitialRingTime: shouldCount ? Value(now) : const Value.absent(),
+        TimesRingToday: shouldCount
+            ? Value(timesRingToday)
+            : const Value.absent(),
+        TimesRingDay: shouldCount
+            ? Value(timesRingDay)
+            : const Value.absent(),
+      ),
+      requireIsRinging: false,
+      matchNextTriggerTime: true,
+      nextTriggerTimeToMatch: callerNextTriggerTime,
+    );
 
-      await db.insertLogEntry(
-        LogEntriesCompanion(
-          RoutineId: Value(routineId),
-          Timestamp: Value(now),
-          LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
-          TimeSinceLastDismissalSeconds: timeSinceLastDismissal != null
-              ? Value(timeSinceLastDismissal)
-              : const Value.absent(),
-          WasMuted: const Value(true),
-        ),
-      );
-    });
+    // Lost the CAS race — another callback already processed this fire.
+    if (rows == 0) return;
+
+    await db.insertLogEntry(
+      LogEntriesCompanion(
+        RoutineId: Value(routineId),
+        Timestamp: Value(now),
+        LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
+        TimeSinceLastDismissalSeconds: timeSinceLastDismissal != null
+            ? Value(timeSinceLastDismissal)
+            : const Value.absent(),
+        WasMuted: const Value(true),
+      ),
+    );
 
     await scheduleNext(
       routineId: routineId,

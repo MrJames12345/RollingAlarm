@@ -4,6 +4,7 @@ import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
+import 'package:rolling_alarm/services/alarm.dart';
 
 /// Displays a live countdown timer using tabular figures for
 /// non-jittering numeric display.
@@ -14,10 +15,11 @@ import 'package:rolling_alarm/utils.dart';
 /// When [frozenRemaining] is set, the value is shown statically (paused) and
 /// [CountdownProvider] is not watched.
 class RA_Countdown extends ConsumerWidget {
+  final int? routineId;
   final DateTime? nextTriggerTime;
   final Duration? frozenRemaining;
 
-  const RA_Countdown({super.key, this.nextTriggerTime, this.frozenRemaining})
+  const RA_Countdown({super.key, this.routineId, this.nextTriggerTime, this.frozenRemaining})
     : assert(
         frozenRemaining != null || nextTriggerTime != null,
         'Provide nextTriggerTime or frozenRemaining',
@@ -37,6 +39,13 @@ class RA_Countdown extends ConsumerWidget {
     }
 
     final rem = ref.watch(CountdownProvider(nextTriggerTime!));
+    
+    ref.listen<Duration>(CountdownProvider(nextTriggerTime!), (previous, next) {
+      if (next <= Duration.zero && routineId != null) {
+        RA_AlarmService.forceRingIfDue(routineId!);
+      }
+    });
+
     final color = RA_TextStyles.countdownColor(rem);
     final base = RA_TextStyles.countdownFontFor(context);
     return AnimatedDefaultTextStyle(
