@@ -42,7 +42,15 @@ class RA_Countdown extends ConsumerWidget {
     
     ref.listen<Duration>(CountdownProvider(nextTriggerTime!), (previous, next) {
       if (next <= Duration.zero && routineId != null) {
-        RA_AlarmService.forceRingIfDue(routineId!);
+        // Verify this countdown's target is still the active one for this routine.
+        // AnimatedSwitcher keeps old widgets mounted while fading out (which pauses
+        // indefinitely if the route is hidden), so a stale countdown can reach zero.
+        final current = ref.read(RoutineUiSnapshotProvider(routineId!));
+        if (current.phase == RA_RoutineUiPhase.countingDown &&
+            current.nextTriggerTime?.millisecondsSinceEpoch ==
+                nextTriggerTime!.millisecondsSinceEpoch) {
+          RA_AlarmService.forceRingIfDue(routineId!);
+        }
       }
     });
 
