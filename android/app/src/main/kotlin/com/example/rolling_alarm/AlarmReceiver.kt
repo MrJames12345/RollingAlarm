@@ -18,20 +18,31 @@ import android.os.PowerManager
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        val routineId = intent?.getIntExtra(EXTRA_ROUTINE_ID, -1) ?: -1
-        if (routineId < 0) return
-
+        // NATIVE-FIRST WAKELOCK (THE CRITICAL PATH)
+        // Acquire lock instantly before doing anything else.
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             WAKE_LOCK_TAG
         )
         wakeLock.setReferenceCounted(false)
-        // Keep CPU awake across the FGS handoff (service acquires its own lock).
         wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
 
+        val routineId = intent?.getIntExtra(EXTRA_ROUTINE_ID, -1) ?: -1
+        if (routineId < 0) {
+            wakeLock.release()
+            return
+        }
+
         val lockedOrAsleep = AlarmRingingService.isLockedOrAsleep(context)
-        AlarmRingingService.start(context, routineId)
+        val safeIntent = intent ?: Intent()
+        
+        try {
+            AlarmRingingService.start(context, safeIntent)
+        } catch (e: Exception) {
+            // Android 12+ ForegroundServiceStartNotAllowedException fallback
+            AlarmRingingService.showFallbackNotification(context, safeIntent)
+        }
 
         if (!lockedOrAsleep) {
             // Use the setAlarmClock broadcast BAL window to jump over other apps.

@@ -5,6 +5,7 @@ import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 
 /// Displays a live countdown timer using tabular figures for
 /// non-jittering numeric display.

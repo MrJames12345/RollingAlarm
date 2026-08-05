@@ -162,7 +162,21 @@ class RA_AlarmService {
 
       // Parallel setAlarmClock -> AlarmReceiver -> AlarmRingingService FSI
       // (works even when the Flutter UI process was killed). Best-effort.
-      await _scheduleAlarmUi(fireAt: fireAt, routineId: routineId);
+      final db = RA_Database.openForIsolate(dbPath);
+      RoutineModel? routine;
+      try {
+        routine = await db.getRoutineById(routineId);
+      } catch (_) {}
+      await db.close();
+
+      await _scheduleAlarmUi(
+        fireAt: fireAt, 
+        routineId: routineId,
+        audioUri: routine?.AudioUri,
+        volume: routine?.Volume != null ? routine!.Volume / 100.0 : null,
+        fadeInMs: routine?.FadeIn == true ? 30000 : 0,
+        vibrate: routine?.Vibrate,
+      );
 
       // Refresh the pinned routine dashboard (not whichever routine scheduled).
       if (refreshWidget) {
@@ -195,12 +209,20 @@ class RA_AlarmService {
   static Future<void> _scheduleAlarmUi({
     required DateTime fireAt,
     required int routineId,
+    String? audioUri,
+    double? volume,
+    int? fadeInMs,
+    bool? vibrate,
   }) async {
     try {
       const channel = MethodChannel(_uiSchedulerChannel);
       await channel.invokeMethod<void>('schedule', <String, dynamic>{
         'triggerAtMillis': fireAt.millisecondsSinceEpoch,
         'routineId': routineId,
+        if (audioUri != null) 'audioUri': audioUri,
+        if (volume != null) 'volume': volume,
+        if (fadeInMs != null) 'fadeInMs': fadeInMs,
+        if (vibrate != null) 'vibrate': vibrate,
       });
     } catch (_) {
       // Channel missing in headless / background isolates; FSI still covers wake.
@@ -341,7 +363,14 @@ class RA_AlarmService {
           final fireAt = next.isAfter(now)
               ? next
               : now.add(const Duration(seconds: 1));
-          await _scheduleAlarmUi(fireAt: fireAt, routineId: routine.Id);
+          await _scheduleAlarmUi(
+            fireAt: fireAt, 
+            routineId: routine.Id,
+            audioUri: routine.AudioUri,
+            volume: routine.Volume / 100.0,
+            fadeInMs: routine.FadeIn ? 30000 : 0,
+            vibrate: routine.Vibrate,
+          );
         } catch (_) {}
       }
     } catch (_) {}

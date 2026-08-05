@@ -54,9 +54,9 @@ class AlarmRingingService : Service() {
 
         acquireWakeLock(turnScreenOn = lockedOrAsleep)
         writeRingingPref(true)
-        ensureChannel()
+        ensureChannel(this)
 
-        val notification = buildServiceNotification(routineId, useFsi = useFsi)
+        val notification = buildServiceNotification(this, routineId, useFsi = useFsi)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 notificationId(routineId),
@@ -65,6 +65,51 @@ class AlarmRingingService : Service() {
             )
         } else {
             startForeground(notificationId(routineId), notification)
+        }
+
+        // Native-first audio & vibration routing
+        val audioUriRaw = intent?.getStringExtra(EXTRA_AUDIO_URI)
+        val loop = intent?.getBooleanExtra(EXTRA_LOOP, true) ?: true
+        val volume = intent?.getFloatExtra(EXTRA_VOLUME, 1f) ?: 1f
+        val fadeInMs = intent?.getLongExtra(EXTRA_FADE_IN_MS, 0L) ?: 0L
+        
+        var isSilent = false
+        var actualUri = audioUriRaw
+        if (!audioUriRaw.isNullOrEmpty()) {
+            if (audioUriRaw.startsWith("{") && audioUriRaw.contains("\"source\"")) {
+                try {
+                    val obj = org.json.JSONObject(audioUriRaw)
+                    val source = obj.optString("source")
+                    if (source == "silent") {
+                        isSilent = true
+                    } else if (source == "native" && obj.has("uri") && !obj.isNull("uri")) {
+                        actualUri = obj.optString("uri")
+                    } else {
+                        actualUri = null
+                    }
+                } catch (_: Exception) {}
+            } else if (audioUriRaw == "silent") {
+                isSilent = true
+            }
+        }
+
+        if (!isSilent) {
+            val playUri = if (actualUri.isNullOrEmpty()) {
+                android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI.toString()
+            } else {
+                actualUri
+            }
+            AlarmRingtonePlayer.play(
+                context = this,
+                uriString = playUri,
+                loop = loop,
+                fadeInMs = fadeInMs,
+                targetVolume = volume
+            )
+        }
+        val vibrate = intent?.getBooleanExtra(EXTRA_VIBRATE, false) ?: false
+        if (vibrate) {
+            try { AlarmVibrator.start(this) } catch (_: Exception) {}
         }
 
         when {
@@ -91,6 +136,8 @@ class AlarmRingingService : Service() {
     }
 
     override fun onDestroy() {
+        AlarmRingtonePlayer.stop()
+        try { AlarmVibrator.stop(this) } catch (_: Exception) {}
         cancelWakeFallback()
         releaseWakeLock()
         super.onDestroy()
@@ -124,43 +171,6 @@ class AlarmRingingService : Service() {
         wakeLock = null
     }
 
-    private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        if (nm.getNotificationChannel(CHANNEL_ID_SERVICE) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID_SERVICE,
-                    CHANNEL_NAME_SERVICE,
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = CHANNEL_DESC_SERVICE
-                    setBypassDnd(false)
-                    setSound(null, null)
-                    enableVibration(false)
-                    setShowBadge(false)
-                    lockscreenVisibility = Notification.VISIBILITY_SECRET
-                }
-            )
-        }
-        if (nm.getNotificationChannel(CHANNEL_ID_WAKE) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID_WAKE,
-                    CHANNEL_NAME_WAKE,
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = CHANNEL_DESC_WAKE
-                    setBypassDnd(true)
-                    setSound(null, null)
-                    enableVibration(false)
-                    setShowBadge(false)
-                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                }
-            )
-        }
-    }
-
     private fun launchRingActivity(routineId: Int) {
         launchRingActivity(this, routineId)
     }
@@ -177,11 +187,6 @@ class AlarmRingingService : Service() {
         }
     }
 
-    /**
-     * @param requireStillLocked when true, skip retry once the keyguard is gone
-     * (locked path FSI likely succeeded). When false (other-app path), retry
-     * whenever our app is still not foreground.
-     */
     private fun scheduleWakeFallback(routineId: Int, requireStillLocked: Boolean) {
         cancelWakeFallback()
         val retry = Runnable {
@@ -196,7 +201,7 @@ class AlarmRingingService : Service() {
                 val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(
                     notificationId(routineId),
-                    buildServiceNotification(routineId, useFsi = true)
+                    buildServiceNotification(this, routineId, useFsi = true)
                 )
             } catch (_: Exception) {
             }
@@ -209,54 +214,6 @@ class AlarmRingingService : Service() {
     private fun cancelWakeFallback() {
         wakeFallback?.let { mainHandler.removeCallbacks(it) }
         wakeFallback = null
-    }
-
-    /**
-     * Minimal ongoing notification required to keep the FGS alive.
-     * In-app: low-importance silent entry. Locked / other app: high-importance
-     * FSI so Android can launch the full-page UI over the current surface.
-     */
-    private fun buildServiceNotification(routineId: Int, useFsi: Boolean): Notification {
-        val launchIntent = buildLaunchIntent(this, routineId)
-        val contentPi = PendingIntent.getActivity(
-            this,
-            REQUEST_CONTENT_BASE + routineId,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val channelId = if (useFsi) CHANNEL_ID_WAKE else CHANNEL_ID_SERVICE
-
-        val builder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Rolling Alarm")
-            .setContentText("Alarm is ringing")
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setSilent(true)
-            .setSound(null)
-            .setContentIntent(contentPi)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-
-        if (useFsi) {
-            val fullScreenPi = PendingIntent.getActivity(
-                this,
-                REQUEST_FSI_BASE + routineId,
-                launchIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            builder
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setFullScreenIntent(fullScreenPi, true)
-        } else {
-            builder
-                .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-        }
-
-        return builder.build()
     }
 
     private fun writeRingingPref(ringing: Boolean) {
@@ -274,6 +231,11 @@ class AlarmRingingService : Service() {
 
     companion object {
         const val EXTRA_ROUTINE_ID = AlarmReceiver.EXTRA_ROUTINE_ID
+        const val EXTRA_AUDIO_URI = "audioUri"
+        const val EXTRA_LOOP = "loop"
+        const val EXTRA_VOLUME = "volume"
+        const val EXTRA_FADE_IN_MS = "fadeInMs"
+        const val EXTRA_VIBRATE = "vibrate"
 
         private const val CHANNEL_ID_SERVICE = "ra_native_alarm_fgs_v4"
         private const val CHANNEL_NAME_SERVICE = "Alarm Service"
@@ -293,6 +255,43 @@ class AlarmRingingService : Service() {
         private const val FLUTTER_RINGING_KEY = "flutter.ra_is_ringing"
         private const val FLUTTER_WAKE_AT_KEY = "flutter.ra_alarm_wake_at_ms"
 
+        fun ensureChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (nm.getNotificationChannel(CHANNEL_ID_SERVICE) == null) {
+                nm.createNotificationChannel(
+                    NotificationChannel(
+                        CHANNEL_ID_SERVICE,
+                        CHANNEL_NAME_SERVICE,
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        description = CHANNEL_DESC_SERVICE
+                        setBypassDnd(false)
+                        setSound(null, null)
+                        enableVibration(false)
+                        setShowBadge(false)
+                        lockscreenVisibility = Notification.VISIBILITY_SECRET
+                    }
+                )
+            }
+            if (nm.getNotificationChannel(CHANNEL_ID_WAKE) == null) {
+                nm.createNotificationChannel(
+                    NotificationChannel(
+                        CHANNEL_ID_WAKE,
+                        CHANNEL_NAME_WAKE,
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = CHANNEL_DESC_WAKE
+                        setBypassDnd(true)
+                        setSound(null, null)
+                        enableVibration(false)
+                        setShowBadge(false)
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    }
+                )
+            }
+        }
+
         fun notificationId(routineId: Int): Int = NOTIFICATION_BASE + routineId
 
         fun buildLaunchIntent(context: Context, routineId: Int): Intent {
@@ -307,6 +306,50 @@ class AlarmRingingService : Service() {
                 putExtra(MainActivity.EXTRA_ALARM_RINGING, true)
                 putExtra(EXTRA_ROUTINE_ID, routineId)
             }
+        }
+
+        fun buildServiceNotification(context: Context, routineId: Int, useFsi: Boolean): Notification {
+            val launchIntent = buildLaunchIntent(context, routineId)
+
+            val contentPi = PendingIntent.getActivity(
+                context,
+                REQUEST_CONTENT_BASE + routineId,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val channelId = if (useFsi) CHANNEL_ID_WAKE else CHANNEL_ID_SERVICE
+
+            val builder = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Rolling Alarm")
+                .setContentText("Alarm is ringing")
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setSilent(true)
+                .setSound(null)
+                .setContentIntent(contentPi)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+            if (useFsi) {
+                val fullScreenPi = PendingIntent.getActivity(
+                    context,
+                    REQUEST_FSI_BASE + routineId,
+                    launchIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setFullScreenIntent(fullScreenPi, true)
+            } else {
+                builder
+                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            }
+
+            return builder.build()
         }
 
         fun isLockedOrAsleep(context: Context): Boolean {
@@ -333,14 +376,6 @@ class AlarmRingingService : Service() {
             return false
         }
 
-        /**
-         * Brings [MainActivity] to the front over whatever app is showing.
-         *
-         * Uses a PendingIntent send with background-start allowed on API 34+,
-         * which is more reliable than [Context.startActivity] from an FGS when
-         * another app holds the foreground. Overlay permission is an additional
-         * BAL exemption when the user has granted it.
-         */
         fun launchRingActivity(context: Context, routineId: Int) {
             val launchIntent = buildLaunchIntent(context, routineId)
             try {
@@ -361,22 +396,33 @@ class AlarmRingingService : Service() {
                 }
             } catch (_: Exception) {
             }
-            // Overlay permission is a BAL exemption when granted at startup.
             try {
                 context.startActivity(launchIntent)
             } catch (_: Exception) {
             }
         }
 
-        fun start(context: Context, routineId: Int) {
-            val intent = Intent(context, AlarmRingingService::class.java).apply {
-                putExtra(EXTRA_ROUTINE_ID, routineId)
+        fun start(context: Context, intent: Intent) {
+            val serviceIntent = Intent(context, AlarmRingingService::class.java).apply {
+                putExtras(intent)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
+                context.startForegroundService(serviceIntent)
             } else {
-                context.startService(intent)
+                context.startService(serviceIntent)
             }
+        }
+
+        fun showFallbackNotification(context: Context, intent: Intent) {
+            val routineId = intent.getIntExtra(EXTRA_ROUTINE_ID, -1)
+            if (routineId < 0) return
+            try {
+                ensureChannel(context)
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val notification = buildServiceNotification(context, routineId, useFsi = true)
+                nm.notify(notificationId(routineId), notification)
+                launchRingActivity(context, routineId)
+            } catch (_: Exception) {}
         }
 
         fun stop(context: Context, routineId: Int) {

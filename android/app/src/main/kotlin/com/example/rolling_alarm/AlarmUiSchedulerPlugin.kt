@@ -54,7 +54,22 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     result.error("bad_args", "triggerAtMillis and routineId required", null)
                     return
                 }
-                schedule(context, triggerAtMillis, routineId)
+                
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    if (!alarmManager.canScheduleExactAlarms()) {
+                        result.error("exact_alarm_denied", "Exact alarm permission is denied.", null)
+                        return
+                    }
+                }
+                
+                val audioUri = call.argument<String>("audioUri")
+                val loop = call.argument<Boolean>("loop") ?: true
+                val volume = call.argument<Number>("volume")?.toFloat() ?: 1f
+                val fadeInMs = call.argument<Number>("fadeInMs")?.toLong() ?: 0L
+                val vibrate = call.argument<Boolean>("vibrate") ?: false
+
+                schedule(context, triggerAtMillis, routineId, audioUri, loop, volume, fadeInMs, vibrate)
                 result.success(null)
             }
             "cancel" -> {
@@ -112,13 +127,23 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     companion object {
         const val CHANNEL = "com.example.rolling_alarm/alarm_ui_scheduler"
         private const val REQUEST_BASE = 20000
+        const val PREFS_NAME = "ra_native_alarms"
 
         /**
          * Arms a system-level alarm-clock timer. Uses
          * [AlarmManager.setAlarmClock] with an explicit [AlarmManager.AlarmClockInfo]
          * (never setExact / setExactAndAllowWhileIdle).
          */
-        fun schedule(context: Context, triggerAtMillis: Long, routineId: Int) {
+        fun schedule(
+            context: Context, 
+            triggerAtMillis: Long, 
+            routineId: Int,
+            audioUri: String? = null,
+            loop: Boolean = true,
+            volume: Float = 1f,
+            fadeInMs: Long = 0L,
+            vibrate: Boolean = false
+        ) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -126,6 +151,11 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             // Never start MainActivity directly from the AlarmManager fire path.
             val receiverIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra(AlarmReceiver.EXTRA_ROUTINE_ID, routineId)
+                if (audioUri != null) putExtra("audioUri", audioUri)
+                putExtra("loop", loop)
+                putExtra("volume", volume)
+                putExtra("fadeInMs", fadeInMs)
+                putExtra("vibrate", vibrate)
             }
             val operation = PendingIntent.getBroadcast(
                 context,
@@ -155,6 +185,8 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             val fireAt = triggerAtMillis.coerceAtLeast(System.currentTimeMillis() + 500L)
             val clockInfo = AlarmManager.AlarmClockInfo(fireAt, showIntent)
             alarmManager.setAlarmClock(clockInfo, operation)
+            
+            saveAlarmToPrefs(context, triggerAtMillis, routineId, audioUri, loop, volume, fadeInMs, vibrate)
         }
 
         fun cancel(context: Context, routineId: Int) {
@@ -170,11 +202,40 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             alarmManager.cancel(operation)
             operation.cancel()
             AlarmRingingService.stop(context, routineId)
+            removeAlarmFromPrefs(context, routineId)
         }
 
         fun isIgnoringBatteryOptimizations(context: Context): Boolean {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             return pm.isIgnoringBatteryOptimizations(context.packageName)
+        }
+
+        private fun saveAlarmToPrefs(
+            context: Context, 
+            triggerAtMillis: Long, 
+            routineId: Int,
+            audioUri: String?,
+            loop: Boolean,
+            volume: Float,
+            fadeInMs: Long,
+            vibrate: Boolean
+        ) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val json = org.json.JSONObject().apply {
+                put("triggerAtMillis", triggerAtMillis)
+                put("routineId", routineId)
+                if (audioUri != null) put("audioUri", audioUri)
+                put("loop", loop)
+                put("volume", volume.toDouble())
+                put("fadeInMs", fadeInMs)
+                put("vibrate", vibrate)
+            }
+            prefs.edit().putString(routineId.toString(), json.toString()).apply()
+        }
+
+        private fun removeAlarmFromPrefs(context: Context, routineId: Int) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().remove(routineId.toString()).apply()
         }
 
         /**

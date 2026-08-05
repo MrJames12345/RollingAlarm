@@ -63,6 +63,18 @@
                 android:value="Exact alarm full-screen ringing UI" />
         </service>
 
+        <receiver
+            android:name=".AlarmResurrectionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
         <!-- android_alarm_manager_plus -->
         <service
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"

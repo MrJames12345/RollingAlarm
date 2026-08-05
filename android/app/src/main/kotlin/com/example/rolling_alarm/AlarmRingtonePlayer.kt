@@ -32,8 +32,11 @@ object AlarmRingtonePlayer {
     ): Boolean {
         stop()
         val uri = Uri.parse(uriString)
-        val tone = RingtoneManager.getRingtone(context.applicationContext, uri)
-            ?: return false
+        val tone = try {
+            RingtoneManager.getRingtone(context.applicationContext, uri)
+        } catch (e: Exception) {
+            null
+        } ?: return false
 
         val cappedTarget = targetVolume.coerceIn(0f, 1f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
