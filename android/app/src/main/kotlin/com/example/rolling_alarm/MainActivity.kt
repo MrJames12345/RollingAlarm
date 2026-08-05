@@ -32,6 +32,9 @@ class MainActivity : FlutterActivity() {
     /** Cached side-button actions while ringing: none / snooze / dismiss. */
     private var sideButtonVolumeUp: String = ACTION_NONE
     private var sideButtonVolumeDown: String = ACTION_NONE
+    
+    private var isAppInForeground: Boolean = false
+    private var wasBackgroundedBeforeAlarm: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Apply lock-screen flags before Flutter attaches so a full-screen
@@ -55,12 +58,21 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        isAppInForeground = true
         syncRingingState(intent)
         applyLockScreenFlags(isAlarmRinging)
     }
 
+    override fun onPause() {
+        super.onPause()
+        isAppInForeground = false
+    }
+
     private fun syncRingingState(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_ALARM_RINGING, false) == true) {
+            if (!isAppInForeground && !isAlarmRinging) {
+                wasBackgroundedBeforeAlarm = true
+            }
             isAlarmRinging = true
             lockOverlayFromAlarmIntent = true
             writeRingingPref(true)
@@ -74,6 +86,9 @@ class MainActivity : FlutterActivity() {
             if (isRecentAlarmWake()) {
                 lockOverlayFromAlarmIntent = true
                 if (alarmWakeElapsedMs == 0L) {
+                    if (!isAppInForeground) {
+                        wasBackgroundedBeforeAlarm = true
+                    }
                     alarmWakeElapsedMs = SystemClock.elapsedRealtime()
                 }
             }
@@ -161,6 +176,9 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "bringToForeground" -> {
                         try {
+                            if (!isAppInForeground && !isAlarmRinging) {
+                                wasBackgroundedBeforeAlarm = true
+                            }
                             isAlarmRinging = true
                             lockOverlayFromAlarmIntent = true
                             writeRingingPref(true)
@@ -224,9 +242,10 @@ class MainActivity : FlutterActivity() {
                         }
                         // Also drop keep-screen-on / allow-lock leftovers from the ring.
                         applyLockScreenFlags(false)
-                        if (keyguardLocked) {
+                        if (keyguardLocked || wasBackgroundedBeforeAlarm) {
                             moveTaskToBack(true)
                         }
+                        wasBackgroundedBeforeAlarm = false
                         result.success(null)
                     }
                     "setSideButtonActions" -> {
