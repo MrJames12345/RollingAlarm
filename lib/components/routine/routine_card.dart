@@ -167,7 +167,6 @@ class RA_RoutineCard extends ConsumerWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: RA_ShapeStyles.space8),
                               _TodayRingCount(
                                 routine: routine,
                                 muted: isPaused,
@@ -817,11 +816,16 @@ class _TodayRingCount extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    final logicalToday = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    if (!RA_WeekdaySchedule.isDateEnabled(routine.EnabledWeekdays, logicalToday)) {
+      return const SizedBox.shrink();
+    }
+
     final data = ref.watch(
       ActiveRoutineStateProvider(routine.Id).select((async) {
         final state = async.valueOrNull;
         if (state == null) return (count: 0, extra: 0);
-        final now = DateTime.now();
         final count = RA_DailyRingLimit.countForDay(
           timesRingToday: state.TimesRingToday,
           timesRingDay: state.TimesRingDay,
@@ -843,12 +847,15 @@ class _TodayRingCount extends ConsumerWidget {
         : count == 1
         ? '1 time today'
         : '$count times today';
-    return Text(
-      label,
-      style: RA_TextStyles.tinyFont.copyWith(
-        color: muted
-            ? RA_ColourStyles.faintPrimary
-            : RA_ColourStyles.mutedPrimary,
+    return Padding(
+      padding: const EdgeInsets.only(top: RA_ShapeStyles.space8),
+      child: Text(
+        label,
+        style: RA_TextStyles.tinyFont.copyWith(
+          color: muted
+              ? RA_ColourStyles.faintPrimary
+              : RA_ColourStyles.mutedPrimary,
+        ),
       ),
     );
   }
