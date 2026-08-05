@@ -529,17 +529,6 @@ class RA_AlarmService {
         return;
       }
 
-      final period = RA_DailyRingLimit.periodStart(
-        now,
-        routine.DayStartSeconds,
-      );
-      final priorCount = RA_DailyRingLimit.countForDay(
-        timesRingToday: state.TimesRingToday,
-        timesRingDay: state.TimesRingDay,
-        now: now,
-        dayStartSeconds: routine.DayStartSeconds,
-      );
-
       final int rows;
       if (isResumingFromSnooze) {
         rows = await db.updateRoutineState(
@@ -554,11 +543,6 @@ class RA_AlarmService {
             InitialRingTime: Value(now),
             IsRinging: const Value(true),
             CurrentSnoozeCount: const Value(0),
-            TimesRingToday: Value(priorCount + 1),
-            TimesRingDay: Value(period),
-            ExtraMaxTimesToday: (state.TimesRingDay != period) 
-                ? const Value(0) 
-                : const Value.absent(),
           ),
           requireIsRinging: false,
         );
@@ -698,16 +682,14 @@ class RA_AlarmService {
           action == RA_AlarmActionTypeCodeEnum.Dismiss ||
           action == RA_AlarmActionTypeCodeEnum.Skip;
 
-      // Idle Skip can optionally count as a "gone off" for today's total.
-      // Do not increment while already ringing; triggerAlarm already counted.
-      final shouldCountSkip =
-          action == RA_AlarmActionTypeCodeEnum.Skip &&
-          countSkipTowardsDaily &&
-          !fresh.IsRinging;
+      final shouldCountCompletion =
+          action == RA_AlarmActionTypeCodeEnum.Dismiss ||
+          (action == RA_AlarmActionTypeCodeEnum.Skip && countSkipTowardsDaily);
 
       var timesRingToday = fresh.TimesRingToday;
       var timesRingDay = fresh.TimesRingDay;
-      if (shouldCountSkip) {
+      var extraMaxTimesToday = fresh.ExtraMaxTimesToday;
+      if (shouldCountCompletion) {
         final period = RA_DailyRingLimit.periodStart(
           now,
           routine.DayStartSeconds,
@@ -720,6 +702,10 @@ class RA_AlarmService {
         );
         timesRingToday = priorCount + 1;
         timesRingDay = period;
+        
+        if (fresh.TimesRingDay != period) {
+           extraMaxTimesToday = 0;
+        }
       }
 
       // Daily cap only defers the next interval cycle, never an in-cycle snooze.
@@ -769,11 +755,14 @@ class RA_AlarmService {
           LastDismissedAt: isEffectiveDismiss
               ? Value(now)
               : const Value.absent(),
-          TimesRingToday: shouldCountSkip
+          TimesRingToday: shouldCountCompletion
               ? Value(timesRingToday)
               : const Value.absent(),
-          TimesRingDay: shouldCountSkip
+          TimesRingDay: shouldCountCompletion
               ? Value(timesRingDay)
+              : const Value.absent(),
+          ExtraMaxTimesToday: (shouldCountCompletion && extraMaxTimesToday == 0)
+              ? const Value(0)
               : const Value.absent(),
         ),
         requireIsRinging: ringingCas,
