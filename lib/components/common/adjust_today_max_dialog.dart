@@ -16,6 +16,18 @@ Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int cur
       shape: const RoundedRectangleBorder(
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
+      contentPadding: const EdgeInsets.fromLTRB(
+        RA_ShapeStyles.space24,
+        RA_ShapeStyles.space16,
+        RA_ShapeStyles.space24,
+        RA_ShapeStyles.space8,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(
+        RA_ShapeStyles.space8,
+        0,
+        RA_ShapeStyles.space8,
+        RA_ShapeStyles.space8,
+      ),
       content: StatefulBuilder(
         builder: (context, setState) {
           void updateCount(int delta) {
