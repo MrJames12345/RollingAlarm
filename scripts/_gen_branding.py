@@ -1,8 +1,9 @@
 from PIL import Image
 from pathlib import Path
 
-src_logo = Path(r"C:\Users\jayms\Downloads\NEW ONE.png")
-out = Path(r"C:\repo\RollingAlarm\assets\branding")
+repo = Path(__file__).resolve().parents[1]
+src_logo = repo / "assets" / "branding" / "logo_master.png"
+out = repo / "assets" / "branding"
 out.mkdir(parents=True, exist_ok=True)
 
 
@@ -60,7 +61,7 @@ android_sizes = {
     "mipmap-xxhdpi": 144,
     "mipmap-xxxhdpi": 192,
 }
-res = Path(r"C:\repo\RollingAlarm\android\app\src\main\res")
+res = repo / "android" / "app" / "src" / "main" / "res"
 for folder, size in android_sizes.items():
     dest = res / folder / "ic_launcher.png"
     fit_square(logo, size).save(dest, optimize=True)
