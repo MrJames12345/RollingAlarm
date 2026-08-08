@@ -6,7 +6,10 @@ import 'package:rolling_alarm/styles.dart';
 /// Asks the user to enter a new max limit for today.
 ///
 /// Returns the new max number when submitted, `null` when cancelled.
-Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int currentMax}) {
+Future<int?> RA_showAdjustTodayMaxDialog(
+  BuildContext context, {
+  required int currentMax,
+}) {
   final controller = TextEditingController(text: currentMax.toString());
 
   return showDialog<int>(
@@ -35,7 +38,9 @@ Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int cur
             final newVal = val + delta;
             if (newVal >= 0) {
               controller.text = newVal.toString();
-              controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+              controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: controller.text.length),
+              );
             }
           }
 
@@ -67,11 +72,15 @@ Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int cur
                           color: RA_ColourStyles.mutedPrimary,
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: RA_ColourStyles.faintPrimary),
+                          borderSide: BorderSide(
+                            color: RA_ColourStyles.faintPrimary,
+                          ),
                           borderRadius: RA_ShapeStyles.tinyBorderRadius,
                         ),
                         focusedBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: RA_ColourStyles.secondary),
+                          borderSide: BorderSide(
+                            color: RA_ColourStyles.secondary,
+                          ),
                           borderRadius: RA_ShapeStyles.tinyBorderRadius,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
@@ -95,16 +104,12 @@ Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int cur
       ),
       actions: [
         RA_DialogButton('Cancel', () => Navigator.pop(ctx, null)),
-        RA_DialogButton(
-          'Set',
-          () {
-            final val = int.tryParse(controller.text);
-            if (val != null && val >= 0) {
-              Navigator.pop(ctx, val);
-            }
-          },
-          color: RA_ColourStyles.secondary,
-        ),
+        RA_DialogButton('Set', () {
+          final val = int.tryParse(controller.text);
+          if (val != null && val >= 0) {
+            Navigator.pop(ctx, val);
+          }
+        }, color: RA_ColourStyles.secondary),
       ],
     ),
   );
