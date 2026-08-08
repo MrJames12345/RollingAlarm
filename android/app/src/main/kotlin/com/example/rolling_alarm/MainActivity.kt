@@ -1,18 +1,22 @@
 package com.example.rolling_alarm
 
+import android.content.BroadcastReceiver
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -35,6 +39,22 @@ class MainActivity : FlutterActivity() {
     
     private var isAppInForeground: Boolean = false
     private var wasBackgroundedBeforeAlarm: Boolean = false
+    private var userLockReceiverRegistered: Boolean = false
+
+    private val userLockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    if (isAlarmRinging || readRingingPref()) {
+                        onUserLockedDuringRing()
+                    }
+                }
+                AlarmRingingService.ACTION_USER_LOCKED_DURING_RING -> {
+                    onUserLockedDuringRing()
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Apply lock-screen flags before Flutter attaches so a full-screen
@@ -44,9 +64,15 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         // Re-apply after window attach; some OEM builds drop pre-super flags.
         applyLockScreenFlags(isAlarmRinging)
-        if (isAlarmRinging) {
+        if (isAlarmRinging && !AlarmRingDisplayGate.suppressDisplayWake) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+        registerUserLockReceiver()
+    }
+
+    override fun onDestroy() {
+        unregisterUserLockReceiver()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -68,8 +94,65 @@ class MainActivity : FlutterActivity() {
         isAppInForeground = false
     }
 
+    private fun registerUserLockReceiver() {
+        if (userLockReceiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(AlarmRingingService.ACTION_USER_LOCKED_DURING_RING)
+        }
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                userLockReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            userLockReceiverRegistered = true
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterUserLockReceiver() {
+        if (!userLockReceiverRegistered) return
+        try {
+            unregisterReceiver(userLockReceiver)
+        } catch (_: Exception) {
+        }
+        userLockReceiverRegistered = false
+    }
+
+    /**
+     * Power button (or service) turned the screen off while still ringing.
+     * Drop keep/turn-on overlay so the lock sticks; audio stays on the FGS.
+     */
+    private fun onUserLockedDuringRing() {
+        AlarmRingDisplayGate.markUserTurnedScreenOff()
+        isAlarmRinging = true
+        // Do not clear the ringing pref: Flutter still owns the ring session.
+        applyLockScreenFlags(false)
+        // Explicitly drop leftovers some OEMs keep after clearFlags.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false)
+            setTurnScreenOn(false)
+        }
+        @Suppress("DEPRECATION")
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
+    }
+
     private fun syncRingingState(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_ALARM_RINGING, false) == true) {
+            // Re-launches from Flutter after a user lock must not re-arm wake
+            // flags (EXTRA_ALARM_RINGING is set on every bringToForeground).
+            if (AlarmRingDisplayGate.suppressDisplayWake) {
+                isAlarmRinging = true
+                return
+            }
             if (!isAppInForeground && !isAlarmRinging) {
                 wasBackgroundedBeforeAlarm = true
             }
@@ -81,6 +164,9 @@ class MainActivity : FlutterActivity() {
         }
         if (readRingingPref()) {
             isAlarmRinging = true
+            if (AlarmRingDisplayGate.suppressDisplayWake) {
+                return
+            }
             // Full-screen intent launches lack EXTRA_ALARM_RINGING; a fresh wake
             // timestamp from Dart still means this is an alarm overlay session.
             if (isRecentAlarmWake()) {
@@ -131,14 +217,27 @@ class MainActivity : FlutterActivity() {
         return km?.isKeyguardLocked == true
     }
 
+    private fun isScreenInteractive(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            pm.isInteractive
+        } else {
+            @Suppress("DEPRECATION")
+            pm.isScreenOn
+        }
+    }
+
     /**
      * Show the activity ON TOP of the lock screen while ringing.
      *
      * Do not call KeyguardManager.requestDismissKeyguard: on a secure lock
      * that prompts the unlock UI instead of overlaying the alarm (Samsung / A14+).
+     *
+     * When [AlarmRingDisplayGate.suppressDisplayWake] is set, skip all wake /
+     * overlay flags so the user power lock stays off the display.
      */
     private fun applyLockScreenFlags(ringing: Boolean) {
-        if (ringing) {
+        if (ringing && !AlarmRingDisplayGate.suppressDisplayWake) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
                 setTurnScreenOn(true)
@@ -176,14 +275,27 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "bringToForeground" -> {
                         try {
+                            // User locked mid-ring: keep audio, do not re-wake display.
+                            if (AlarmRingDisplayGate.suppressDisplayWake &&
+                                !isScreenInteractive()
+                            ) {
+                                result.success(null)
+                                return@setMethodCallHandler
+                            }
                             if (!isAppInForeground && !isAlarmRinging) {
                                 wasBackgroundedBeforeAlarm = true
                             }
                             isAlarmRinging = true
                             lockOverlayFromAlarmIntent = true
                             writeRingingPref(true)
-                            alarmWakeElapsedMs = SystemClock.elapsedRealtime()
-                            applyLockScreenFlags(true)
+                            // Do not stamp a new wake time / re-arm turnScreenOn
+                            // after the user has already locked the panel.
+                            if (!AlarmRingDisplayGate.suppressDisplayWake) {
+                                alarmWakeElapsedMs = SystemClock.elapsedRealtime()
+                                applyLockScreenFlags(true)
+                            } else {
+                                applyLockScreenFlags(false)
+                            }
                             val launch = Intent(this@MainActivity, MainActivity::class.java).apply {
                                 addFlags(
                                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -212,6 +324,7 @@ class MainActivity : FlutterActivity() {
                         isAlarmRinging = false
                         lockOverlayFromAlarmIntent = false
                         alarmWakeElapsedMs = 0L
+                        AlarmRingDisplayGate.clear()
                         clearSideButtonActions()
                         applyLockScreenFlags(false)
                         result.success(null)
@@ -228,6 +341,7 @@ class MainActivity : FlutterActivity() {
                         lockOverlayFromAlarmIntent = false
                         writeRingingPref(false)
                         alarmWakeElapsedMs = 0L
+                        AlarmRingDisplayGate.clear()
                         clearSideButtonActions()
                         intent?.removeExtra(EXTRA_ALARM_RINGING)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {

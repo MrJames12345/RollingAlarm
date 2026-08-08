@@ -122,6 +122,11 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
       } catch (_) {}
       return;
     }
+    // Ring page already open: do not keep re-launching the activity (that
+    // re-arms turn-screen-on after a user power-button lock).
+    if (_openRingRoutineId == states.first.RoutineId || _ringPushInFlight) {
+      return;
+    }
     try {
       const channel = MethodChannel('com.example.rolling_alarm/alarm_sound');
       await channel.invokeMethod('bringToForeground');
@@ -217,12 +222,17 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
           } catch (_) {}
           return;
         }
-        try {
-          const channel = MethodChannel(
-            'com.example.rolling_alarm/alarm_sound',
-          );
-          unawaited(channel.invokeMethod('bringToForeground'));
-        } catch (_) {}
+        // Only launch activity when the ring page is not already showing.
+        // Native bringToForeground is a no-op after a mid-ring power lock.
+        if (_openRingRoutineId != states.first.RoutineId &&
+            !_ringPushInFlight) {
+          try {
+            const channel = MethodChannel(
+              'com.example.rolling_alarm/alarm_sound',
+            );
+            unawaited(channel.invokeMethod('bringToForeground'));
+          } catch (_) {}
+        }
         unawaited(_presentRingPage(states.first));
       });
     });

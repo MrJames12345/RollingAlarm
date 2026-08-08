@@ -8,8 +8,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -17,6 +19,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 /**
  * Foreground service that wakes [MainActivity] for the full-page alarm UI the
@@ -32,11 +35,25 @@ import androidx.core.app.NotificationCompat
  * Unlocked but another app is foreground: attach FSI and launch the activity
  * immediately (receiver BAL window + PendingIntent send). Without that, Android
  * blocks background activity starts and the user only hears sound/vibration.
+ *
+ * If the user then locks the phone (power button), [AlarmRingDisplayGate] suppresses
+ * further display wake / FSI / re-launch. Alarm audio continues until dismiss.
  */
 class AlarmRingingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var wakeFallback: Runnable? = null
+    private var brightWakeDowngrade: Runnable? = null
+    private var activeRoutineId: Int = -1
+    private var screenOffReceiverRegistered: Boolean = false
+
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != Intent.ACTION_SCREEN_OFF) return
+            if (activeRoutineId < 0) return
+            onUserLockedDuringRing()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,12 +64,19 @@ class AlarmRingingService : Service() {
             return START_NOT_STICKY
         }
 
+        // New ring session: allow one initial display wake (FSI / bright lock).
+        AlarmRingDisplayGate.resetForNewRing()
+        activeRoutineId = routineId
+        registerScreenOffReceiver()
+
         val lockedOrAsleep = isLockedOrAsleep(this)
         val appForeground = isOurAppForeground(this)
         // FSI whenever we are not already showing UI (lock screen or other app).
         val useFsi = lockedOrAsleep || !appForeground
 
         acquireWakeLock(turnScreenOn = lockedOrAsleep)
+        // Only need a bright/wakeup lock long enough for the first presentation.
+        scheduleBrightWakeDowngrade()
         writeRingingPref(true)
         ensureChannel(this)
 
@@ -136,15 +160,84 @@ class AlarmRingingService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterScreenOffReceiver()
         AlarmRingtonePlayer.stop()
         try { AlarmVibrator.stop(this) } catch (_: Exception) {}
         cancelWakeFallback()
+        cancelBrightWakeDowngrade()
         releaseWakeLock()
+        activeRoutineId = -1
+        AlarmRingDisplayGate.clear()
         super.onDestroy()
     }
 
-    private fun acquireWakeLock(turnScreenOn: Boolean) {
-        if (wakeLock?.isHeld == true) return
+    /**
+     * User locked the phone while the alarm is still ringing. Keep FGS audio,
+     * drop screen-forcing wake / FSI, and cancel re-launch retries.
+     */
+    private fun onUserLockedDuringRing() {
+        if (activeRoutineId < 0) return
+        AlarmRingDisplayGate.markUserTurnedScreenOff()
+        cancelWakeFallback()
+        cancelBrightWakeDowngrade()
+        // PARTIAL is enough for ringtone; bright wakeup must not re-light the
+        // panel after the user pressed power.
+        acquireWakeLock(turnScreenOn = false, replace = true)
+        demoteToQuietServiceNotification(activeRoutineId)
+        try {
+            sendBroadcast(Intent(ACTION_USER_LOCKED_DURING_RING).setPackage(packageName))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun demoteToQuietServiceNotification(routineId: Int) {
+        if (routineId < 0) return
+        try {
+            val notification = buildServiceNotification(this, routineId, useFsi = false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    notificationId(routineId),
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(notificationId(routineId), notification)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun registerScreenOffReceiver() {
+        if (screenOffReceiverRegistered) return
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                screenOffReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            screenOffReceiverRegistered = true
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterScreenOffReceiver() {
+        if (!screenOffReceiverRegistered) return
+        try {
+            unregisterReceiver(screenOffReceiver)
+        } catch (_: Exception) {
+        }
+        screenOffReceiverRegistered = false
+    }
+
+    private fun acquireWakeLock(turnScreenOn: Boolean, replace: Boolean = false) {
+        if (!replace && wakeLock?.isHeld == true) return
+        if (replace) {
+            releaseWakeLock()
+        } else if (wakeLock?.isHeld == true) {
+            return
+        }
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         @Suppress("DEPRECATION")
         val levelAndFlags = if (turnScreenOn) {
@@ -171,6 +264,24 @@ class AlarmRingingService : Service() {
         wakeLock = null
     }
 
+    private fun scheduleBrightWakeDowngrade() {
+        cancelBrightWakeDowngrade()
+        val task = Runnable {
+            brightWakeDowngrade = null
+            if (AlarmRingDisplayGate.suppressDisplayWake) return@Runnable
+            // After the first presentation window, stop holding a bright lock so
+            // a later power-button lock is not re-woken by ACQUIRE_CAUSES_WAKEUP.
+            acquireWakeLock(turnScreenOn = false, replace = true)
+        }
+        brightWakeDowngrade = task
+        mainHandler.postDelayed(task, BRIGHT_WAKE_HOLD_MS)
+    }
+
+    private fun cancelBrightWakeDowngrade() {
+        brightWakeDowngrade?.let { mainHandler.removeCallbacks(it) }
+        brightWakeDowngrade = null
+    }
+
     private fun launchRingActivity(routineId: Int) {
         launchRingActivity(this, routineId)
     }
@@ -191,6 +302,10 @@ class AlarmRingingService : Service() {
         cancelWakeFallback()
         val retry = Runnable {
             wakeFallback = null
+            // User locked after first show: do not re-FSI or re-launch.
+            if (AlarmRingDisplayGate.suppressDisplayWake) {
+                return@Runnable
+            }
             if (requireStillLocked && !isLockedOrAsleep(this)) {
                 return@Runnable
             }
@@ -251,9 +366,15 @@ class AlarmRingingService : Service() {
         private const val REQUEST_CONTENT_BASE = 72000
         private const val REQUEST_LAUNCH_BASE = 73000
         private const val WAKE_FALLBACK_MS = 1_500L
+        /** Hold bright/wakeup lock only for the first presentation window. */
+        private const val BRIGHT_WAKE_HOLD_MS = 4_000L
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"
         private const val FLUTTER_RINGING_KEY = "flutter.ra_is_ringing"
         private const val FLUTTER_WAKE_AT_KEY = "flutter.ra_alarm_wake_at_ms"
+
+        /** Broadcast to [MainActivity] when the user powers the screen off mid-ring. */
+        const val ACTION_USER_LOCKED_DURING_RING =
+            "com.example.rolling_alarm.ACTION_USER_LOCKED_DURING_RING"
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -377,6 +498,10 @@ class AlarmRingingService : Service() {
         }
 
         fun launchRingActivity(context: Context, routineId: Int) {
+            // After the user locks mid-ring, never re-force the activity on top.
+            if (AlarmRingDisplayGate.suppressDisplayWake) {
+                return
+            }
             val launchIntent = buildLaunchIntent(context, routineId)
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -416,6 +541,8 @@ class AlarmRingingService : Service() {
         fun showFallbackNotification(context: Context, intent: Intent) {
             val routineId = intent.getIntExtra(EXTRA_ROUTINE_ID, -1)
             if (routineId < 0) return
+            // Mid-ring lock: never re-post FSI or re-launch the activity.
+            if (AlarmRingDisplayGate.suppressDisplayWake) return
             try {
                 ensureChannel(context)
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
