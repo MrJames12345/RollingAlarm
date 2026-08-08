@@ -25,7 +25,6 @@ Future<bool?> RA_showCountDailySkipDialog(BuildContext context) {
           'Yes',
           () => Navigator.pop(ctx, true),
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

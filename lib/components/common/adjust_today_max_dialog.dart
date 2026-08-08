@@ -92,7 +92,6 @@ Future<int?> RA_showAdjustTodayMaxDialog(BuildContext context, {required int cur
             }
           },
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

@@ -39,7 +39,6 @@ Future<RA_UnsavedChangesChoice?> RA_showUnsavedChangesDialog(
           'Save & Continue',
           () => Navigator.pop(ctx, RA_UnsavedChangesChoice.saveAndContinue),
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

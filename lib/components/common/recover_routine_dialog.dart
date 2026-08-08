@@ -27,7 +27,6 @@ Future<bool?> RA_showRecoverRoutineDialog(
           'Recover',
           () => Navigator.pop(ctx, true),
           color: RA_ColourStyles.recoverSeafoam,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

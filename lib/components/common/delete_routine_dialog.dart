@@ -27,7 +27,6 @@ Future<bool?> RA_showDeleteRoutineDialog(
           'Delete',
           () => Navigator.pop(ctx, true),
           color: RA_ColourStyles.softCoral,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

@@ -71,7 +71,7 @@ Widget RA_DialogButton(
   Color? color,
   TextStyle? style,
 }) {
-  final base = style ?? RA_TextStyles.smallFont;
+  final base = style ?? RA_TextStyles.mediumFont;
   return ConstrainedBox(
     constraints: const BoxConstraints(
       minWidth: RA_ShapeStyles.minTouchTarget,

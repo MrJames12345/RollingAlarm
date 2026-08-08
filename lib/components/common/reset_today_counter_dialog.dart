@@ -24,7 +24,6 @@ Future<bool?> RA_showResetTodayCounterDialog(BuildContext context) {
           'Reset',
           () => Navigator.pop(ctx, true),
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
     ),

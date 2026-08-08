@@ -429,7 +429,6 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           'Save',
           () => unawaited(_save()),
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
       body: SingleChildScrollView(

@@ -118,7 +118,6 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
           'Save',
           () => unawaited(_save()),
           color: RA_ColourStyles.secondary,
-          style: RA_TextStyles.mediumFont,
         ),
       ],
       floatingActionButton: _previewReady
