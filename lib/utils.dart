@@ -48,6 +48,26 @@ class RA_Utils {
   static String formatWeekdayShort(DateTime dt) =>
       DateFormat('EEE').format(dt.toLocal());
 
+  /// Ring snooze/dismiss caption: wall time of [next] plus duration until then.
+  ///
+  /// Same calendar day: "3:15 AM, in 9m". Later day includes weekday:
+  /// "6:00 AM Tue, in 18h 12m".
+  static String formatRingActionNext(DateTime next, {DateTime? now}) {
+    final reference = now ?? DateTime.now();
+    final localNow = reference.toLocal();
+    final localNext = next.toLocal();
+    final remaining = next.difference(reference);
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
+    final sameDay =
+        localNext.year == localNow.year &&
+        localNext.month == localNow.month &&
+        localNext.day == localNow.day;
+    final timePart = sameDay
+        ? formatTime(localNext)
+        : '${formatTime(localNext)} ${formatWeekdayShort(localNext)}';
+    return '$timePart, in ${formatDuration(safeRemaining)}';
+  }
+
   /// Home-card next-fire caption. Same calendar day uses "Next: …"; later days
   /// use "Resumes {time} {weekday}" (with a muted prefix when [muted]).
   static String formatNextFireCaption(
@@ -71,8 +91,7 @@ class RA_Utils {
 
   /// Fixed-width live clock with seconds: "06:00:00 AM".
   /// Zero-padded hour keeps tabular digits from shifting as time ticks.
-  static String formatClock(DateTime dt) =>
-      DateFormat('hh:mm:ss a').format(dt);
+  static String formatClock(DateTime dt) => DateFormat('hh:mm:ss a').format(dt);
 
   /// Formats seconds into a human-readable duration string.
   static String formatSecondsAsDuration(int s) =>

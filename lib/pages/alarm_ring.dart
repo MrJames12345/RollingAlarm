@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
+import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/alarm_side_button_action.dart';
 import 'package:rolling_alarm/enums/alarm_snooze_dismiss_layout.dart';
@@ -53,6 +54,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   late final Animation<double> _pulse;
   late final ValueNotifier<double> _escalation;
   Timer? _escalationTimer;
+  RoutineModel? _routine;
 
   /// 0.0 at open, climbs toward 1.0 so the coral pulse grows more aggressive.
   bool _busy = false;
@@ -61,6 +63,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   void initState() {
     super.initState();
     RA_Haptics.heavyUnawaited();
+    unawaited(_loadRoutine());
     _escalation = ValueNotifier(0);
     // Fixed period with a single repeat() call. Do not retarget duration or
     // re-call repeat() while running: that either jumps (restart) or can race
@@ -82,6 +85,16 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     _alarmSoundChannel.setMethodCallHandler(_onPlatformCall);
     unawaited(_startAlarmAudio());
     unawaited(_syncSideButtonActions());
+  }
+
+  Future<void> _loadRoutine() async {
+    if (widget.isPreview || widget.routineId <= 0) return;
+    try {
+      final routine = await ref
+          .read(RA_DatabaseProvider)
+          .getRoutineById(widget.routineId);
+      if (mounted) setState(() => _routine = routine);
+    } catch (_) {}
   }
 
   Future<dynamic> _onPlatformCall(MethodCall call) async {
@@ -280,6 +293,16 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
                                     .watch(AlarmSnoozeDismissLayoutProvider)
                                     .valueOrNull ??
                                 AlarmSnoozeDismissLayoutEnum.Sliders,
+                            routine: _routine,
+                            state: widget.isPreview
+                                ? null
+                                : ref
+                                      .watch(
+                                        ActiveRoutineStateProvider(
+                                          widget.routineId,
+                                        ),
+                                      )
+                                      .valueOrNull,
                             onSnooze: () => unawaited(
                               _handleAction(RA_AlarmActionTypeCodeEnum.Snooze),
                             ),
@@ -305,31 +328,75 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
 }
 
 /// Snooze/dismiss controls: stacked slide tracks or a side-by-side button row.
-class _RingActions extends StatelessWidget {
+///
+/// Labels include next fire time + duration when [routine] and [state] are
+/// available, ticking each wall-clock second so relative durations stay fresh.
+class _RingActions extends ConsumerStatefulWidget {
   final AlarmSnoozeDismissLayoutEnum layout;
+  final RoutineModel? routine;
+  final RoutineStateModel? state;
   final VoidCallback onSnooze;
   final VoidCallback onDismiss;
 
   const _RingActions({
     required this.layout,
+    required this.routine,
+    required this.state,
     required this.onSnooze,
     required this.onDismiss,
   });
 
   @override
+  ConsumerState<_RingActions> createState() => _RingActionsState();
+}
+
+class _RingActionsState extends ConsumerState<_RingActions> {
+  String? _nextSubtitle(RA_AlarmActionTypeCodeEnum action, DateTime now) {
+    final routine = widget.routine;
+    final state = widget.state;
+    if (routine == null || state == null) return null;
+    final next = RA_AlarmService.nextTriggerForAction(
+      action: action,
+      routine: routine,
+      state: state,
+      now: now,
+    );
+    return RA_Utils.formatRingActionNext(next, now: now);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (layout == AlarmSnoozeDismissLayoutEnum.Buttons) {
+    // Tick so "in 9m" and clock faces stay accurate while the page is open.
+    final now =
+        ref.watch(WallClockSecondProvider).valueOrNull ?? DateTime.now();
+    final snoozeNext = _nextSubtitle(RA_AlarmActionTypeCodeEnum.Snooze, now);
+    final dismissNext = _nextSubtitle(RA_AlarmActionTypeCodeEnum.Dismiss, now);
+    final snoozeSemantics = snoozeNext == null
+        ? 'Snooze alarm'
+        : 'Snooze alarm, next ring $snoozeNext';
+    final dismissSemantics = dismissNext == null
+        ? 'Dismiss alarm'
+        : 'Dismiss alarm, next ring $dismissNext';
+    final slideSnoozeSemantics = snoozeNext == null
+        ? 'Slide to snooze alarm'
+        : 'Slide to snooze alarm, next ring $snoozeNext';
+    final slideDismissSemantics = dismissNext == null
+        ? 'Slide to dismiss alarm'
+        : 'Slide to dismiss alarm, next ring $dismissNext';
+
+    if (widget.layout == AlarmSnoozeDismissLayoutEnum.Buttons) {
       return Row(
         children: [
           Expanded(
             child: _RingActionButton(
               key: const Key('ra_ring_snooze'),
               label: 'Snooze',
-              semanticsLabel: 'Snooze alarm',
+              nextLabel: snoozeNext,
+              semanticsLabel: snoozeSemantics,
               accent: RA_ColourStyles.secondary,
               glow: RA_ShapeStyles.tealGlow,
               icon: Icons.snooze,
-              onPressed: onSnooze,
+              onPressed: widget.onSnooze,
             ),
           ),
           const SizedBox(width: RA_ShapeStyles.space24),
@@ -337,11 +404,12 @@ class _RingActions extends StatelessWidget {
             child: _RingActionButton(
               key: const Key('ra_ring_dismiss'),
               label: 'Dismiss',
-              semanticsLabel: 'Dismiss alarm',
+              nextLabel: dismissNext,
+              semanticsLabel: dismissSemantics,
               accent: RA_ColourStyles.softCoral,
               glow: RA_ShapeStyles.softCoralGlow,
               icon: Icons.alarm_off,
-              onPressed: onDismiss,
+              onPressed: widget.onDismiss,
             ),
           ),
         ],
@@ -353,21 +421,23 @@ class _RingActions extends StatelessWidget {
         _SlideToAction(
           key: const Key('ra_ring_snooze'),
           label: 'Slide to snooze',
-          semanticsLabel: 'Slide to snooze alarm',
+          nextLabel: snoozeNext,
+          semanticsLabel: slideSnoozeSemantics,
           accent: RA_ColourStyles.secondary,
           glow: RA_ShapeStyles.tealGlow,
           thumbIcon: Icons.snooze,
-          onComplete: onSnooze,
+          onComplete: widget.onSnooze,
         ),
         const SizedBox(height: RA_ShapeStyles.space16),
         _SlideToAction(
           key: const Key('ra_ring_dismiss'),
           label: 'Slide to dismiss',
-          semanticsLabel: 'Slide to dismiss alarm',
+          nextLabel: dismissNext,
+          semanticsLabel: slideDismissSemantics,
           accent: RA_ColourStyles.softCoral,
           glow: RA_ShapeStyles.softCoralGlow,
           thumbIcon: Icons.alarm_off,
-          onComplete: onDismiss,
+          onComplete: widget.onDismiss,
         ),
       ],
     );
@@ -377,6 +447,7 @@ class _RingActions extends StatelessWidget {
 /// Full-width ring action button matching slide-track chrome height and accents.
 class _RingActionButton extends StatelessWidget {
   final String label;
+  final String? nextLabel;
   final String semanticsLabel;
   final Color accent;
   final List<BoxShadow> glow;
@@ -386,6 +457,7 @@ class _RingActionButton extends StatelessWidget {
   const _RingActionButton({
     super.key,
     required this.label,
+    this.nextLabel,
     required this.semanticsLabel,
     required this.accent,
     required this.glow,
@@ -395,6 +467,7 @@ class _RingActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasNext = nextLabel != null && nextLabel!.isNotEmpty;
     return Semantics(
       button: true,
       label: semanticsLabel,
@@ -419,22 +492,49 @@ class _RingActionButton extends StatelessWidget {
                 ),
                 boxShadow: glow,
               ),
-              child: SizedBox(
-                height: RA_ShapeStyles.minTouchTarget + RA_ShapeStyles.space16,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: accent, size: 26),
-                    const SizedBox(width: RA_ShapeStyles.space8),
-                    Flexible(
-                      child: Text(
-                        label,
-                        style: RA_TextStyles.smallFont.copyWith(color: accent),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight:
+                      RA_ShapeStyles.minTouchTarget + RA_ShapeStyles.space16,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: RA_ShapeStyles.space8,
+                    vertical: RA_ShapeStyles.space8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: accent, size: 26),
+                      const SizedBox(width: RA_ShapeStyles.space8),
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: RA_TextStyles.smallFont.copyWith(
+                                color: accent,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasNext)
+                              Text(
+                                nextLabel!,
+                                style: RA_TextStyles.tinyFont.copyWith(
+                                  color: accent.withValues(alpha: 0.85),
+                                  fontSize: 12,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -587,6 +687,7 @@ class _LiveClockState extends State<_LiveClock> {
 /// Horizontal slide-to-confirm action with heavy haptic on completion.
 class _SlideToAction extends StatefulWidget {
   final String label;
+  final String? nextLabel;
   final String semanticsLabel;
   final Color accent;
   final List<BoxShadow> glow;
@@ -596,6 +697,7 @@ class _SlideToAction extends StatefulWidget {
   const _SlideToAction({
     super.key,
     required this.label,
+    this.nextLabel,
     required this.semanticsLabel,
     required this.accent,
     required this.glow,
@@ -689,6 +791,12 @@ class _SlideToActionState extends State<_SlideToAction>
           double.infinity,
         );
 
+        final hasNext =
+            widget.nextLabel != null && widget.nextLabel!.isNotEmpty;
+        final trackHeight = hasNext
+            ? _thumbSize + RA_ShapeStyles.space24
+            : _thumbSize + RA_ShapeStyles.space16;
+
         return Semantics(
           button: true,
           label: widget.semanticsLabel,
@@ -701,7 +809,7 @@ class _SlideToActionState extends State<_SlideToAction>
                   ? Duration.zero
                   : RA_ShapeStyles.stateTransitionDuration,
               curve: Curves.easeOut,
-              height: _thumbSize + RA_ShapeStyles.space16,
+              height: trackHeight,
               decoration: BoxDecoration(
                 color: RA_ColourStyles.surface,
                 borderRadius: RA_ShapeStyles.largeBorderRadius,
@@ -719,10 +827,36 @@ class _SlideToActionState extends State<_SlideToAction>
                   Center(
                     child: Opacity(
                       opacity: (1.0 - _progress).clamp(0.2, 1.0),
-                      child: Text(
-                        widget.label,
-                        style: RA_TextStyles.smallFont.copyWith(
-                          color: RA_ColourStyles.mutedPrimary,
+                      child: Padding(
+                        // Keep center copy clear of the sliding thumb.
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _thumbSize + RA_ShapeStyles.space8,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.label,
+                              style: RA_TextStyles.smallFont.copyWith(
+                                color: RA_ColourStyles.mutedPrimary,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasNext)
+                              Text(
+                                widget.nextLabel!,
+                                style: RA_TextStyles.tinyFont.copyWith(
+                                  color: RA_ColourStyles.mutedPrimary
+                                      .withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
                         ),
                       ),
                     ),

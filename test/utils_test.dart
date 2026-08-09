@@ -90,6 +90,21 @@ void main() {
       );
     });
 
+    test('formatRingActionNext uses time and duration on the same day', () {
+      final now = DateTime(2026, 7, 27, 15, 30);
+      final next = DateTime(2026, 7, 27, 15, 39);
+      expect(RA_Utils.formatRingActionNext(next, now: now), '3:39 PM, in 9m');
+    });
+
+    test('formatRingActionNext includes weekday when next is later day', () {
+      final now = DateTime(2026, 7, 27, 15, 30); // Monday
+      final next = DateTime(2026, 7, 28, 6, 0); // Tuesday
+      expect(
+        RA_Utils.formatRingActionNext(next, now: now),
+        '6:00 AM Tue, in 14h 30m',
+      );
+    });
+
     test('formatClock zero-pads hour and includes seconds', () {
       final dt = DateTime(2026, 7, 25, 18, 45, 7);
       expect(RA_Utils.formatClock(dt), '06:45:07 PM');

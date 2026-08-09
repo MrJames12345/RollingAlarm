@@ -170,7 +170,7 @@ class RA_AlarmService {
       await db.close();
 
       await _scheduleAlarmUi(
-        fireAt: fireAt, 
+        fireAt: fireAt,
         routineId: routineId,
         audioUri: routine?.AudioUri,
         volume: routine?.Volume != null ? routine!.Volume / 100.0 : null,
@@ -364,7 +364,7 @@ class RA_AlarmService {
               ? next
               : now.add(const Duration(seconds: 1));
           await _scheduleAlarmUi(
-            fireAt: fireAt, 
+            fireAt: fireAt,
             routineId: routine.Id,
             audioUri: routine.AudioUri,
             volume: routine.Volume / 100.0,
@@ -629,6 +629,75 @@ class RA_AlarmService {
     }
   }
 
+  /// Next fire time if [action] were applied at [now].
+  ///
+  /// Mirrors the schedule math inside [handleTransition] (including daily-cap
+  /// and weekday deferral for dismiss/skip) so the ring UI can label actions
+  /// without writing state.
+  static DateTime nextTriggerForAction({
+    required RA_AlarmActionTypeCodeEnum action,
+    required RoutineModel routine,
+    required RoutineStateModel state,
+    required DateTime now,
+    bool countSkipTowardsDaily = false,
+  }) {
+    final compensation =
+        DriftCompensationTypeCodeEnum.values[routine.DriftCompensationTypeCode];
+
+    final calculated = RA_AlarmCalculator.calculateNextTrigger(
+      Action: action,
+      Compensation: compensation,
+      IntervalSeconds: routine.IntervalSeconds,
+      SnoozeSeconds: routine.SnoozeSeconds,
+      InitialRingTime: state.InitialRingTime ?? now,
+      Now: now,
+    );
+
+    final isEffectiveDismiss =
+        action == RA_AlarmActionTypeCodeEnum.Dismiss ||
+        action == RA_AlarmActionTypeCodeEnum.Skip;
+    if (!isEffectiveDismiss) return calculated;
+
+    final shouldCountCompletion =
+        action == RA_AlarmActionTypeCodeEnum.Dismiss ||
+        (action == RA_AlarmActionTypeCodeEnum.Skip && countSkipTowardsDaily);
+
+    var timesRingToday = state.TimesRingToday;
+    var timesRingDay = state.TimesRingDay;
+    if (shouldCountCompletion) {
+      final period = RA_DailyRingLimit.periodStart(
+        now,
+        routine.DayStartSeconds,
+      );
+      final priorCount = RA_DailyRingLimit.countForDay(
+        timesRingToday: state.TimesRingToday,
+        timesRingDay: state.TimesRingDay,
+        now: now,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+      timesRingToday = priorCount + 1;
+      timesRingDay = period;
+    }
+
+    // Daily cap only defers the next interval cycle, never an in-cycle snooze.
+    // Weekday filter applies to dismiss/skip the same way.
+    return RA_WeekdaySchedule.deferToEnabledDay(
+      RA_DailyRingLimit.deferIfDailyLimitReached(
+        proposed: calculated,
+        maxTimesPerDay: routine.MaxTimesPerDayEnabled
+            ? routine.MaxTimesPerDay
+            : 0,
+        extraMaxTimesToday: state.ExtraMaxTimesToday,
+        timesRingToday: timesRingToday,
+        timesRingDay: timesRingDay,
+        now: now,
+        dayStartSeconds: routine.DayStartSeconds,
+      ),
+      routine.EnabledWeekdays,
+      dayStartSeconds: routine.DayStartSeconds,
+    );
+  }
+
   /// Handles a user or system action (Dismiss, Snooze, Skip, AutoSnooze)
   /// by calculating the next trigger, updating state, logging, and
   /// rescheduling.
@@ -651,8 +720,6 @@ class RA_AlarmService {
     bool countSkipTowardsDaily = false,
   }) async {
     final now = DateTime.now();
-    final compensation =
-        DriftCompensationTypeCodeEnum.values[routine.DriftCompensationTypeCode];
 
     DateTime? nextTrigger;
 
@@ -668,15 +735,6 @@ class RA_AlarmService {
       // (home widget / countdown skip) so it does not require a live ring.
       final requiresRinging = action != RA_AlarmActionTypeCodeEnum.Skip;
       if (requiresRinging && !fresh.IsRinging) return;
-
-      final calculated = RA_AlarmCalculator.calculateNextTrigger(
-        Action: action,
-        Compensation: compensation,
-        IntervalSeconds: routine.IntervalSeconds,
-        SnoozeSeconds: routine.SnoozeSeconds,
-        InitialRingTime: fresh.InitialRingTime ?? now,
-        Now: now,
-      );
 
       final isEffectiveDismiss =
           action == RA_AlarmActionTypeCodeEnum.Dismiss ||
@@ -702,31 +760,19 @@ class RA_AlarmService {
         );
         timesRingToday = priorCount + 1;
         timesRingDay = period;
-        
+
         if (fresh.TimesRingDay != period) {
-           extraMaxTimesToday = 0;
+          extraMaxTimesToday = 0;
         }
       }
 
-      // Daily cap only defers the next interval cycle, never an in-cycle snooze.
-      // Weekday filter applies to dismiss/skip the same way.
-      final next = isEffectiveDismiss
-          ? RA_WeekdaySchedule.deferToEnabledDay(
-              RA_DailyRingLimit.deferIfDailyLimitReached(
-                proposed: calculated,
-                maxTimesPerDay: routine.MaxTimesPerDayEnabled
-                    ? routine.MaxTimesPerDay
-                    : 0,
-                extraMaxTimesToday: fresh.ExtraMaxTimesToday,
-                timesRingToday: timesRingToday,
-                timesRingDay: timesRingDay,
-                now: now,
-                dayStartSeconds: routine.DayStartSeconds,
-              ),
-              routine.EnabledWeekdays,
-              dayStartSeconds: routine.DayStartSeconds,
-            )
-          : calculated;
+      final next = nextTriggerForAction(
+        action: action,
+        routine: routine,
+        state: fresh,
+        now: now,
+        countSkipTowardsDaily: countSkipTowardsDaily,
+      );
 
       // CAS:
       // - Dismiss / Snooze / AutoSnooze: require a live ring.
@@ -1221,8 +1267,8 @@ class RA_AlarmService {
   }
 
   /// Sets a new max limit for today by adjusting the extra max offset.
-  /// 
-  /// If this causes the counter to hit or exceed the daily cap, it retargets 
+  ///
+  /// If this causes the counter to hit or exceed the daily cap, it retargets
   /// the next trigger time to the next enabled day-start boundary.
   static Future<void> setTodayMaxCount({
     required int routineId,
@@ -1236,9 +1282,15 @@ class RA_AlarmService {
     if (state == null) return;
 
     final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
-    final samePeriod = state.TimesRingDay != null && RA_DailyRingLimit.isSamePeriod(state.TimesRingDay!, now, routine.DayStartSeconds);
+    final samePeriod =
+        state.TimesRingDay != null &&
+        RA_DailyRingLimit.isSamePeriod(
+          state.TimesRingDay!,
+          now,
+          routine.DayStartSeconds,
+        );
     final currentExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
-    
+
     final baseMax = routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0;
     final newExtra = newTotalMax - baseMax;
 
@@ -1269,7 +1321,9 @@ class RA_AlarmService {
     if (!isAtCap && wasAtCap && next != null) {
       final candidate = RA_DailyRingLimit.deferIfDailyLimitReached(
         proposed: now.add(Duration(seconds: routine.IntervalSeconds)),
-        maxTimesPerDay: routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0,
+        maxTimesPerDay: routine.MaxTimesPerDayEnabled
+            ? routine.MaxTimesPerDay
+            : 0,
         extraMaxTimesToday: newExtra,
         timesRingToday: priorCount,
         timesRingDay: period,
@@ -1386,9 +1440,7 @@ class RA_AlarmService {
         TimesRingToday: shouldCount
             ? Value(timesRingToday)
             : const Value.absent(),
-        TimesRingDay: shouldCount
-            ? Value(timesRingDay)
-            : const Value.absent(),
+        TimesRingDay: shouldCount ? Value(timesRingDay) : const Value.absent(),
       ),
       requireIsRinging: false,
       matchNextTriggerTime: true,
