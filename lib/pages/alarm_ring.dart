@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -47,7 +47,7 @@ class AlarmRingPage extends ConsumerStatefulWidget {
 class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     with SingleTickerProviderStateMixin {
   static const MethodChannel _alarmSoundChannel = MethodChannel(
-    'com.example.rolling_alarm/alarm_sound',
+    'com.casellaweb.rolling_alarm/alarm_sound',
   );
 
   late final AnimationController _pulseController;

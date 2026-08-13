@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:patrol/patrol.dart';
@@ -7,7 +7,7 @@ import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 
 /// Android package under test (must match pubspec patrol.android.package_name).
-const String kRollingAlarmPackage = 'com.example.rolling_alarm';
+const String kRollingAlarmPackage = 'com.casellaweb.rolling_alarm';
 
 /// Quiets Drift's multi-connection warning for UI + openForIsolate E2E paths.
 ///

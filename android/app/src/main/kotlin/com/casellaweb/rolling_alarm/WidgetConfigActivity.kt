@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.casellaweb.rolling_alarm
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager

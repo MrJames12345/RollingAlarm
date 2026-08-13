@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/services.dart';
 
@@ -11,7 +11,7 @@ class RA_DeviceRingtone {
   RA_DeviceRingtone._();
 
   static const MethodChannel _channel = MethodChannel(
-    'com.example.rolling_alarm/alarm_sound',
+    'com.casellaweb.rolling_alarm/alarm_sound',
   );
 
   /// Plays [uri] via the platform Ringtone API.

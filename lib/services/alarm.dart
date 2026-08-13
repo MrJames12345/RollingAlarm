@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
 
@@ -26,7 +26,7 @@ class RA_AlarmService {
   static const String _dbPathKey = 'ra_db_path';
   static const String _portName = 'ra_alarm_port';
   static const String _uiSchedulerChannel =
-      'com.example.rolling_alarm/alarm_ui_scheduler';
+      'com.casellaweb.rolling_alarm/alarm_ui_scheduler';
   static const int _alarmIdBase = 1000;
   static const int _watchdogIdBase = 5000;
 
@@ -249,7 +249,7 @@ class RA_AlarmService {
   }
 
   static const String _alarmSoundChannel =
-      'com.example.rolling_alarm/alarm_sound';
+      'com.casellaweb.rolling_alarm/alarm_sound';
 
   /// Clears lock-screen overlay flags after Snooze / Dismiss ends a live ring.
   ///

@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+﻿import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
@@ -9,7 +9,7 @@ class RA_AlarmSoundPickerService {
   RA_AlarmSoundPickerService._();
 
   static const MethodChannel _channel = MethodChannel(
-    'com.example.rolling_alarm/alarm_sound',
+    'com.casellaweb.rolling_alarm/alarm_sound',
   );
 
   /// MediaStore audio files that include an OS file name (DISPLAY_NAME).

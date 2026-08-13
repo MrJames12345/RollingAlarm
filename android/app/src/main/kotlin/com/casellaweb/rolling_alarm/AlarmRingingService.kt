@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.casellaweb.rolling_alarm
 
 import android.app.ActivityManager
 import android.app.ActivityOptions
@@ -374,7 +374,7 @@ class AlarmRingingService : Service() {
 
         /** Broadcast to [MainActivity] when the user powers the screen off mid-ring. */
         const val ACTION_USER_LOCKED_DURING_RING =
-            "com.example.rolling_alarm.ACTION_USER_LOCKED_DURING_RING"
+            "com.casellaweb.rolling_alarm.ACTION_USER_LOCKED_DURING_RING"
 
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

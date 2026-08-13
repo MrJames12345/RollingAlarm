@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 import 'package:rolling_alarm/services/alarm_sound_picker.dart';
@@ -6,7 +6,7 @@ import 'package:rolling_alarm/services/alarm_sound_picker.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.example.rolling_alarm/alarm_sound');
+  const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
 
   group('RA_AlarmSoundPickerService', () {
     test('isValidAudioFile accepts recognized audio formats', () {

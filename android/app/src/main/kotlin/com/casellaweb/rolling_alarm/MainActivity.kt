@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.casellaweb.rolling_alarm
 
 import android.content.BroadcastReceiver
 import android.content.ContentUris
@@ -24,7 +24,7 @@ import java.util.Locale
 import kotlin.concurrent.thread
 
 class MainActivity : FlutterActivity() {
-    private val soundChannel = "com.example.rolling_alarm/alarm_sound"
+    private val soundChannel = "com.casellaweb.rolling_alarm/alarm_sound"
     private var pickerResult: MethodChannel.Result? = null
     private var activeRequestCode: Int = 0
     private var isAlarmRinging: Boolean = false

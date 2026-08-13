@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
@@ -30,7 +30,7 @@ class RA_AudioService {
 
   static const String _audioPortName = 'ra_audio_control_port';
   static const String _alarmSoundChannel =
-      'com.example.rolling_alarm/alarm_sound';
+      'com.casellaweb.rolling_alarm/alarm_sound';
 
   /// Bundled fallback tone when a routine has no custom playable URI.
   static const String defaultAlarmAsset = 'assets/audio/default_alarm.mp3';

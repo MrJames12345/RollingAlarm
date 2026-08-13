@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.casellaweb.rolling_alarm
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -125,7 +125,7 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     companion object {
-        const val CHANNEL = "com.example.rolling_alarm/alarm_ui_scheduler"
+        const val CHANNEL = "com.casellaweb.rolling_alarm/alarm_ui_scheduler"
         private const val REQUEST_BASE = 20000
         const val PREFS_NAME = "ra_native_alarms"
 

@@ -71,7 +71,7 @@ void main() {
         });
 
     const uiSchedulerChannel = MethodChannel(
-      'com.example.rolling_alarm/alarm_ui_scheduler',
+      'com.casellaweb.rolling_alarm/alarm_ui_scheduler',
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(uiSchedulerChannel, (
@@ -110,7 +110,7 @@ void main() {
         );
 
     const alarmSoundChannel = MethodChannel(
-      'com.example.rolling_alarm/alarm_sound',
+      'com.casellaweb.rolling_alarm/alarm_sound',
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(alarmSoundChannel, (

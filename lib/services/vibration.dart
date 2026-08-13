@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/services.dart';
 
@@ -7,7 +7,7 @@ class RA_VibrationService {
   RA_VibrationService._();
 
   static const MethodChannel _channel = MethodChannel(
-    'com.example.rolling_alarm/alarm_ui_scheduler',
+    'com.casellaweb.rolling_alarm/alarm_ui_scheduler',
   );
 
   /// Starts a repeating vibrate / pause pattern.

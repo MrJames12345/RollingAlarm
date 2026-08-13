@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,7 +117,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     if (states == null || states.isEmpty) {
       // Only clear after the grace wait; native also ignores early clears.
       try {
-        const channel = MethodChannel('com.example.rolling_alarm/alarm_sound');
+        const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
         await channel.invokeMethod('clearLockScreenFlags');
       } catch (_) {}
       return;
@@ -128,7 +128,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
       return;
     }
     try {
-      const channel = MethodChannel('com.example.rolling_alarm/alarm_sound');
+      const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
       await channel.invokeMethod('bringToForeground');
     } catch (_) {}
     await _presentRingPage(states.first);
@@ -179,7 +179,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
       if (navigator == null) return;
 
       try {
-        const channel = MethodChannel('com.example.rolling_alarm/alarm_sound');
+        const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
         await channel.invokeMethod('bringToForeground');
       } catch (_) {}
 
@@ -216,7 +216,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
           }
           try {
             const channel = MethodChannel(
-              'com.example.rolling_alarm/alarm_sound',
+              'com.casellaweb.rolling_alarm/alarm_sound',
             );
             unawaited(channel.invokeMethod('clearLockScreenFlags'));
           } catch (_) {}
@@ -228,7 +228,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
             !_ringPushInFlight) {
           try {
             const channel = MethodChannel(
-              'com.example.rolling_alarm/alarm_sound',
+              'com.casellaweb.rolling_alarm/alarm_sound',
             );
             unawaited(channel.invokeMethod('bringToForeground'));
           } catch (_) {}

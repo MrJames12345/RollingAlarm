@@ -1,4 +1,4 @@
-name: rolling_alarm
+﻿name: rolling_alarm
 description: A rolling interval alarm app for Android.
 publish_to: 'none'
 version: 1.0.0+1
@@ -52,5 +52,5 @@ flutter:
 patrol:
   app_name: Rolling Alarm
   android:
-    package_name: com.example.rolling_alarm
+    package_name: com.casellaweb.rolling_alarm
     flavor: null

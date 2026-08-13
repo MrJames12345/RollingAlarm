@@ -1,4 +1,4 @@
-package com.example.rolling_alarm
+﻿package com.casellaweb.rolling_alarm
 
 /**
  * Shared gate so a power-button lock during an active ring stops re-waking the
