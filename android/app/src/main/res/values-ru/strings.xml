@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Скользящий Будильник</string>
     <string name="widget_description">Панель управления только для чтения для рутины Скользящего Будильника</string>
     <string name="widget_label">Скользящий Будильник</string>
+
+    <string name="widget_interval">Интервал</string>
+    <string name="widget_dismissed">Отклонено</string>
+    <string name="widget_no_routine">Нет режима</string>
+    <string name="widget_routine_fallback">Режим</string>
+    <string name="widget_config_title">Выберите режим</string>
+    <string name="widget_config_subtitle">Этот виджет на домашнем экране покажет выбранный режим.</string>
+    <string name="widget_config_empty">Пока нет активных режимов. Создайте один в Скользящем Будильнике и повторите попытку.</string>
+
+    <string name="interval_hours">%1$d ч</string>
+    <string name="interval_minutes">%1$d мин</string>
+    <string name="interval_seconds">%1$d с</string>
+
+    <string name="notification_channel_service">Служба будильника</string>
+    <string name="notification_channel_service_desc">Поддерживает работу службы пробуждения будильника; интерфейс звонка только на весь экран</string>
+    <string name="notification_channel_wake">Пробуждение будильника</string>
+    <string name="notification_channel_wake_desc">Открывает полноэкранный будильник поверх экрана блокировки или других приложений</string>
+    <string name="notification_alarm_ringing">Будильник звонит</string>
+
+    <string name="picker_alarm_sound">Звук будильника</string>
+    <string name="picker_device_sound">Звук устройства</string>
+    <string name="picker_local_file">Локальный файл</string>
+    <string name="error_non_audio_file">Выбранный файл \'%1$s\' не является аудиофайлом. Выберите допустимый аудиофайл (например, mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">Не удалось открыть выбор файла: %1$s</string>
+    <string name="error_picker_busy">Выбор файла уже открыт</string>
+    <string name="error_exact_alarm_denied">Разрешение на точный будильник отклонено.</string>
 </resources>

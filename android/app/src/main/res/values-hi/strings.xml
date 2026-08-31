@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">रोलिंग अलार्म</string>
     <string name="widget_description">रोलिंग अलार्म रूटीन के लिए रीड-ओनली डैशबोर्ड</string>
     <string name="widget_label">रोलिंग अलार्म</string>
+
+    <string name="widget_interval">अंतराल</string>
+    <string name="widget_dismissed">बंद किए गए</string>
+    <string name="widget_no_routine">कोई रूटीन नहीं</string>
+    <string name="widget_routine_fallback">रूटीन</string>
+    <string name="widget_config_title">एक रूटीन चुनें</string>
+    <string name="widget_config_subtitle">यह होम स्क्रीन विजेट चुनी गई रूटीन दिखाएगा।</string>
+    <string name="widget_config_empty">अभी कोई सक्रिय रूटीन नहीं है. रोलिंग अलार्म में एक बनाएँ, फिर फिर से कोशिश करें.</string>
+
+    <string name="interval_hours">%1$dघं</string>
+    <string name="interval_minutes">%1$dमि</string>
+    <string name="interval_seconds">%1$dसे</string>
+
+    <string name="notification_channel_service">अलार्म सेवा</string>
+    <string name="notification_channel_service_desc">अलार्म जगाने की सेवा को चालू रखता है; रिंग इंटरफ़ेस केवल पूर्ण स्क्रीन है</string>
+    <string name="notification_channel_wake">अलार्म जगाना</string>
+    <string name="notification_channel_wake_desc">लॉक स्क्रीन या अन्य ऐप्स के ऊपर पूर्ण स्क्रीन अलार्म खोलता है</string>
+    <string name="notification_alarm_ringing">अलार्म बज रहा है</string>
+
+    <string name="picker_alarm_sound">अलार्म ध्वनि</string>
+    <string name="picker_device_sound">डिवाइस ध्वनि</string>
+    <string name="picker_local_file">स्थानीय फ़ाइल</string>
+    <string name="error_non_audio_file">चुनी गई फ़ाइल \'%1$s\' ऑडियो फ़ाइल नहीं है. कृपया एक मान्य ऑडियो फ़ाइल चुनें (जैसे mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">फ़ाइल चयनकर्ता नहीं खुल सका: %1$s</string>
+    <string name="error_picker_busy">चयनकर्ता पहले से खुला है</string>
+    <string name="error_exact_alarm_denied">सटीक अलार्म की अनुमति अस्वीकृत है.</string>
 </resources>

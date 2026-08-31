@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">ローリングアラーム</string>
     <string name="widget_description">ローリングアラームルーティンのための読み取り専用ダッシュボード</string>
     <string name="widget_label">ローリングアラーム</string>
+
+    <string name="widget_interval">間隔</string>
+    <string name="widget_dismissed">停止回数</string>
+    <string name="widget_no_routine">ルーティンなし</string>
+    <string name="widget_routine_fallback">ルーティン</string>
+    <string name="widget_config_title">ルーティンを選択</string>
+    <string name="widget_config_subtitle">このホーム画面ウィジェットには、選択したルーティンが表示されます。</string>
+    <string name="widget_config_empty">有効なルーティンがまだありません。ローリングアラームで作成してから、もう一度お試しください。</string>
+
+    <string name="interval_hours">%1$d時間</string>
+    <string name="interval_minutes">%1$d分</string>
+    <string name="interval_seconds">%1$d秒</string>
+
+    <string name="notification_channel_service">アラームサービス</string>
+    <string name="notification_channel_service_desc">アラーム起床サービスを維持します。鳴動画面は全画面表示のみです</string>
+    <string name="notification_channel_wake">アラーム起床</string>
+    <string name="notification_channel_wake_desc">ロック画面や他のアプリの上に全画面アラームを表示します</string>
+    <string name="notification_alarm_ringing">アラームが鳴っています</string>
+
+    <string name="picker_alarm_sound">アラーム音</string>
+    <string name="picker_device_sound">端末のサウンド</string>
+    <string name="picker_local_file">ローカルファイル</string>
+    <string name="error_non_audio_file">選択したファイル \'%1$s\' は音声ファイルではありません。有効な音声ファイル（mp3、wav、ogg など）を選択してください。</string>
+    <string name="error_file_picker_failed">ファイル選択を開けませんでした: %1$s</string>
+    <string name="error_picker_busy">選択画面はすでに開いています</string>
+    <string name="error_exact_alarm_denied">正確なアラームの権限が拒否されています。</string>
 </resources>

@@ -88,9 +88,9 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
             ) {
                 when {
                     size.height >= LARGE_SIZE.height && size.width >= LARGE_SIZE.width ->
-                        LargeWidgetUI(display)
+                        LargeWidgetUI(context, display)
                     size.width >= MEDIUM_SIZE.width ->
-                        MediumWidgetUI(display)
+                        MediumWidgetUI(context, display)
                     else ->
                         SmallWidgetUI(display)
                 }
@@ -137,7 +137,10 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
 
     /** 4x2: hero card on top; Interval + Dismissed cards below. */
     @Composable
-    private fun MediumWidgetUI(display: WidgetRoutineBridge.RoutineDisplay) {
+    private fun MediumWidgetUI(
+        context: Context,
+        display: WidgetRoutineBridge.RoutineDisplay,
+    ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             CardSurface(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 Column(
@@ -175,14 +178,14 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 MetricCard(
-                    label = "Interval",
+                    label = context.getString(R.string.widget_interval),
                     value = display.intervalTime,
                     valueColor = SurgicalTeal,
                     modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
                 )
                 Spacer(modifier = GlanceModifier.width(8.dp))
                 MetricCard(
-                    label = "Dismissed",
+                    label = context.getString(R.string.widget_dismissed),
                     value = display.dismissalsToday,
                     valueColor = SoftCoral,
                     modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
@@ -193,7 +196,10 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
 
     /** 4x3: hero card on top; Interval + Dismissed cards below (larger type). */
     @Composable
-    private fun LargeWidgetUI(display: WidgetRoutineBridge.RoutineDisplay) {
+    private fun LargeWidgetUI(
+        context: Context,
+        display: WidgetRoutineBridge.RoutineDisplay,
+    ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             CardSurface(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 Column(
@@ -231,14 +237,14 @@ class RollingAlarmGlanceWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 MetricCard(
-                    label = "Interval",
+                    label = context.getString(R.string.widget_interval),
                     value = display.intervalTime,
                     valueColor = SurgicalTeal,
                     modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
                 )
                 Spacer(modifier = GlanceModifier.width(8.dp))
                 MetricCard(
-                    label = "Dismissed",
+                    label = context.getString(R.string.widget_dismissed),
                     value = display.dismissalsToday,
                     valueColor = SoftCoral,
                     modifier = GlanceModifier.defaultWeight().fillMaxHeight(),

@@ -58,7 +58,7 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                     if (!alarmManager.canScheduleExactAlarms()) {
-                        result.error("exact_alarm_denied", "Exact alarm permission is denied.", null)
+                        result.error("exact_alarm_denied", context.getString(R.string.error_exact_alarm_denied), null)
                         return
                     }
                 }

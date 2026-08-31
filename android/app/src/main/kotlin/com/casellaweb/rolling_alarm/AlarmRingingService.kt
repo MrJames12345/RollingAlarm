@@ -353,13 +353,7 @@ class AlarmRingingService : Service() {
         const val EXTRA_VIBRATE = "vibrate"
 
         private const val CHANNEL_ID_SERVICE = "ra_native_alarm_fgs_v4"
-        private const val CHANNEL_NAME_SERVICE = "Alarm Service"
-        private const val CHANNEL_DESC_SERVICE =
-            "Keeps the alarm wake service alive; ring UI is full-screen only"
         private const val CHANNEL_ID_WAKE = "ra_native_alarm_wake_v4"
-        private const val CHANNEL_NAME_WAKE = "Alarm Wake"
-        private const val CHANNEL_DESC_WAKE =
-            "Launches the full-page alarm over the lock screen or other apps"
         private const val WAKE_LOCK_TAG = "rolling_alarm:alarm_ringing"
         private const val NOTIFICATION_BASE = 70000
         private const val REQUEST_FSI_BASE = 71000
@@ -381,38 +375,35 @@ class AlarmRingingService : Service() {
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (nm.getNotificationChannel(CHANNEL_ID_SERVICE) == null) {
-                nm.createNotificationChannel(
-                    NotificationChannel(
-                        CHANNEL_ID_SERVICE,
-                        CHANNEL_NAME_SERVICE,
-                        NotificationManager.IMPORTANCE_LOW
-                    ).apply {
-                        description = CHANNEL_DESC_SERVICE
-                        setBypassDnd(false)
-                        setSound(null, null)
-                        enableVibration(false)
-                        setShowBadge(false)
-                        lockscreenVisibility = Notification.VISIBILITY_SECRET
-                    }
-                )
-            }
-            if (nm.getNotificationChannel(CHANNEL_ID_WAKE) == null) {
-                nm.createNotificationChannel(
-                    NotificationChannel(
-                        CHANNEL_ID_WAKE,
-                        CHANNEL_NAME_WAKE,
-                        NotificationManager.IMPORTANCE_HIGH
-                    ).apply {
-                        description = CHANNEL_DESC_WAKE
-                        setBypassDnd(true)
-                        setSound(null, null)
-                        enableVibration(false)
-                        setShowBadge(false)
-                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                    }
-                )
-            }
+            // Recreate so channel name and description follow the current locale.
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_SERVICE,
+                    context.getString(R.string.notification_channel_service),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = context.getString(R.string.notification_channel_service_desc)
+                    setBypassDnd(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_SECRET
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_WAKE,
+                    context.getString(R.string.notification_channel_wake),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.notification_channel_wake_desc)
+                    setBypassDnd(true)
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                }
+            )
         }
 
         fun notificationId(routineId: Int): Int = NOTIFICATION_BASE + routineId
@@ -444,8 +435,8 @@ class AlarmRingingService : Service() {
 
             val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Rolling Alarm")
-                .setContentText("Alarm is ringing")
+                .setContentTitle(context.getString(R.string.app_name))
+                .setContentText(context.getString(R.string.notification_alarm_ringing))
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setSilent(true)

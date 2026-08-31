@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">المنبه المتدحرج</string>
     <string name="widget_description">لوحة تحكم للقراءة فقط لروتين المنبه المتدحرج</string>
     <string name="widget_label">المنبه المتدحرج</string>
+
+    <string name="widget_interval">الفاصل</string>
+    <string name="widget_dismissed">تم الإيقاف</string>
+    <string name="widget_no_routine">لا يوجد روتين</string>
+    <string name="widget_routine_fallback">روتين</string>
+    <string name="widget_config_title">اختر روتينًا</string>
+    <string name="widget_config_subtitle">ستعرض هذه الأداة على الشاشة الرئيسية الروتين المحدد.</string>
+    <string name="widget_config_empty">لا توجد روتينات نشطة بعد. أنشئ واحدًا في المنبه المتدحرج ثم حاول مرة أخرى.</string>
+
+    <string name="interval_hours">%1$d س</string>
+    <string name="interval_minutes">%1$d د</string>
+    <string name="interval_seconds">%1$d ث</string>
+
+    <string name="notification_channel_service">خدمة المنبه</string>
+    <string name="notification_channel_service_desc">يبقي خدمة إيقاظ المنبه قيد التشغيل؛ واجهة الرنين بملء الشاشة فقط</string>
+    <string name="notification_channel_wake">إيقاظ المنبه</string>
+    <string name="notification_channel_wake_desc">يفتح المنبه بملء الشاشة فوق شاشة القفل أو التطبيقات الأخرى</string>
+    <string name="notification_alarm_ringing">المنبه يرن</string>
+
+    <string name="picker_alarm_sound">صوت المنبه</string>
+    <string name="picker_device_sound">صوت الجهاز</string>
+    <string name="picker_local_file">ملف محلي</string>
+    <string name="error_non_audio_file">الملف المحدد \'%1$s\' ليس ملف صوت. يرجى اختيار ملف صوت صالح (مثل mp3 أو wav أو ogg).</string>
+    <string name="error_file_picker_failed">تعذر فتح منتقي الملفات: %1$s</string>
+    <string name="error_picker_busy">المنتقي مفتوح بالفعل</string>
+    <string name="error_exact_alarm_denied">تم رفض إذن المنبه الدقيق.</string>
 </resources>

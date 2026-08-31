@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">롤링 알람</string>
     <string name="widget_description">롤링 알람 루틴을 위한 읽기 전용 대시보드</string>
     <string name="widget_label">롤링 알람</string>
+
+    <string name="widget_interval">간격</string>
+    <string name="widget_dismissed">해제</string>
+    <string name="widget_no_routine">루틴 없음</string>
+    <string name="widget_routine_fallback">루틴</string>
+    <string name="widget_config_title">루틴 선택</string>
+    <string name="widget_config_subtitle">이 홈 화면 위젯은 선택한 루틴을 표시합니다.</string>
+    <string name="widget_config_empty">활성 루틴이 아직 없습니다. 롤링 알람에서 만든 다음 다시 시도하세요.</string>
+
+    <string name="interval_hours">%1$d시간</string>
+    <string name="interval_minutes">%1$d분</string>
+    <string name="interval_seconds">%1$d초</string>
+
+    <string name="notification_channel_service">알람 서비스</string>
+    <string name="notification_channel_service_desc">알람 깨우기 서비스를 유지합니다. 울림 화면은 전체 화면만 사용합니다</string>
+    <string name="notification_channel_wake">알람 깨우기</string>
+    <string name="notification_channel_wake_desc">잠금 화면이나 다른 앱 위에 전체 화면 알람을 표시합니다</string>
+    <string name="notification_alarm_ringing">알람이 울리는 중</string>
+
+    <string name="picker_alarm_sound">알람 소리</string>
+    <string name="picker_device_sound">기기 소리</string>
+    <string name="picker_local_file">로컬 파일</string>
+    <string name="error_non_audio_file">선택한 파일 \'%1$s\'은(는) 오디오 파일이 아닙니다. 올바른 오디오 파일(예: mp3, wav, ogg)을 선택하세요.</string>
+    <string name="error_file_picker_failed">파일 선택기를 열 수 없습니다: %1$s</string>
+    <string name="error_picker_busy">선택기가 이미 열려 있습니다</string>
+    <string name="error_exact_alarm_denied">정확한 알람 권한이 거부되었습니다.</string>
 </resources>

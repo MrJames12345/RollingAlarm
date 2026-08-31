@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Alarma Rodante</string>
     <string name="widget_description">Panel de solo lectura para una rutina de Alarma Rodante</string>
     <string name="widget_label">Alarma Rodante</string>
+
+    <string name="widget_interval">Intervalo</string>
+    <string name="widget_dismissed">Descartadas</string>
+    <string name="widget_no_routine">Sin rutina</string>
+    <string name="widget_routine_fallback">Rutina</string>
+    <string name="widget_config_title">Elige una rutina</string>
+    <string name="widget_config_subtitle">Este widget de la pantalla de inicio mostrará la rutina seleccionada.</string>
+    <string name="widget_config_empty">Aún no hay rutinas activas. Crea una en Alarma Rodante y vuelve a intentarlo.</string>
+
+    <string name="interval_hours">%1$dh</string>
+    <string name="interval_minutes">%1$dmin</string>
+    <string name="interval_seconds">%1$ds</string>
+
+    <string name="notification_channel_service">Servicio de alarma</string>
+    <string name="notification_channel_service_desc">Mantiene activo el servicio de despertar de la alarma; la interfaz de timbre es solo a pantalla completa</string>
+    <string name="notification_channel_wake">Despertar de alarma</string>
+    <string name="notification_channel_wake_desc">Abre la alarma a pantalla completa sobre la pantalla de bloqueo u otras aplicaciones</string>
+    <string name="notification_alarm_ringing">La alarma está sonando</string>
+
+    <string name="picker_alarm_sound">Sonido de alarma</string>
+    <string name="picker_device_sound">Sonido del dispositivo</string>
+    <string name="picker_local_file">Archivo local</string>
+    <string name="error_non_audio_file">El archivo seleccionado \'%1$s\' no es un archivo de audio. Selecciona un archivo de audio válido (por ej. mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">No se pudo abrir el selector de archivos: %1$s</string>
+    <string name="error_picker_busy">El selector ya está abierto</string>
+    <string name="error_exact_alarm_denied">El permiso de alarma exacta está denegado.</string>
 </resources>

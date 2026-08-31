@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Rolling Alarm</string>
     <string name="widget_description">Read-only dashboard for a Rolling Alarm routine</string>
     <string name="widget_label">Rolling Alarm</string>
+
+    <string name="widget_interval">Interval</string>
+    <string name="widget_dismissed">Dismissed</string>
+    <string name="widget_no_routine">No Routine</string>
+    <string name="widget_routine_fallback">Routine</string>
+    <string name="widget_config_title">Choose a routine</string>
+    <string name="widget_config_subtitle">This home screen widget will show the selected routine.</string>
+    <string name="widget_config_empty">No active routines yet. Create one in Rolling Alarm, then try again.</string>
+
+    <string name="interval_hours">%1$dh</string>
+    <string name="interval_minutes">%1$dm</string>
+    <string name="interval_seconds">%1$ds</string>
+
+    <string name="notification_channel_service">Alarm Service</string>
+    <string name="notification_channel_service_desc">Keeps the alarm wake service alive; ring UI is full-screen only</string>
+    <string name="notification_channel_wake">Alarm Wake</string>
+    <string name="notification_channel_wake_desc">Launches the full-page alarm over the lock screen or other apps</string>
+    <string name="notification_alarm_ringing">Alarm is ringing</string>
+
+    <string name="picker_alarm_sound">Alarm sound</string>
+    <string name="picker_device_sound">Device sound</string>
+    <string name="picker_local_file">Local file</string>
+    <string name="error_non_audio_file">The selected file \'%1$s\' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">Could not open file picker: %1$s</string>
+    <string name="error_picker_busy">Picker already open</string>
+    <string name="error_exact_alarm_denied">Exact alarm permission is denied.</string>
 </resources>
