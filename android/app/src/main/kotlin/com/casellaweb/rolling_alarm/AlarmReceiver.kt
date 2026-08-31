@@ -42,6 +42,14 @@ class AlarmReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             // Android 12+ ForegroundServiceStartNotAllowedException fallback
             AlarmRingingService.showFallbackNotification(context, safeIntent)
+        } finally {
+            // FGS holds its own wake lock; release this bridge lock promptly.
+            try {
+                if (wakeLock.isHeld) {
+                    wakeLock.release()
+                }
+            } catch (_: Exception) {
+            }
         }
 
         if (!lockedOrAsleep) {
@@ -53,6 +61,7 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object {
         const val EXTRA_ROUTINE_ID = "routineId"
         private const val WAKE_LOCK_TAG = "rolling_alarm:alarm_receiver"
-        private const val WAKE_LOCK_TIMEOUT_MS = 60_000L
+        /** Short bridge until [AlarmRingingService] acquires its own lock. */
+        private const val WAKE_LOCK_TIMEOUT_MS = 5_000L
     }
 }
