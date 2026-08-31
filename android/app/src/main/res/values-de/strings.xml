@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Schreibgeschütztes Dashboard für eine Routine des Rollenden Alarms</string>
+    <string name="widget_label">Rollender Alarm</string>
+</resources>
