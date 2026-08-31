@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Alarme Rolante</string>
     <string name="widget_description">Painel somente leitura para uma rotina de Alarme Rolante</string>
     <string name="widget_label">Alarme Rolante</string>
+
+    <string name="widget_interval">Intervalo</string>
+    <string name="widget_dismissed">Encerrados</string>
+    <string name="widget_no_routine">Nenhuma rotina</string>
+    <string name="widget_routine_fallback">Rotina</string>
+    <string name="widget_config_title">Escolha uma rotina</string>
+    <string name="widget_config_subtitle">Este widget da tela inicial mostrará a rotina selecionada.</string>
+    <string name="widget_config_empty">Ainda não há rotinas ativas. Crie uma no Alarme Rolante e tente novamente.</string>
+
+    <string name="interval_hours">%1$dh</string>
+    <string name="interval_minutes">%1$dmin</string>
+    <string name="interval_seconds">%1$ds</string>
+
+    <string name="notification_channel_service">Serviço de alarme</string>
+    <string name="notification_channel_service_desc">Mantém o serviço de despertar do alarme ativo; a interface de toque é apenas em tela cheia</string>
+    <string name="notification_channel_wake">Despertar do alarme</string>
+    <string name="notification_channel_wake_desc">Abre o alarme em tela cheia sobre a tela de bloqueio ou outros aplicativos</string>
+    <string name="notification_alarm_ringing">O alarme está tocando</string>
+
+    <string name="picker_alarm_sound">Som do alarme</string>
+    <string name="picker_device_sound">Som do dispositivo</string>
+    <string name="picker_local_file">Arquivo local</string>
+    <string name="error_non_audio_file">O arquivo selecionado \'%1$s\' não é um arquivo de áudio. Selecione um arquivo de áudio válido (por ex. mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">Não foi possível abrir o seletor de arquivos: %1$s</string>
+    <string name="error_picker_busy">O seletor já está aberto</string>
+    <string name="error_exact_alarm_denied">A permissão de alarme exato foi negada.</string>
 </resources>

@@ -473,7 +473,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "pickDeviceSound" -> {
                         if (pickerResult != null) {
-                            result.error("busy", "Picker already open", null)
+                            result.error("busy", getString(R.string.error_picker_busy), null)
                             return@setMethodCallHandler
                         }
                         pickerResult = result
@@ -486,7 +486,7 @@ class MainActivity : FlutterActivity() {
                             )
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
                             putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm sound")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, getString(R.string.picker_alarm_sound))
                             if (!existing.isNullOrEmpty()) {
                                 putExtra(
                                     RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
@@ -499,7 +499,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "pickLocalFile" -> {
                         if (pickerResult != null) {
-                            result.error("busy", "Picker already open", null)
+                            result.error("busy", getString(R.string.error_picker_busy), null)
                             return@setMethodCallHandler
                         }
                         pickerResult = result
@@ -520,7 +520,7 @@ class MainActivity : FlutterActivity() {
                         } catch (e: Exception) {
                             pickerResult = null
                             activeRequestCode = 0
-                            result.error("launch_failed", "Could not open file picker: ${e.message}", null)
+                            result.error("launch_failed", getString(R.string.error_file_picker_failed, e.message ?: ""), null)
                         }
                     }
                     else -> result.notImplemented()
@@ -604,7 +604,7 @@ class MainActivity : FlutterActivity() {
                     pending.success(null)
                     return
                 }
-                val title = RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: "Device sound"
+                val title = RingtoneManager.getRingtone(this, uri)?.getTitle(this) ?: getString(R.string.picker_device_sound)
                 pending.success(hashMapOf("uri" to uri.toString(), "title" to title))
                 return
             }
@@ -623,7 +623,7 @@ class MainActivity : FlutterActivity() {
                     contentResolver.takePersistableUriPermission(uri, takeFlags)
                 } catch (_: Exception) {}
 
-                var displayName = "Local file"
+                var displayName = getString(R.string.picker_local_file)
                 try {
                     contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) {
@@ -675,7 +675,7 @@ class MainActivity : FlutterActivity() {
                     mimeType.startsWith("text/", ignoreCase = true)
 
                 if (isNonAudioExt || (!isAudioMime && !isAudioExt && ext.isNotEmpty())) {
-                    pending.error("non_audio_file", "The selected file '$displayName' is not an audio file. Please select a valid audio file (e.g. mp3, wav, ogg).", null)
+                    pending.error("non_audio_file", getString(R.string.error_non_audio_file, displayName), null)
                     return
                 }
 

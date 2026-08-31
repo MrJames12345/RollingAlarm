@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Rollender Alarm</string>
     <string name="widget_description">Schreibgeschütztes Dashboard für eine Routine des Rollenden Alarms</string>
     <string name="widget_label">Rollender Alarm</string>
+
+    <string name="widget_interval">Intervall</string>
+    <string name="widget_dismissed">Beendet</string>
+    <string name="widget_no_routine">Keine Routine</string>
+    <string name="widget_routine_fallback">Routine</string>
+    <string name="widget_config_title">Routine auswählen</string>
+    <string name="widget_config_subtitle">Dieses Startbildschirm-Widget zeigt die ausgewählte Routine an.</string>
+    <string name="widget_config_empty">Noch keine aktiven Routinen. Erstelle eine in Rollender Alarm und versuche es erneut.</string>
+
+    <string name="interval_hours">%1$d Std.</string>
+    <string name="interval_minutes">%1$d Min.</string>
+    <string name="interval_seconds">%1$d Sek.</string>
+
+    <string name="notification_channel_service">Alarmdienst</string>
+    <string name="notification_channel_service_desc">Hält den Weckdienst des Alarms aktiv; die Klingeloberfläche ist nur im Vollbild</string>
+    <string name="notification_channel_wake">Alarmweckung</string>
+    <string name="notification_channel_wake_desc">Öffnet den Vollbildalarm über dem Sperrbildschirm oder anderen Apps</string>
+    <string name="notification_alarm_ringing">Alarm klingelt</string>
+
+    <string name="picker_alarm_sound">Alarmton</string>
+    <string name="picker_device_sound">Geräteton</string>
+    <string name="picker_local_file">Lokale Datei</string>
+    <string name="error_non_audio_file">Die ausgewählte Datei \'%1$s\' ist keine Audiodatei. Bitte wähle eine gültige Audiodatei (z. B. mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">Dateiauswahl konnte nicht geöffnet werden: %1$s</string>
+    <string name="error_picker_busy">Die Auswahl ist bereits geöffnet</string>
+    <string name="error_exact_alarm_denied">Die Berechtigung für genaue Alarme wurde verweigert.</string>
 </resources>

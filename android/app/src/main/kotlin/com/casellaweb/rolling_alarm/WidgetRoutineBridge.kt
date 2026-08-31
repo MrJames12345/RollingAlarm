@@ -41,7 +41,7 @@ object WidgetRoutineBridge {
             ).use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
-                        add(RoutineChoice(cursor.getInt(0), cursor.getString(1) ?: "Routine"))
+                        add(RoutineChoice(cursor.getInt(0), cursor.getString(1) ?: context.getString(R.string.widget_routine_fallback)))
                     }
                 }
             }
@@ -50,18 +50,19 @@ object WidgetRoutineBridge {
 
     fun writeRoutineDisplay(context: Context, routineId: Int): RoutineDisplay? {
         val dbPath = dbPath(context) ?: return null
-        val display = openDb(dbPath)?.use { db -> loadDisplay(db, routineId) } ?: return null
+        val display = openDb(dbPath)?.use { db -> loadDisplay(context, db, routineId) } ?: return null
         persistDisplay(context, routineId, display)
         return display
     }
 
     fun readDisplay(context: Context, routineId: Int?): RoutineDisplay {
         if (routineId == null || routineId <= 0) {
-            return emptyDisplay()
+            return emptyDisplay(context)
         }
         val prefs = HomeWidgetPlugin.getData(context)
         return RoutineDisplay(
-            name = prefs.getString(nameKey(routineId), null) ?: "No Routine",
+            name = prefs.getString(nameKey(routineId), null)
+                ?: context.getString(R.string.widget_no_routine),
             nextAlarmTime = prefs.getString(nextAlarmKey(routineId), null) ?: "--:--",
             intervalTime = prefs.getString(intervalKey(routineId), null) ?: "--",
             dismissalsToday = prefs.getString(dismissalsKey(routineId), null) ?: "0",
@@ -73,8 +74,8 @@ object WidgetRoutineBridge {
     fun intervalKey(routineId: Int) = "routine_${routineId}_interval_time"
     fun dismissalsKey(routineId: Int) = "routine_${routineId}_dismissals_today"
 
-    private fun emptyDisplay() = RoutineDisplay(
-        name = "No Routine",
+    private fun emptyDisplay(context: Context) = RoutineDisplay(
+        name = context.getString(R.string.widget_no_routine),
         nextAlarmTime = "--:--",
         intervalTime = "--",
         dismissalsToday = "0",
@@ -89,7 +90,7 @@ object WidgetRoutineBridge {
             .commit()
     }
 
-    private fun loadDisplay(db: SQLiteDatabase, routineId: Int): RoutineDisplay? {
+    private fun loadDisplay(context: Context, db: SQLiteDatabase, routineId: Int): RoutineDisplay? {
         val routine = db.rawQuery(
             """
             SELECT name, interval_seconds, day_start_seconds, deleted, is_active
@@ -100,8 +101,8 @@ object WidgetRoutineBridge {
             if (!cursor.moveToFirst()) return null
             val deleted = cursor.getInt(3) == 1
             val active = cursor.getInt(4) == 1
-            if (deleted || !active) return emptyDisplay()
-            Triple(cursor.getString(0) ?: "Routine", cursor.getInt(1), cursor.getInt(2))
+            if (deleted || !active) return emptyDisplay(context)
+            Triple(cursor.getString(0) ?: context.getString(R.string.widget_routine_fallback), cursor.getInt(1), cursor.getInt(2))
         }
 
         val nextRaw = db.rawQuery(
@@ -140,20 +141,24 @@ object WidgetRoutineBridge {
         return RoutineDisplay(
             name = routine.first,
             nextAlarmTime = nextAlarm,
-            intervalTime = formatInterval(routine.second),
+            intervalTime = formatInterval(context, routine.second),
             dismissalsToday = dismissals.toString(),
         )
     }
 
-    private fun formatInterval(totalSeconds: Int): String {
-        if (totalSeconds <= 0) return "0s"
+    private fun formatInterval(context: Context, totalSeconds: Int): String {
+        if (totalSeconds <= 0) {
+            return context.getString(R.string.interval_seconds, 0)
+        }
         val h = totalSeconds / 3600
         val m = (totalSeconds % 3600) / 60
         val s = totalSeconds % 60
         val parts = mutableListOf<String>()
-        if (h > 0) parts.add("${h}h")
-        if (m > 0) parts.add("${m}m")
-        if (s > 0 || parts.isEmpty()) parts.add("${s}s")
+        if (h > 0) parts.add(context.getString(R.string.interval_hours, h))
+        if (m > 0) parts.add(context.getString(R.string.interval_minutes, m))
+        if (s > 0 || parts.isEmpty()) {
+            parts.add(context.getString(R.string.interval_seconds, s))
+        }
         return parts.joinToString(" ")
     }
 

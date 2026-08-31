@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">Tableau de bord en lecture seule pour une routine d'Alarme Roulante</string>
+    <string name="app_name">Alarme Roulante</string>
+    <string name="widget_description">Tableau de bord en lecture seule pour une routine d\'Alarme Roulante</string>
     <string name="widget_label">Alarme Roulante</string>
+
+    <string name="widget_interval">Intervalle</string>
+    <string name="widget_dismissed">Arrêts</string>
+    <string name="widget_no_routine">Aucune routine</string>
+    <string name="widget_routine_fallback">Routine</string>
+    <string name="widget_config_title">Choisir une routine</string>
+    <string name="widget_config_subtitle">Ce widget d\'écran d\'accueil affichera la routine sélectionnée.</string>
+    <string name="widget_config_empty">Aucune routine active pour le moment. Créez-en une dans Alarme Roulante, puis réessayez.</string>
+
+    <string name="interval_hours">%1$d h</string>
+    <string name="interval_minutes">%1$d min</string>
+    <string name="interval_seconds">%1$d s</string>
+
+    <string name="notification_channel_service">Service d\'alarme</string>
+    <string name="notification_channel_service_desc">Maintient le service de réveil de l\'alarme actif ; l\'interface de sonnerie est uniquement en plein écran</string>
+    <string name="notification_channel_wake">Réveil d\'alarme</string>
+    <string name="notification_channel_wake_desc">Ouvre l\'alarme en plein écran au-dessus de l\'écran de verrouillage ou d\'autres applications</string>
+    <string name="notification_alarm_ringing">L\'alarme sonne</string>
+
+    <string name="picker_alarm_sound">Sonnerie d\'alarme</string>
+    <string name="picker_device_sound">Son de l\'appareil</string>
+    <string name="picker_local_file">Fichier local</string>
+    <string name="error_non_audio_file">Le fichier sélectionné \'%1$s\' n\'est pas un fichier audio. Veuillez sélectionner un fichier audio valide (p. ex. mp3, wav, ogg).</string>
+    <string name="error_file_picker_failed">Impossible d\'ouvrir le sélecteur de fichiers : %1$s</string>
+    <string name="error_picker_busy">Le sélecteur est déjà ouvert</string>
+    <string name="error_exact_alarm_denied">L\'autorisation d\'alarme exacte est refusée.</string>
 </resources>

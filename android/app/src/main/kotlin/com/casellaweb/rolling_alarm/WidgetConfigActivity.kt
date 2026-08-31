@@ -49,7 +49,7 @@ class WidgetConfigActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(COLOR_OFF_BLACK)
-            setPadding(dp(20), dp(28), dp(20), dp(20))
+            setPaddingRelative(dp(20), dp(28), dp(20), dp(20))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -58,27 +58,33 @@ class WidgetConfigActivity : Activity() {
 
         root.addView(
             TextView(this).apply {
-                text = "Choose a routine"
+                text = getString(R.string.widget_config_title)
                 setTextColor(COLOR_PRIMARY)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                 typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                gravity = Gravity.START
             },
         )
         root.addView(
             TextView(this).apply {
-                text = "This home screen widget will show the selected routine."
+                text = getString(R.string.widget_config_subtitle)
                 setTextColor(COLOR_MUTED)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                setPadding(0, dp(8), 0, dp(20))
+                setPaddingRelative(0, dp(8), 0, dp(20))
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                gravity = Gravity.START
             },
         )
 
         if (routines.isEmpty()) {
             root.addView(
                 TextView(this).apply {
-                    text = "No active routines yet. Create one in Rolling Alarm, then try again."
+                    text = getString(R.string.widget_config_empty)
                     setTextColor(COLOR_CORAL)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                    textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                    gravity = Gravity.START
                 },
             )
             return root
@@ -96,8 +102,9 @@ class WidgetConfigActivity : Activity() {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                     typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
                     setBackgroundColor(COLOR_SURFACE)
-                    setPadding(dp(16), dp(18), dp(16), dp(18))
-                    gravity = Gravity.CENTER_VERTICAL
+                    setPaddingRelative(dp(16), dp(18), dp(16), dp(18))
+                    textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
                     isClickable = true
                     isFocusable = true
                     setOnClickListener { confirmRoutine(routine.id) }
