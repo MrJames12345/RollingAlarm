@@ -32,7 +32,12 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
   /// Routine currently shown (or being opened) on [AlarmRingPage].
   int? _openRingRoutineId;
 
+  /// Safety net for missed isolate pings while the UI is foregrounded only.
+  /// Ringing state is driven by [RingingRoutineStatesProvider]; due fires are
+  /// handled by [RA_Countdown] calling [RA_AlarmService.forceRingIfDue].
   Timer? _foregroundWatchdog;
+
+  static const Duration _watchdogInterval = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -45,26 +50,45 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
       unawaited(
         RA_AlarmService.syncAlarmUiSchedules(ref.read(RA_DatabaseProvider)),
       );
-    });
-    _foregroundWatchdog = Timer.periodic(const Duration(seconds: 1), (_) {
-      unawaited(_checkForegroundAlarms());
+      _startForegroundWatchdogIfResumed();
     });
   }
 
   @override
   void dispose() {
-    _foregroundWatchdog?.cancel();
-    _foregroundWatchdog = null;
+    _stopForegroundWatchdog();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_ensureRingPageVisible());
-      unawaited(_checkForegroundAlarms());
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _startForegroundWatchdogIfResumed();
+        unawaited(_ensureRingPageVisible());
+        unawaited(_checkForegroundAlarms());
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _stopForegroundWatchdog();
     }
+  }
+
+  void _startForegroundWatchdogIfResumed() {
+    if (!mounted) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    if (_foregroundWatchdog != null) return;
+    _foregroundWatchdog = Timer.periodic(_watchdogInterval, (_) {
+      unawaited(_checkForegroundAlarms());
+    });
+  }
+
+  void _stopForegroundWatchdog() {
+    _foregroundWatchdog?.cancel();
+    _foregroundWatchdog = null;
   }
 
   Future<void> _checkForegroundAlarms() async {
@@ -77,7 +101,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
           final db = ref.read(RA_DatabaseProvider);
           states = await db.getRingingRoutineStates();
         }
-        if (states != null && states.isNotEmpty) {
+        if (states.isNotEmpty) {
           await _ensureRingPageVisible();
         }
       } catch (_) {}
@@ -117,7 +141,9 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     if (states == null || states.isEmpty) {
       // Only clear after the grace wait; native also ignores early clears.
       try {
-        const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
+        const channel = MethodChannel(
+          'com.casellaweb.rolling_alarm/alarm_sound',
+        );
         await channel.invokeMethod('clearLockScreenFlags');
       } catch (_) {}
       return;
@@ -179,7 +205,9 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
       if (navigator == null) return;
 
       try {
-        const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
+        const channel = MethodChannel(
+          'com.casellaweb.rolling_alarm/alarm_sound',
+        );
         await channel.invokeMethod('bringToForeground');
       } catch (_) {}
 
