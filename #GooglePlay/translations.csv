@@ -1,5 +1,121 @@
-Language,Title,Short Description,Full Description
-English,Rolling Alarm,A rolling interval alarm app for Android.,"Rolling Alarm is a flexible interval alarm app for Android that helps you manage repetitive tasks and routines. With its unique rolling intervals, you can easily set up repeating alerts that adjust to your schedule."
-Spanish,Alarma Rodante,Una aplicación de alarma de intervalo rodante para Android.,"Alarma Rodante es una aplicación de alarma de intervalos flexible para Android que te ayuda a administrar tareas y rutinas repetitivas. Con sus intervalos rodantes únicos, puedes configurar fácilmente alertas repetitivas que se adaptan a tu horario."
-French,Alarme Roulante,Une application d'alarme à intervalle roulant pour Android.,"Alarme Roulante est une application d'alarme à intervalle flexible pour Android qui vous aide à gérer les tâches et routines répétitives. Avec ses intervalles roulants uniques, vous pouvez facilement configurer des alertes répétitives qui s'adaptent à votre emploi du temps."
-German,Rollender Alarm,Eine rollierende Intervall-Alarm-App für Android.,"Rollender Alarm ist eine flexible Intervall-Alarm-App für Android, die Ihnen bei der Verwaltung sich wiederholender Aufgaben und Routinen hilft. Mit seinen einzigartigen rollierenden Intervallen können Sie ganz einfach wiederkehrende Alarme einrichten, die sich an Ihren Zeitplan anpassen."
+Locale,Title,Short Description,Full Description
+en-US,Rolling Alarm,An alarm that automatically sets your next wake-up time when you dismiss it.,"Rolling Alarm is a clean, reliable, and completely ad-free utility designed for dynamic routines. Unlike standard alarm clocks, Rolling Alarm features a unique continuous loop: the exact moment you dismiss your current alarm, the app automatically calculates and schedules your next one.
+
+Built with simplicity and privacy in mind, it provides all the essential features you need without any of the unnecessary bloat or tracking.
+
+Key Features:
+• The ""Rolling"" Schedule: Dismiss an alarm, and your next one is instantly and automatically set based on your configuration. Perfect for shifting schedules and continuous routines.
+• Clean & Intuitive Interface: A straightforward, distraction-free design that makes setting and managing your schedules effortless.
+• Import & Export Alarms: Easily back up your alarm configurations to your local storage or transfer them between devices.
+• 100% Privacy-Focused: Your data stays strictly on your device. The app operates entirely locally and does not collect, track, or share any personal information.
+• Zero Advertisements: Enjoy a seamless, premium experience with no intrusive ads or paywalls.
+
+Whether you need a simple morning wake-up call or a rolling schedule of daily reminders, Rolling Alarm is built to fit perfectly into your routine."
+es-ES,Alarma Rodante,Una alarma que establece automáticamente tu próxima hora de despertar cuando la descartas.,"Alarma Rodante es una utilidad limpia, confiable y completamente libre de anuncios diseñada para rutinas dinámicas. A diferencia de los relojes despertadores estándar, Alarma Rodante cuenta con un bucle continuo único: en el momento exacto en que descartas tu alarma actual, la aplicación calcula y programa automáticamente la siguiente.
+
+Creada pensando en la simplicidad y la privacidad, proporciona todas las características esenciales que necesitas sin nada de inflado o rastreo innecesario.
+
+Características Clave:
+• El Horario ""Rodante"": Descarta una alarma, y la siguiente se establece instantánea y automáticamente según tu configuración. Perfecto para horarios cambiantes y rutinas continuas.
+• Interfaz Limpia e Intuitiva: Un diseño directo y sin distracciones que hace que configurar y administrar tus horarios sea sin esfuerzo.
+• Importar y Exportar Alarmas: Haz fácilmente una copia de seguridad de tus configuraciones de alarma en tu almacenamiento local o transfiérelas entre dispositivos.
+• 100% Centrado en la Privacidad: Tus datos permanecen estrictamente en tu dispositivo. La aplicación funciona de manera completamente local y no recopila, rastrea ni comparte ninguna información personal.
+• Cero Anuncios: Disfruta de una experiencia premium fluida sin anuncios intrusivos ni muros de pago.
+
+Ya sea que necesites una simple llamada para despertarte por la mañana o un horario rodante de recordatorios diarios, Alarma Rodante está diseñada para encajar perfectamente en tu rutina."
+fr-FR,Alarme Roulante,Une alarme qui règle automatiquement votre prochaine heure de réveil lorsque vous la désactivez.,"Alarme Roulante est un utilitaire propre, fiable et entièrement sans publicité conçu pour les routines dynamiques. Contrairement aux réveils standard, Alarme Roulante présente une boucle continue unique : au moment exact où vous désactivez votre alarme actuelle, l'application calcule et programme automatiquement la suivante.
+
+Conçue avec la simplicité et la confidentialité à l'esprit, elle fournit toutes les fonctionnalités essentielles dont vous avez besoin sans aucun superflu ou suivi inutile.
+
+Fonctionnalités Clés :
+• Le Programme ""Roulant"" : Désactivez une alarme, et la suivante est définie instantanément et automatiquement en fonction de votre configuration. Parfait pour les horaires variables et les routines continues.
+• Interface Propre et Intuitive : Un design simple et sans distraction qui rend la configuration et la gestion de vos horaires sans effort.
+• Importer et Exporter des Alarmes : Sauvegardez facilement vos configurations d'alarme sur votre stockage local ou transférez-les entre appareils.
+• 100% Axé sur la Confidentialité : Vos données restent strictement sur votre appareil. L'application fonctionne entièrement localement et ne collecte, ne suit ni ne partage aucune information personnelle.
+• Zéro Publicité : Profitez d'une expérience premium fluide sans publicités intrusives ni murs payants.
+
+Que vous ayez besoin d'un simple réveil matinal ou d'un programme roulant de rappels quotidiens, Alarme Roulante est conçue pour s'intégrer parfaitement à votre routine."
+de-DE,Rollender Alarm,"Ein Alarm, der automatisch Ihre nächste Weckzeit einstellt, wenn Sie ihn ausschalten.","Rollender Alarm ist ein sauberes, zuverlässiges und völlig werbefreies Dienstprogramm, das für dynamische Routinen entwickelt wurde. Im Gegensatz zu Standardweckern verfügt Rollender Alarm über eine einzigartige Endlosschleife: In genau dem Moment, in dem Sie Ihren aktuellen Alarm ausschalten, berechnet die App automatisch den nächsten und plant ihn.
+
+Mit Blick auf Einfachheit und Datenschutz entwickelt, bietet es alle wesentlichen Funktionen, die Sie benötigen, ohne unnötigen Ballast oder Tracking.
+
+Hauptmerkmale:
+• Der ""Rollende"" Zeitplan: Schalten Sie einen Alarm aus, und Ihr nächster wird sofort und automatisch basierend auf Ihrer Konfiguration eingestellt. Perfekt für wechselnde Schichten und kontinuierliche Routinen.
+• Saubere & intuitive Benutzeroberfläche: Ein einfaches, ablenkungsfreies Design, das das Einstellen und Verwalten Ihrer Zeitpläne mühelos macht.
+• Alarme importieren & exportieren: Sichern Sie Ihre Alarmkonfigurationen ganz einfach auf Ihrem lokalen Speicher oder übertragen Sie sie zwischen Geräten.
+• 100% datenschutzorientiert: Ihre Daten bleiben strikt auf Ihrem Gerät. Die App arbeitet vollständig lokal und sammelt, verfolgt oder teilt keine persönlichen Informationen.
+• Null Werbung: Genießen Sie ein nahtloses Premium-Erlebnis ohne aufdringliche Werbung oder Paywalls.
+
+Egal, ob Sie einen einfachen morgendlichen Weckruf oder einen rollierenden Zeitplan für tägliche Erinnerungen benötigen, Rollender Alarm ist so konzipiert, dass er perfekt in Ihre Routine passt."
+ja-JP,ローリングアラーム,アラームを停止すると、自動的に次の起床時間を設定するアラーム。,"ローリングアラームは、ダイナミックなルーティンのために設計された、クリーンで信頼性が高く、完全に広告なしのユーティリティです。標準的な目覚まし時計とは異なり、ローリングアラームは独自の連続ループを備えています。現在のアラームを停止した瞬間に、アプリが自動的に次のアラームを計算してスケジュールします。
+
+シンプルさとプライバシーを念頭に置いて構築されており、不必要なブロートウェアや追跡なしで、必要なすべての必須機能を提供します。
+
+主な機能：
+• 「ローリング」スケジュール：アラームを停止すると、設定に基づいて次のアラームが瞬時に自動設定されます。シフト制のスケジュールや連続したルーティンに最適です。
+• クリーンで直感的なインターフェース：スケジュール設定と管理を簡単にする、気を散らすことのないシンプルなデザイン。
+• アラームのインポートとエクスポート：アラーム設定をローカルストレージに簡単にバックアップしたり、デバイス間で転送したりできます。
+• 100% プライバシー重視：データはデバイス上に厳密に保持されます。アプリは完全にローカルで動作し、個人情報を収集、追跡、または共有することはありません。
+• 広告ゼロ：煩わしい広告やペイウォールのない、シームレスなプレミアム体験をお楽しみください。
+
+シンプルな朝の目覚ましが必要な場合でも、毎日のリマインダーのローリングスケジュールが必要な場合でも、ローリングアラームはあなたのルーティンに完璧にフィットするように構築されています。"
+ko-KR,롤링 알람,알람을 해제하면 다음 기상 시간이 자동으로 설정되는 알람입니다.,"롤링 알람은 역동적인 루틴을 위해 설계된 깔끔하고 안정적이며 광고가 전혀 없는 유틸리티입니다. 일반 알람 시계와 달리 롤링 알람은 독특한 연속 루프를 특징으로 합니다. 현재 알람을 해제하는 정확한 순간에 앱이 자동으로 다음 알람을 계산하고 예약합니다.
+
+단순성과 개인정보 보호를 염두에 두고 제작된 이 앱은 불필요한 부풀림이나 추적 없이 필요한 모든 필수 기능을 제공합니다.
+
+주요 기능:
+• ""롤링"" 일정: 알람을 해제하면 설정에 따라 다음 알람이 즉시 자동으로 설정됩니다. 변경되는 일정 및 연속적인 루틴에 완벽합니다.
+• 깔끔하고 직관적인 인터페이스: 일정 설정 및 관리를 쉽게 해주는 직관적이고 방해 없는 디자인.
+• 알람 가져오기 및 내보내기: 알람 구성을 로컬 저장소에 쉽게 백업하거나 장치 간에 전송할 수 있습니다.
+• 100% 개인정보 보호 중심: 데이터는 기기에 엄격하게 유지됩니다. 앱은 완전히 로컬로 작동하며 개인 정보를 수집, 추적 또는 공유하지 않습니다.
+• 광고 제로: 방해되는 광고나 지불 장벽 없는 원활한 프리미엄 경험을 즐기세요.
+
+간단한 아침 기상 알람이 필요하든 매일의 반복적인 미리 알림 일정이 필요하든, 롤링 알람은 당신의 루틴에 완벽하게 맞도록 제작되었습니다."
+pt-BR,Alarme Rolante,Um alarme que define automaticamente seu próximo horário de despertar ao ser descartado.,"O Alarme Rolante é um utilitário limpo, confiável e totalmente sem anúncios projetado para rotinas dinâmicas. Ao contrário dos despertadores padrão, o Alarme Rolante apresenta um loop contínuo único: no momento exato em que você descarta seu alarme atual, o aplicativo calcula e agenda automaticamente o próximo.
+
+Construído com simplicidade e privacidade em mente, ele fornece todos os recursos essenciais de que você precisa sem qualquer inchaço ou rastreamento desnecessário.
+
+Principais Recursos:
+• O Cronograma ""Rolante"": Descarte um alarme e o próximo será definido instantânea e automaticamente com base na sua configuração. Perfeito para mudanças de turno e rotinas contínuas.
+• Interface Limpa e Intuitiva: Um design direto e sem distrações que torna a configuração e o gerenciamento de seus horários fáceis.
+• Importar e Exportar Alarmes: Faça backup facilmente de suas configurações de alarme no armazenamento local ou transfira-as entre dispositivos.
+• 100% Focado na Privacidade: Seus dados permanecem estritamente no seu dispositivo. O aplicativo opera de forma totalmente local e não coleta, rastreia ou compartilha nenhuma informação pessoal.
+• Zero Anúncios: Desfrute de uma experiência premium e perfeita sem anúncios intrusivos ou paywalls.
+
+Quer você precise de uma simples chamada de despertar matinal ou de um cronograma rotativo de lembretes diários, o Alarme Rolante foi construído para se encaixar perfeitamente na sua rotina."
+ar,المنبه المتدحرج,منبه يقوم تلقائيًا بضبط وقت استيقاظك التالي عند إيقافه.,"المنبه المتدحرج هو أداة نظيفة وموثوقة وخالية تمامًا من الإعلانات مصممة للروتين الديناميكي. على عكس المنبهات القياسية، يتميز المنبه المتدحرج بحلقة مستمرة فريدة: في اللحظة التي توقف فيها منبهك الحالي، يقوم التطبيق تلقائيًا بحساب وجدولة المنبه التالي.
+
+تم تصميمه مع وضع البساطة والخصوصية في الاعتبار، فهو يوفر جميع الميزات الأساسية التي تحتاجها دون أي تضخم أو تتبع غير ضروري.
+
+الميزات الرئيسية:
+• الجدول ""المتدحرج"": أوقف منبهًا، وسيتم ضبط المنبه التالي فورًا وتلقائيًا بناءً على تكوينك. مثالي لتغيير الجداول الزمنية والروتين المستمر.
+• واجهة نظيفة وبديهية: تصميم مباشر خالٍ من المشتتات يجعل إعداد وإدارة جداولك أمرًا سهلاً.
+• استيراد وتصدير المنبهات: قم بسهولة بعمل نسخة احتياطية من تكوينات المنبه الخاصة بك على التخزين المحلي أو نقلها بين الأجهزة.
+• التركيز على الخصوصية بنسبة 100%: تبقى بياناتك على جهازك بشكل صارم. يعمل التطبيق بالكامل محليًا ولا يجمع أو يتتبع أو يشارك أي معلومات شخصية.
+• صفر إعلانات: استمتع بتجربة متميزة وسلسة بدون إعلانات متطفلة أو جدران دفع.
+
+سواء كنت بحاجة إلى مكالمة إيقاظ صباحية بسيطة أو جدول متدحرج من التذكيرات اليومية، تم بناء المنبه المتدحرج ليتناسب تمامًا مع روتينك."
+ru-RU,Скользящий Будильник,"Будильник, который автоматически устанавливает следующее время пробуждения при его отключении.","Скользящий Будильник — это чистая, надежная и полностью лишенная рекламы утилита, разработанная для динамичного графика. В отличие от стандартных будильников, Скользящий Будильник имеет уникальный непрерывный цикл: в тот самый момент, когда вы отключаете текущий будильник, приложение автоматически вычисляет и планирует следующий.
+
+Созданный с учетом простоты и конфиденциальности, он предоставляет все необходимые функции без ненужного мусора или отслеживания.
+
+Ключевые особенности:
+• «Скользящее» расписание: отключите будильник, и ваш следующий будильник мгновенно и автоматически установится на основе вашей конфигурации. Идеально подходит для скользящих графиков и непрерывной рутины.
+• Чистый и интуитивно понятный интерфейс: простой дизайн без отвлекающих факторов, который делает настройку и управление вашим расписанием легкими.
+• Импорт и экспорт будильников: легко создавайте резервные копии конфигураций будильников в локальное хранилище или переносите их между устройствами.
+• 100% фокус на конфиденциальности: ваши данные остаются строго на вашем устройстве. Приложение работает полностью локально и не собирает, не отслеживает и не передает никакую личную информацию.
+• Ноль рекламы: наслаждайтесь беспрепятственным премиум-опытом без навязчивой рекламы или платных функций.
+
+Независимо от того, нужен ли вам простой утренний звонок для пробуждения или скользящий график ежедневных напоминаний, Скользящий Будильник создан, чтобы идеально вписаться в вашу рутину."
+hi-IN,रोलिंग अलार्म,एक अलार्म जो बंद करने पर स्वचालित रूप से आपके अगले जागने का समय सेट कर देता है।,"रोलिंग अलार्म डायनामिक रूटीन के लिए डिज़ाइन की गई एक स्वच्छ, विश्वसनीय और पूरी तरह से विज्ञापन-मुक्त उपयोगिता है। मानक अलार्म घड़ियों के विपरीत, रोलिंग अलार्म में एक अनूठा निरंतर लूप होता है: जिस क्षण आप अपने वर्तमान अलार्म को बंद करते हैं, ऐप स्वचालित रूप से आपके अगले अलार्म की गणना और शेड्यूल करता है।
+
+सरलता और गोपनीयता को ध्यान में रखकर बनाया गया, यह बिना किसी अनावश्यक ब्लोट या ट्रैकिंग के आपको आवश्यक सभी आवश्यक सुविधाएँ प्रदान करता है।
+
+मुख्य विशेषताएं:
+• ""रोलिंग"" शेड्यूल: अलार्म बंद करें, और आपका अगला अलार्म आपके कॉन्फ़िगरेशन के आधार पर तुरंत और स्वचालित रूप से सेट हो जाता है। शिफ्टिंग शेड्यूल और निरंतर रूटीन के लिए बिल्कुल सही।
+• स्वच्छ और सहज इंटरफ़ेस: एक सीधा, व्याकुलता-मुक्त डिज़ाइन जो आपके शेड्यूल को सेट करना और प्रबंधित करना आसान बनाता है।
+• आयात और निर्यात अलार्म: आसानी से अपने स्थानीय संग्रहण में अपने अलार्म कॉन्फ़िगरेशन का बैकअप लें या उन्हें उपकरणों के बीच स्थानांतरित करें।
+• 100% गोपनीयता-केंद्रित: आपका डेटा कड़ाई से आपके डिवाइस पर रहता है। ऐप पूरी तरह से स्थानीय रूप से संचालित होता है और किसी भी व्यक्तिगत जानकारी को एकत्र, ट्रैक या साझा नहीं करता है।
+• शून्य विज्ञापन: बिना किसी दखल देने वाले विज्ञापन या पेवॉल के एक निर्बाध, प्रीमियम अनुभव का आनंद लें।
+
+चाहे आपको सुबह उठने के लिए एक साधारण कॉल की आवश्यकता हो या दैनिक अनुस्मारक का रोलिंग शेड्यूल, रोलिंग अलार्म आपकी दिनचर्या में पूरी तरह से फिट होने के लिए बनाया गया है।"

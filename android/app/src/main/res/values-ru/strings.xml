@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Панель управления только для чтения для рутины Скользящего Будильника</string>
+    <string name="widget_label">Скользящий Будильник</string>
+</resources>

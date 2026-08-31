@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">롤링 알람 루틴을 위한 읽기 전용 대시보드</string>
+    <string name="widget_label">롤링 알람</string>
+</resources>

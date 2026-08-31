@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">لوحة تحكم للقراءة فقط لروتين المنبه المتدحرج</string>
+    <string name="widget_label">المنبه المتدحرج</string>
+</resources>
