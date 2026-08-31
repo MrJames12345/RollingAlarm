@@ -142,8 +142,8 @@ class RA_AlarmService {
 
       // Missed triggers (edit/import/reconcile after the planned time) must
       // still fire soon instead of silently dropping the schedule.
-      // Use absolute oneShotAt + setAlarmClock so Samsung / Doze cannot defer
-      // the fire the way setExactAndAllowWhileIdle often does.
+      // Native setAlarmClock is the sole AlarmClock (status bar + FGS wake).
+      // Dart oneShotAt stays exact/wakeup for Drift state without a second clock.
       final now = DateTime.now();
       final fireAt = triggerTime.isAfter(now)
           ? triggerTime
@@ -153,14 +153,14 @@ class RA_AlarmService {
         fireAt,
         _alarmIdBase + routineId,
         _alarmCallback,
-        alarmClock: true,
+        alarmClock: false,
         exact: true,
         wakeup: true,
         allowWhileIdle: true,
         rescheduleOnReboot: true,
       );
 
-      // Parallel setAlarmClock -> AlarmReceiver -> AlarmRingingService FSI
+      // setAlarmClock -> AlarmReceiver -> AlarmRingingService FSI
       // (works even when the Flutter UI process was killed). Best-effort.
       final db = RA_Database.openForIsolate(dbPath);
       RoutineModel? routine;
@@ -246,6 +246,17 @@ class RA_AlarmService {
         'routineId': routineId,
       });
     } catch (_) {}
+  }
+
+  /// True when [AlarmRingingService] is already driving native ringtone playback.
+  static Future<bool> isNativeAlarmPlaying() async {
+    try {
+      const channel = MethodChannel(_alarmSoundChannel);
+      final result = await channel.invokeMethod<bool>('isNativeAlarmPlaying');
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static const String _alarmSoundChannel =
@@ -386,7 +397,7 @@ class RA_AlarmService {
         DateTime.now().add(Duration(seconds: snoozeSeconds)),
         _watchdogIdBase + routineId,
         _watchdogCallback,
-        alarmClock: true,
+        alarmClock: false,
         exact: true,
         wakeup: true,
         allowWhileIdle: true,
@@ -570,15 +581,19 @@ class RA_AlarmService {
         snoozeSeconds: routine.SnoozeSeconds,
       );
 
-      try {
-        await RA_AudioService.startAlarm(
-          audioUri: routine.AudioUri,
-          vibrate: routine.Vibrate,
-          volume: routine.Volume,
-          fadeIn: routine.FadeIn,
-        );
-      } catch (_) {
-        // Ring UI wake prefs already set; audio can retry on ring page.
+      // Native FGS (AlarmReceiver path) may already be playing ringtone/vibrate.
+      final nativePlaying = await isNativeAlarmPlaying();
+      if (!nativePlaying) {
+        try {
+          await RA_AudioService.startAlarm(
+            audioUri: routine.AudioUri,
+            vibrate: routine.Vibrate,
+            volume: routine.Volume,
+            fadeIn: routine.FadeIn,
+          );
+        } catch (_) {
+          // Ring UI wake prefs already set; audio can retry on ring page.
+        }
       }
 
       // Second ping in case the first raced ahead of Drift visibility.

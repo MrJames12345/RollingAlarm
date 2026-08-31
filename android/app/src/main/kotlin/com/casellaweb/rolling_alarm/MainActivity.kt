@@ -420,6 +420,13 @@ class MainActivity : FlutterActivity() {
                             result.error("stop_failed", e.message, null)
                         }
                     }
+                    "isNativeAlarmPlaying" -> {
+                        try {
+                            result.success(AlarmRingtonePlayer.isPlaying())
+                        } catch (e: Exception) {
+                            result.error("play_state_failed", e.message, null)
+                        }
+                    }
                     "setSystemAlarmVolume" -> {
                         val percentage = (call.arguments as? Number)?.toDouble()
                             ?: call.argument<Number>("volumePercentage")?.toDouble()

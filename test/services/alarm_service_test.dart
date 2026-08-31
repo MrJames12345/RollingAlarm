@@ -166,7 +166,8 @@ void main() {
           InitialRingTime: now,
           IsRinging: true,
           CurrentSnoozeCount: 0,
-          TimesRingToday: 0, ExtraMaxTimesToday: 0,
+          TimesRingToday: 0,
+          ExtraMaxTimesToday: 0,
           TimesRingDay: null,
           LastDismissedAt: null,
           CreatedAt: now,
@@ -260,7 +261,8 @@ void main() {
           InitialRingTime: now,
           IsRinging: true,
           CurrentSnoozeCount: 1,
-          TimesRingToday: 0, ExtraMaxTimesToday: 0,
+          TimesRingToday: 0,
+          ExtraMaxTimesToday: 0,
           TimesRingDay: null, // already snoozed once
           LastDismissedAt: null,
           CreatedAt: now,
@@ -351,7 +353,8 @@ void main() {
           InitialRingTime: now,
           IsRinging: true,
           CurrentSnoozeCount: 0,
-          TimesRingToday: 0, ExtraMaxTimesToday: 0,
+          TimesRingToday: 0,
+          ExtraMaxTimesToday: 0,
           TimesRingDay: null,
           LastDismissedAt: null,
           CreatedAt: now,
@@ -388,7 +391,7 @@ void main() {
     );
 
     test(
-      'scheduleNext passes alarmClock, exact, wakeup, allowWhileIdle, and rescheduleOnReboot to oneShotAt',
+      'scheduleNext passes exact, wakeup, allowWhileIdle, and rescheduleOnReboot to oneShotAt without alarmClock',
       () async {
         await RA_AlarmService.scheduleNext(
           routineId: 99,
@@ -407,7 +410,7 @@ void main() {
         //  rescheduleOnReboot, handle, params]
         final args = oneShotCalls.last.arguments as List<dynamic>;
         expect(args[0], equals(1000 + 99));
-        expect(args[1], isTrue); // alarmClock -> setAlarmClock
+        expect(args[1], isFalse); // native setAlarmClock is the sole AlarmClock
         expect(args[2], isTrue); // allowWhileIdle
         expect(args[3], isTrue); // exact
         expect(args[4], isTrue); // wakeup
@@ -456,7 +459,8 @@ void main() {
         InitialRingTime: now.subtract(const Duration(minutes: 5)),
         IsRinging: false,
         CurrentSnoozeCount: 2,
-        TimesRingToday: 0, ExtraMaxTimesToday: 0,
+        TimesRingToday: 0,
+        ExtraMaxTimesToday: 0,
         TimesRingDay: null,
         LastDismissedAt: now.subtract(const Duration(hours: 4)),
         CreatedAt: now,
@@ -550,7 +554,8 @@ void main() {
           InitialRingTime: null,
           IsRinging: false,
           CurrentSnoozeCount: 0,
-          TimesRingToday: 2, ExtraMaxTimesToday: 0,
+          TimesRingToday: 2,
+          ExtraMaxTimesToday: 0,
           TimesRingDay: RA_DailyRingLimit.periodStart(now, 0),
           LastDismissedAt: null,
           CreatedAt: now,

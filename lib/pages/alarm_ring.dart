@@ -141,6 +141,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   }
 
   Future<void> _startAlarmAudio() async {
+    if (await RA_AlarmService.isNativeAlarmPlaying()) return;
     await RA_tryAsync(
       () => RA_AudioService.startAlarm(
         audioUri: widget.audioUri,
