@@ -260,7 +260,9 @@ validate_screenshot() {
 wait_for_scene_ready() {
   local route="$1" deadline=$(( SECONDS + READY_TIMEOUT ))
   while (( SECONDS < deadline )); do
-    if adb logcat -d -s flutter:I 2>/dev/null | grep -qF "RA_SCREENSHOT_READY ${route}"; then
+    # Captured first: with pipefail, grep -q exiting early would make the still
+    # writing adb side of a pipe report failure.
+    if [[ "$(adb logcat -d -s flutter:I 2>/dev/null)" == *"RA_SCREENSHOT_READY ${route}"* ]]; then
       return 0
     fi
     sleep 0.5
