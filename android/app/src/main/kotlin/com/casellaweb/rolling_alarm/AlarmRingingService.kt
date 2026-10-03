@@ -85,7 +85,7 @@ class AlarmRingingService : Service() {
             startForeground(
                 notificationId(routineId),
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
             )
         } else {
             startForeground(notificationId(routineId), notification)
@@ -198,7 +198,7 @@ class AlarmRingingService : Service() {
                 startForeground(
                     notificationId(routineId),
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
                 )
             } else {
                 startForeground(notificationId(routineId), notification)
