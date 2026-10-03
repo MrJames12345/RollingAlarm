@@ -42,15 +42,9 @@ class AlarmReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             // Android 12+ ForegroundServiceStartNotAllowedException fallback
             AlarmRingingService.showFallbackNotification(context, safeIntent)
-        } finally {
-            // FGS holds its own wake lock; release this bridge lock promptly.
-            try {
-                if (wakeLock.isHeld) {
-                    wakeLock.release()
-                }
-            } catch (_: Exception) {
-            }
         }
+        // Bridge lock self-expires after WAKE_LOCK_TIMEOUT_MS so the CPU stays
+        // awake until AlarmRingingService.onStartCommand acquires its own lock.
 
         if (!lockedOrAsleep) {
             // Use the setAlarmClock broadcast BAL window to jump over other apps.

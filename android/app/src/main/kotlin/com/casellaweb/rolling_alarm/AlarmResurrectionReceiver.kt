@@ -1,8 +1,10 @@
 ﻿package com.casellaweb.rolling_alarm
 
+import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import org.json.JSONObject
 
 class AlarmResurrectionReceiver : BroadcastReceiver() {
@@ -22,6 +24,11 @@ class AlarmResurrectionReceiver : BroadcastReceiver() {
     }
 
     private fun rescheduleAlarms(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            // Keep saved entries so the next app launch can re-arm them.
+            if (!am.canScheduleExactAlarms()) return
+        }
         val prefs = context.getSharedPreferences(AlarmUiSchedulerPlugin.PREFS_NAME, Context.MODE_PRIVATE)
         val allEntries = prefs.all
         val now = System.currentTimeMillis()

@@ -363,7 +363,7 @@ class AlarmRingingService : Service() {
         /** Hold bright/wakeup lock only for the first presentation window. */
         private const val BRIGHT_WAKE_HOLD_MS = 4_000L
         /** Cap PARTIAL wake while ringing; service stops on dismiss/snooze. */
-        private const val MAX_WAKE_LOCK_MS = 2 * 60_000L
+        private const val MAX_WAKE_LOCK_MS = 10 * 60_000L
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"
         private const val FLUTTER_RINGING_KEY = "flutter.ra_is_ringing"
         private const val FLUTTER_WAKE_AT_KEY = "flutter.ra_alarm_wake_at_ms"
