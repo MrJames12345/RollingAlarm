@@ -25,9 +25,7 @@ dependencies:
   intl:
   shared_preferences:
   path:
-  # Pinned: file_picker 11.0.x fails Android builds (Kotlin sources not compiled
-  # under AGP 9). Revisit when a fixed 11.x release is available.
-  file_picker: 10.3.10
+  file_picker: ^13.1.0
   url_launcher: ^6.3.2
 
 dev_dependencies:

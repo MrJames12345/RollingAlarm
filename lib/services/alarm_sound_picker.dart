@@ -137,22 +137,31 @@ class RA_AlarmSoundPickerService {
   static Future<RA_AlarmSound?> _pickLocalFileFallback({
     void Function(String message)? onError,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
+    final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: const [
-        'mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac',
-        'wma', 'opus', 'amr', 'mid', 'midi', 'aiff',
+        'mp3',
+        'wav',
+        'ogg',
+        'm4a',
+        'flac',
+        'aac',
+        'wma',
+        'opus',
+        'amr',
+        'mid',
+        'midi',
+        'aiff',
       ],
-      allowMultiple: false,
     );
-    if (result == null || result.files.isEmpty) return null;
-    final file = result.files.first;
+    if (file == null) return null;
 
     final name = file.name;
     final path = file.path;
-    final identifier = file.identifier;
-    final rawUri = (path != null && path.isNotEmpty) ? path : identifier;
-    if (rawUri == null || rawUri.isEmpty) return null;
+    final rawUri = (path != null && path.isNotEmpty)
+        ? path
+        : file.uri.toString();
+    if (rawUri.isEmpty) return null;
 
     if (!isValidAudioFile(name) && !isValidAudioFile(rawUri)) {
       onError?.call(
@@ -161,7 +170,8 @@ class RA_AlarmSoundPickerService {
       return null;
     }
 
-    final uri = (rawUri.startsWith('content:') ||
+    final uri =
+        (rawUri.startsWith('content:') ||
             rawUri.startsWith('file:') ||
             rawUri.startsWith('http:') ||
             rawUri.startsWith('https:'))
@@ -174,7 +184,9 @@ class RA_AlarmSoundPickerService {
     return RA_AlarmSound(
       source: RA_AlarmSoundSource.localFile,
       uri: uri,
-      label: (fileName != null && fileName.isNotEmpty) ? fileName : 'Local file',
+      label: (fileName != null && fileName.isNotEmpty)
+          ? fileName
+          : 'Local file',
       fileName: fileName,
     );
   }
@@ -208,10 +220,41 @@ class RA_AlarmSoundPickerService {
 
   static bool _isAcceptableAudioLabel(String label, String uri) {
     const nonAudioExtensions = {
-      '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.pdf', '.doc', '.docx',
-      '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.rtf', '.csv', '.zip', '.rar',
-      '.7z', '.tar', '.gz', '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv',
-      '.webm', '.exe', '.apk', '.bin', '.iso', '.xml', '.html', '.json',
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.bmp',
+      '.webp',
+      '.pdf',
+      '.doc',
+      '.docx',
+      '.xls',
+      '.xlsx',
+      '.ppt',
+      '.pptx',
+      '.txt',
+      '.rtf',
+      '.csv',
+      '.zip',
+      '.rar',
+      '.7z',
+      '.tar',
+      '.gz',
+      '.mp4',
+      '.mkv',
+      '.avi',
+      '.mov',
+      '.wmv',
+      '.flv',
+      '.webm',
+      '.exe',
+      '.apk',
+      '.bin',
+      '.iso',
+      '.xml',
+      '.html',
+      '.json',
     };
     final lowerLabel = label.trim().toLowerCase();
     final lowerUri = uri.trim().toLowerCase();
@@ -231,10 +274,19 @@ class RA_AlarmSoundPickerService {
     }
     final clean = pathOrName.trim().toLowerCase();
     const audioExtensions = [
-      '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac',
-      '.wma', '.opus', '.amr', '.mid', '.midi', '.aiff',
+      '.mp3',
+      '.wav',
+      '.ogg',
+      '.m4a',
+      '.flac',
+      '.aac',
+      '.wma',
+      '.opus',
+      '.amr',
+      '.mid',
+      '.midi',
+      '.aiff',
     ];
     return audioExtensions.any((ext) => clean.endsWith(ext));
   }
 }
-
