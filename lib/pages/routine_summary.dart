@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -209,11 +210,43 @@ class _SummaryTab extends ConsumerWidget {
       ),
     ];
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stretch = _SummaryStretch.forHeight(constraints.maxHeight);
+        return _SummaryStretch(
+          value: stretch,
+          child: _buildSections(
+            context,
+            ref,
+            sound,
+            compensationLabel,
+            dailyLimitTiles,
+            stretch,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSections(
+    BuildContext context,
+    WidgetRef ref,
+    RA_AlarmSound sound,
+    String compensationLabel,
+    List<Widget> dailyLimitTiles,
+    double stretch,
+  ) {
+    final sectionSpacing = lerpDouble(
+      RA_ShapeStyles.space24,
+      RA_ShapeStyles.space64,
+      stretch,
+    )!;
     return ListView(
       padding: RA_ShapeStyles.bodyPadding,
       children: [
         RA_FormSection(
           label: 'Alarm sound',
+          bottomSpacing: sectionSpacing,
           child: _SummaryTileRow(
             children: [
               _SummaryTile(
@@ -243,6 +276,7 @@ class _SummaryTab extends ConsumerWidget {
         ),
         RA_FormSection(
           label: 'Timing',
+          bottomSpacing: sectionSpacing,
           child: _SummaryTileRow(
             flexes: const [2, 2, 2, 2],
             children: [
@@ -277,7 +311,13 @@ class _SummaryTab extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SummaryTileRow(children: dailyLimitTiles),
-              const SizedBox(height: RA_ShapeStyles.space16),
+              SizedBox(
+                height: lerpDouble(
+                  RA_ShapeStyles.space16,
+                  RA_ShapeStyles.space32,
+                  stretch,
+                ),
+              ),
               RA_Button(
                 text: "Reset Today's Counter",
                 isPrimary: false,
@@ -305,6 +345,33 @@ class _SummaryTab extends ConsumerWidget {
       );
     });
   }
+}
+
+/// How far the summary layout is spread out vertically, from 0 at phone
+/// heights up to 1 on tall tablets, so tall screens are not left mostly empty.
+class _SummaryStretch extends InheritedWidget {
+  /// Available heights at which spreading starts and reaches its maximum.
+  static const double _compactHeight = 600;
+  static const double _tallHeight = 1200;
+
+  final double value;
+
+  const _SummaryStretch({required this.value, required super.child});
+
+  static double forHeight(double height) {
+    if (!height.isFinite) return 0;
+    return ((height - _compactHeight) / (_tallHeight - _compactHeight)).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_SummaryStretch>()?.value ?? 0;
+
+  @override
+  bool updateShouldNotify(_SummaryStretch oldWidget) =>
+      value != oldWidget.value;
 }
 
 /// Equal-height tiles in one horizontal row for a summary section.
@@ -344,8 +411,16 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stretch = _SummaryStretch.of(context);
     final content = Padding(
-      padding: const EdgeInsets.all(RA_ShapeStyles.space8),
+      padding: EdgeInsets.symmetric(
+        horizontal: RA_ShapeStyles.space8,
+        vertical: lerpDouble(
+          RA_ShapeStyles.space8,
+          RA_ShapeStyles.space24,
+          stretch,
+        )!,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -357,7 +432,13 @@ class _SummaryTile extends StatelessWidget {
               color: RA_ColourStyles.mutedPrimary,
             ),
           ),
-          const SizedBox(height: RA_ShapeStyles.space8),
+          SizedBox(
+            height: lerpDouble(
+              RA_ShapeStyles.space8,
+              RA_ShapeStyles.space16,
+              stretch,
+            ),
+          ),
           RA_FittedText(
             value,
             alignment: Alignment.center,
