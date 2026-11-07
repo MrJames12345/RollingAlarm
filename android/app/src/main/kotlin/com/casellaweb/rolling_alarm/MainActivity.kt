@@ -412,6 +412,23 @@ class MainActivity : FlutterActivity() {
                             result.error("play_failed", e.message, null)
                         }
                     }
+                    "playAlarmSound" -> {
+                        val audioUri = call.argument<String>("audioUri")
+                        val loop = call.argument<Boolean>("loop") ?: true
+                        val fadeInMs = call.argument<Number>("fadeInMs")?.toLong() ?: 0L
+                        try {
+                            result.success(
+                                AlarmRingtonePlayer.playAlarm(
+                                    this@MainActivity,
+                                    audioUri,
+                                    loop = loop,
+                                    fadeInMs = fadeInMs,
+                                )
+                            )
+                        } catch (e: Exception) {
+                            result.error("play_failed", e.message, null)
+                        }
+                    }
                     "stopDeviceSound" -> {
                         try {
                             AlarmRingtonePlayer.stop()
@@ -435,18 +452,7 @@ class MainActivity : FlutterActivity() {
                             return@setMethodCallHandler
                         }
                         try {
-                            val audioManager =
-                                getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                            val maxVolume =
-                                audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-                            val calculatedVolume =
-                                (maxVolume * percentage.coerceIn(0.0, 1.0)).toInt()
-                                    .coerceIn(0, maxVolume)
-                            audioManager.setStreamVolume(
-                                AudioManager.STREAM_ALARM,
-                                calculatedVolume,
-                                0,
-                            )
+                            AlarmRingtonePlayer.setAlarmStreamVolume(this@MainActivity, percentage)
                             result.success(null)
                         } catch (e: Exception) {
                             result.error("volume_failed", e.message, null)

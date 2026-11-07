@@ -174,7 +174,9 @@ class RA_AlarmService {
         routineId: routineId,
         audioUri: routine?.AudioUri,
         volume: routine?.Volume != null ? routine!.Volume / 100.0 : null,
-        fadeInMs: routine?.FadeIn == true ? 30000 : 0,
+        fadeInMs: routine?.FadeIn == true
+            ? RA_AudioService.fadeDuration.inMilliseconds
+            : 0,
         vibrate: routine?.Vibrate,
       );
 
@@ -379,7 +381,9 @@ class RA_AlarmService {
             routineId: routine.Id,
             audioUri: routine.AudioUri,
             volume: routine.Volume / 100.0,
-            fadeInMs: routine.FadeIn ? 30000 : 0,
+            fadeInMs: routine.FadeIn
+                ? RA_AudioService.fadeDuration.inMilliseconds
+                : 0,
             vibrate: routine.Vibrate,
           );
         } catch (_) {}

@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 
@@ -45,6 +45,45 @@ class RA_DeviceRingtone {
             'fadeInMs': fadeInMs,
             'volume': volume.clamp(0.0, 1.0),
           });
+      return started ?? false;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Plays a stored routine [audioUri] (encoded [RA_AlarmSound] or legacy
+  /// URI) on the alarm stream through the shared native player.
+  ///
+  /// Native falls back from the chosen sound to the bundled tone, then the
+  /// system default alarm, and leaves an identical source already playing
+  /// (for example from [AlarmRingingService]) untouched.
+  ///
+  /// Returns `true` when playback started or the selection is silent, `false`
+  /// when every source failed, and `null` when the channel is unavailable.
+  static Future<bool?> playAlarm({
+    String? audioUri,
+    bool loop = true,
+    int fadeInMs = 0,
+  }) async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return true;
+    }
+    if (!Platform.isAndroid) {
+      return false;
+    }
+    try {
+      final started = await _channel.invokeMethod<bool>(
+        'playAlarmSound',
+        <String, dynamic>{
+          'audioUri': audioUri,
+          'loop': loop,
+          'fadeInMs': fadeInMs,
+        },
+      );
       return started ?? false;
     } on MissingPluginException {
       return null;

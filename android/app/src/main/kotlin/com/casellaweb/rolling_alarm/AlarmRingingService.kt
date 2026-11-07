@@ -96,41 +96,22 @@ class AlarmRingingService : Service() {
         val loop = intent?.getBooleanExtra(EXTRA_LOOP, true) ?: true
         val volume = intent?.getFloatExtra(EXTRA_VOLUME, 1f) ?: 1f
         val fadeInMs = intent?.getLongExtra(EXTRA_FADE_IN_MS, 0L) ?: 0L
-        
-        var isSilent = false
-        var actualUri = audioUriRaw
-        if (!audioUriRaw.isNullOrEmpty()) {
-            if (audioUriRaw.startsWith("{") && audioUriRaw.contains("\"source\"")) {
-                try {
-                    val obj = org.json.JSONObject(audioUriRaw)
-                    val source = obj.optString("source")
-                    if (source == "silent") {
-                        isSilent = true
-                    } else if (source == "native" && obj.has("uri") && !obj.isNull("uri")) {
-                        actualUri = obj.optString("uri")
-                    } else {
-                        actualUri = null
-                    }
-                } catch (_: Exception) {}
-            } else if (audioUriRaw == "silent") {
-                isSilent = true
-            }
-        }
 
-        if (!isSilent) {
-            val playUri = if (actualUri.isNullOrEmpty()) {
-                android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI.toString()
-            } else {
-                actualUri
+        // Same loudness model as the Dart ring path: routine volume drives
+        // STREAM_ALARM and player gain stays at 1.0. Set before playback so
+        // the stream change is not heard as a dip.
+        if (!AlarmRingtonePlayer.isPlaying()) {
+            try {
+                AlarmRingtonePlayer.setAlarmStreamVolume(this, volume.toDouble())
+            } catch (_: Exception) {
             }
-            AlarmRingtonePlayer.play(
-                context = this,
-                uriString = playUri,
-                loop = loop,
-                fadeInMs = fadeInMs,
-                targetVolume = volume
-            )
         }
+        AlarmRingtonePlayer.playAlarm(
+            context = this,
+            rawAudioUri = audioUriRaw,
+            loop = loop,
+            fadeInMs = fadeInMs,
+        )
         val vibrate = intent?.getBooleanExtra(EXTRA_VIBRATE, false) ?: false
         if (vibrate) {
             try { AlarmVibrator.start(this) } catch (_: Exception) {}

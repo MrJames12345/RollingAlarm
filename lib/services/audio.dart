@@ -88,29 +88,27 @@ class RA_AudioService {
         return;
       }
 
-      if (sound.usesNativeRingtone) {
-        final started = await RA_DeviceRingtone.play(
-          uri: sound.uri!.trim(),
-          loop: true,
-          asAlarm: true,
-          fadeInMs: fadeIn ? fadeDuration.inMilliseconds : 0,
-          volume: 1.0,
-        );
-        if (startId != _playbackGeneration) {
-          await RA_DeviceRingtone.stop();
-          return;
-        }
-        if (started == true) {
-          _registerControlPort();
-          return;
-        }
-        // Headless isolates lack MainActivity's channel. Leave audio for the
-        // ring page instead of hanging on just_audio setUrl(content://...).
-        if (started == null) {
-          return;
-        }
-        // Native play failed with a live channel; fall through to default.
+      // Native owns alarm audio so the FGS and this isolate share one player
+      // and can never replace the chosen tone with a different one.
+      final started = await RA_DeviceRingtone.playAlarm(
+        audioUri: audioUri,
+        loop: true,
+        fadeInMs: fadeIn ? fadeDuration.inMilliseconds : 0,
+      );
+      if (startId != _playbackGeneration) {
+        await RA_DeviceRingtone.stop();
+        return;
       }
+      if (started == true) {
+        _registerControlPort();
+        return;
+      }
+      // Headless isolates lack MainActivity's channel. AlarmRingingService
+      // already plays natively; a second just_audio player would overlap it.
+      if (started == null) {
+        return;
+      }
+      // Every native source failed with a live channel; try just_audio.
 
       _registerControlPort();
       await _configureSession();
