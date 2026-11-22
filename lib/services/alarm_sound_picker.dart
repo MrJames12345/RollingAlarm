@@ -1,6 +1,5 @@
 ﻿import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 
@@ -12,16 +11,16 @@ class RA_AlarmSoundPickerService {
     'com.casellaweb.rolling_alarm/alarm_sound',
   );
 
-  /// MediaStore audio files that include an OS file name (DISPLAY_NAME).
+  /// System alarm and ringtone tones enumerated via Android RingtoneManager.
+  /// Requires no storage or media permissions.
   static Future<List<RA_AlarmSound>> listDeviceSounds() async {
     try {
-      await _ensureAudioReadPermission();
-      final raw = await _channel.invokeMethod<List<dynamic>>(
+      final raw = await _channel.invokeMethod<List<Object?>>(
         'listDeviceSounds',
       );
       if (raw == null) return const [];
-      return raw.map((item) {
-        final map = Map<String, dynamic>.from(item as Map);
+      return raw.whereType<Map<Object?, Object?>>().map((item) {
+        final map = Map<String, Object?>.from(item);
         return _fromNativeMap(
           map,
           source: RA_AlarmSoundSource.deviceSounds,
@@ -36,12 +35,12 @@ class RA_AlarmSoundPickerService {
   /// Opens the system ringtone picker (all ringtone categories).
   static Future<RA_AlarmSound?> pickDeviceSound({String? existingUri}) async {
     try {
-      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      final raw = await _channel.invokeMethod<Map<Object?, Object?>>(
         'pickDeviceSound',
-        {'existingUri': existingUri},
+        <String, Object?>{'existingUri': existingUri},
       );
       if (raw == null) return null;
-      final map = Map<String, dynamic>.from(raw);
+      final map = Map<String, Object?>.from(raw);
       final uri = map['uri'] as String?;
       if (uri == null || uri.isEmpty) return null;
       return _fromNativeMap(
@@ -54,23 +53,6 @@ class RA_AlarmSoundPickerService {
     }
   }
 
-  /// Requests READ_MEDIA_AUDIO (or legacy storage) so MediaStore audio appears.
-  static Future<void> _ensureAudioReadPermission() async {
-    try {
-      final audio = await Permission.audio.status;
-      if (!audio.isGranted && !audio.isLimited) {
-        await Permission.audio.request();
-      }
-      // Pre Android 13 MediaStore external access uses READ_EXTERNAL_STORAGE.
-      final storage = await Permission.storage.status;
-      if (!storage.isGranted && !storage.isLimited) {
-        await Permission.storage.request();
-      }
-    } catch (_) {
-      // Permission plugin absent in tests; native list still returns tones.
-    }
-  }
-
   /// Picks an audio file from device storage.
   ///
   /// Returns `null` when the user cancels without selecting a file.
@@ -80,7 +62,7 @@ class RA_AlarmSoundPickerService {
     try {
       final native = await _pickLocalFileNative(onError: onError);
       if (native.handled) return native.sound;
-      return _pickLocalFileFallback(onError: onError);
+      return await _pickLocalFileFallback(onError: onError);
     } catch (e) {
       onError?.call('Failed to select file: $e');
       return null;
@@ -93,12 +75,11 @@ class RA_AlarmSoundPickerService {
     void Function(String message)? onError,
   }) async {
     try {
-      // Use dynamic so a null cancel reply never type-casts as a non-null Map.
-      final raw = await _channel.invokeMethod<dynamic>('pickLocalFile');
+      final raw = await _channel.invokeMethod<Object?>('pickLocalFile');
       if (raw == null) return (handled: true, sound: null);
-      if (raw is! Map) return (handled: true, sound: null);
+      if (raw is! Map<Object?, Object?>) return (handled: true, sound: null);
 
-      final map = Map<String, dynamic>.from(raw);
+      final map = Map<String, Object?>.from(raw);
       final uri = map['uri'] as String?;
       if (uri == null || uri.isEmpty) return (handled: true, sound: null);
       final sound = _fromNativeMap(
@@ -196,7 +177,7 @@ class RA_AlarmSoundPickerService {
   /// [title] is the embedded metadata title; [displayName] is the OS file name.
   /// Empty metadata falls back to the file name, then [fallbackLabel].
   static RA_AlarmSound _fromNativeMap(
-    Map<String, dynamic> map, {
+    Map<String, Object?> map, {
     required RA_AlarmSoundSource source,
     required String fallbackLabel,
   }) {

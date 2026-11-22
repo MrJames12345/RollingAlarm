@@ -461,7 +461,7 @@ class RA_AppTheme {
           return primary.withValues(alpha: isLight ? 0.55 : 0.45);
         }),
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: RA_ColourStyles.secondary,
       ),
       textSelectionTheme: TextSelectionThemeData(

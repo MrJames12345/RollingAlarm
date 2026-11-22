@@ -14,6 +14,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -64,6 +65,17 @@ class AlarmRingingService : Service() {
             return START_NOT_STICKY
         }
 
+        ensureChannel(this)
+        // Satisfy Android's 5-second FGS contract first with a quiet notification
+        // (no FSI / screen wake) before querying SQLite.
+        val quietNotification = buildServiceNotification(this, routineId, useFsi = false)
+        startForegroundWithType(notificationId(routineId), quietNotification)
+
+        if (AlarmSqliteGate.shouldSuppressRing(this, routineId)) {
+            cancelNotificationAndStop(routineId)
+            return START_NOT_STICKY
+        }
+
         // New ring session: allow one initial display wake (FSI / bright lock).
         AlarmRingDisplayGate.resetForNewRing()
         activeRoutineId = routineId
@@ -78,17 +90,10 @@ class AlarmRingingService : Service() {
         // Only need a bright/wakeup lock long enough for the first presentation.
         scheduleBrightWakeDowngrade()
         writeRingingPref(true)
-        ensureChannel(this)
 
-        val notification = buildServiceNotification(this, routineId, useFsi = useFsi)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                notificationId(routineId),
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-            )
-        } else {
-            startForeground(notificationId(routineId), notification)
+        if (useFsi) {
+            val wakeNotification = buildServiceNotification(this, routineId, useFsi = true)
+            startForegroundWithType(notificationId(routineId), wakeNotification)
         }
 
         // Native-first audio & vibration routing
@@ -171,19 +176,41 @@ class AlarmRingingService : Service() {
         }
     }
 
+    private fun startForegroundWithType(id: Int, notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                id,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+            )
+        } else {
+            startForeground(id, notification)
+        }
+    }
+
+    private fun cancelNotificationAndStop(routineId: Int) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (_: Exception) {
+        }
+        try {
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(notificationId(routineId))
+        } catch (_: Exception) {
+        }
+        stopSelf()
+    }
+
     private fun demoteToQuietServiceNotification(routineId: Int) {
         if (routineId < 0) return
         try {
             val notification = buildServiceNotification(this, routineId, useFsi = false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    notificationId(routineId),
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-                )
-            } else {
-                startForeground(notificationId(routineId), notification)
-            }
+            startForegroundWithType(notificationId(routineId), notification)
         } catch (_: Exception) {
         }
     }
@@ -403,14 +430,56 @@ class AlarmRingingService : Service() {
             }
         }
 
+        private fun backgroundActivityStartMode(): Int {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+            } else {
+                @Suppress("DEPRECATION")
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+        }
+
+        private fun creatorBalOptionsBundle(): Bundle? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                return null
+            }
+            val mode = backgroundActivityStartMode()
+            return ActivityOptions.makeBasic().apply {
+                setPendingIntentCreatorBackgroundActivityStartMode(mode)
+            }.toBundle()
+        }
+
+        private fun senderBalOptionsBundle(): Bundle? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                return null
+            }
+            val mode = backgroundActivityStartMode()
+            return ActivityOptions.makeBasic().apply {
+                setPendingIntentBackgroundActivityStartMode(mode)
+            }.toBundle()
+        }
+
+        private fun createActivityPendingIntent(
+            context: Context,
+            requestCode: Int,
+            intent: Intent,
+        ): PendingIntent {
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val creatorOptions = creatorBalOptionsBundle()
+            return if (creatorOptions != null) {
+                PendingIntent.getActivity(context, requestCode, intent, flags, creatorOptions)
+            } else {
+                PendingIntent.getActivity(context, requestCode, intent, flags)
+            }
+        }
+
         fun buildServiceNotification(context: Context, routineId: Int, useFsi: Boolean): Notification {
             val launchIntent = buildLaunchIntent(context, routineId)
 
-            val contentPi = PendingIntent.getActivity(
+            val contentPi = createActivityPendingIntent(
                 context,
                 REQUEST_CONTENT_BASE + routineId,
                 launchIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val channelId = if (useFsi) CHANNEL_ID_WAKE else CHANNEL_ID_SERVICE
 
@@ -426,11 +495,10 @@ class AlarmRingingService : Service() {
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
             if (useFsi) {
-                val fullScreenPi = PendingIntent.getActivity(
+                val fullScreenPi = createActivityPendingIntent(
                     context,
                     REQUEST_FSI_BASE + routineId,
                     launchIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 builder
                     .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -478,19 +546,14 @@ class AlarmRingingService : Service() {
             }
             val launchIntent = buildLaunchIntent(context, routineId)
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    val options = ActivityOptions.makeBasic().apply {
-                        setPendingIntentBackgroundActivityStartMode(
-                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                        )
-                    }
-                    val pi = PendingIntent.getActivity(
+                val senderOptions = senderBalOptionsBundle()
+                if (senderOptions != null) {
+                    val pi = createActivityPendingIntent(
                         context,
                         REQUEST_LAUNCH_BASE + routineId,
                         launchIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
-                    pi.send(context, 0, null, null, null, null, options.toBundle())
+                    pi.send(context, 0, null, null, null, null, senderOptions)
                     return
                 }
             } catch (_: Exception) {

@@ -52,6 +52,12 @@ class AlarmResurrectionReceiver : BroadcastReceiver() {
                     continue
                 }
 
+                // Do not re-arm deleted, paused, or muted routines natively.
+                if (AlarmSqliteGate.shouldSuppressRing(context, routineId)) {
+                    editor.remove(key)
+                    continue
+                }
+
                 val audioUri = if (json.has("audioUri") && !json.isNull("audioUri")) json.getString("audioUri") else null
                 val loop = json.optBoolean("loop", true)
                 val volume = json.optDouble("volume", 1.0).toFloat()

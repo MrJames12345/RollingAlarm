@@ -104,6 +104,8 @@ class RA_AlarmService {
             triggerTime: next,
             dbPath: dbPath,
             routineName: routine.Name,
+            routine: routine,
+            state: state,
             refreshWidget: false,
           );
         } catch (_) {
@@ -118,20 +120,19 @@ class RA_AlarmService {
 
   /// Schedules the next alarm for [routineId] at [triggerTime].
   ///
-  /// Always runs the aggressive battery-optimization check first so create /
-  /// toggle / reschedule paths cannot silently stay under OEM Doze limits.
+  /// Pass [routine] and [state] when already loaded to avoid opening a
+  /// redundant isolate database connection. Muted routines arm only the
+  /// background Dart callback and cancel any native `setAlarmClock` wake.
   static Future<void> scheduleNext({
     required int routineId,
     required DateTime triggerTime,
     required String dbPath,
     String? routineName,
+    RoutineModel? routine,
+    RoutineStateModel? state,
     bool refreshWidget = true,
   }) async {
     try {
-      // Force Unrestricted battery mode before any AlarmManager arming.
-      // scheduleNext is the single create / toggle / reschedule entry point.
-      await ensureBatteryOptimizationExempt();
-
       // Persist the DB path so the background isolate can find it
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_dbPathKey, dbPath);
@@ -162,23 +163,35 @@ class RA_AlarmService {
 
       // setAlarmClock -> AlarmReceiver -> AlarmRingingService FSI
       // (works even when the Flutter UI process was killed). Best-effort.
-      final db = RA_Database.openForIsolate(dbPath);
-      RoutineModel? routine;
-      try {
-        routine = await db.getRoutineById(routineId);
-      } catch (_) {}
-      await db.close();
+      RoutineModel? resolvedRoutine = routine;
+      RoutineStateModel? resolvedState = state;
+      if (resolvedRoutine == null || resolvedState == null) {
+        final db = RA_Database.openForIsolate(dbPath);
+        try {
+          resolvedRoutine ??= await db.getRoutineById(routineId);
+          resolvedState ??= await db.getRoutineState(routineId);
+        } catch (_) {
+        } finally {
+          await db.close();
+        }
+      }
 
-      await _scheduleAlarmUi(
-        fireAt: fireAt,
-        routineId: routineId,
-        audioUri: routine?.AudioUri,
-        volume: routine?.Volume != null ? routine!.Volume / 100.0 : null,
-        fadeInMs: routine?.FadeIn == true
-            ? RA_AudioService.fadeDuration.inMilliseconds
-            : 0,
-        vibrate: routine?.Vibrate,
-      );
+      if (resolvedState?.MutedAt != null) {
+        // Muted routines silently advance via _alarmCallback -> _handleMutedFire;
+        // disarm native setAlarmClock so screen and audio stay silent.
+        await _cancelAlarmUi(routineId);
+      } else {
+        await _scheduleAlarmUi(
+          fireAt: fireAt,
+          routineId: routineId,
+          audioUri: resolvedRoutine?.AudioUri,
+          volume: resolvedRoutine != null ? resolvedRoutine.Volume / 100.0 : null,
+          fadeInMs: resolvedRoutine?.FadeIn == true
+              ? RA_AudioService.fadeDuration.inMilliseconds
+              : 0,
+          vibrate: resolvedRoutine?.Vibrate,
+        );
+      }
 
       // Refresh the pinned routine dashboard (not whichever routine scheduled).
       if (refreshWidget) {
@@ -218,13 +231,13 @@ class RA_AlarmService {
   }) async {
     try {
       const channel = MethodChannel(_uiSchedulerChannel);
-      await channel.invokeMethod<void>('schedule', <String, dynamic>{
+      await channel.invokeMethod<void>('schedule', <String, Object?>{
         'triggerAtMillis': fireAt.millisecondsSinceEpoch,
         'routineId': routineId,
-        if (audioUri != null) 'audioUri': audioUri,
-        if (volume != null) 'volume': volume,
-        if (fadeInMs != null) 'fadeInMs': fadeInMs,
-        if (vibrate != null) 'vibrate': vibrate,
+        'audioUri': ?audioUri,
+        'volume': ?volume,
+        'fadeInMs': ?fadeInMs,
+        'vibrate': ?vibrate,
       });
     } catch (_) {
       // Channel missing in headless / background isolates; FSI still covers wake.
@@ -234,7 +247,7 @@ class RA_AlarmService {
   static Future<void> _cancelAlarmUi(int routineId) async {
     try {
       const channel = MethodChannel(_uiSchedulerChannel);
-      await channel.invokeMethod<void>('cancel', <String, dynamic>{
+      await channel.invokeMethod<void>('cancel', <String, Object?>{
         'routineId': routineId,
       });
     } catch (_) {}
@@ -244,7 +257,7 @@ class RA_AlarmService {
   static Future<void> stopNativeRinging(int routineId) async {
     try {
       const channel = MethodChannel(_uiSchedulerChannel);
-      await channel.invokeMethod<void>('stopRinging', <String, dynamic>{
+      await channel.invokeMethod<void>('stopRinging', <String, Object?>{
         'routineId': routineId,
       });
     } catch (_) {}
@@ -340,8 +353,8 @@ class RA_AlarmService {
 
   /// Ensures battery exemption; prompts when not granted.
   ///
-  /// Called from [scheduleNext] on every create / toggle / reschedule, and
-  /// once at app startup, so the user cannot bypass Unrestricted mode.
+  /// Triggered manually from Settings -> Alarm Reliability rather than on
+  /// cold start or schedule writes.
   static Future<void> ensureBatteryOptimizationExempt() async {
     try {
       const channel = MethodChannel(_uiSchedulerChannel);
@@ -370,6 +383,10 @@ class RA_AlarmService {
         try {
           final state = await db.getRoutineState(routine.Id);
           if (state == null || state.IsRinging) continue;
+          if (state.MutedAt != null) {
+            await _cancelAlarmUi(routine.Id);
+            continue;
+          }
           final next = state.NextTriggerTime;
           if (next == null) continue;
           final now = DateTime.now();
@@ -485,6 +502,8 @@ class RA_AlarmService {
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
+            routine: routine,
+            state: state,
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
@@ -522,6 +541,8 @@ class RA_AlarmService {
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
+            routine: routine,
+            state: state,
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
@@ -741,6 +762,7 @@ class RA_AlarmService {
     final now = DateTime.now();
 
     DateTime? nextTrigger;
+    RoutineStateModel? committedState;
 
     // Caller snapshot is advisory; the transaction re-reads for race safety.
     assert(state.RoutineId == routineId);
@@ -857,6 +879,7 @@ class RA_AlarmService {
       );
 
       nextTrigger = next;
+      committedState = fresh;
     });
 
     // Lost the race (another writer already cleared IsRinging) or missing state.
@@ -885,6 +908,8 @@ class RA_AlarmService {
         triggerTime: nextTrigger!,
         dbPath: dbPath,
         routineName: routine.Name,
+        routine: routine,
+        state: committedState,
         refreshWidget: false,
       );
     }
@@ -1073,6 +1098,11 @@ class RA_AlarmService {
         triggerTime: newNext,
         dbPath: dbPath,
         routineName: routine.Name,
+        routine: routine.copyWith(IsActive: true),
+        state: state?.copyWith(
+          PausedAt: const Value(null),
+          NextTriggerTime: Value(newNext),
+        ),
         refreshWidget: false,
       );
     }
@@ -1137,6 +1167,7 @@ class RA_AlarmService {
         ),
       );
     }
+    await _cancelAlarmUi(routineId);
 
     await db.insertActivityLog(
       routineId: routineId,
@@ -1148,7 +1179,8 @@ class RA_AlarmService {
     _pingUiIsolate(routineId);
   }
 
-  /// Clears mute; countdown and next fire are unchanged.
+  /// Clears mute; countdown and next fire are unchanged, and native wake
+  /// resumes immediately when the routine is active with a pending trigger.
   static Future<void> unmuteRoutine({
     required int routineId,
     required RA_Database db,
@@ -1163,6 +1195,31 @@ class RA_AlarmService {
       action: LogActionTypeCodeEnum.Unmute,
       timestamp: now,
     );
+    try {
+      final routine = await db.getRoutineById(routineId);
+      final state = await db.getRoutineState(routineId);
+      final next = state?.NextTriggerTime;
+      if (!routine.Deleted &&
+          routine.IsActive &&
+          next != null &&
+          state?.IsRinging != true) {
+        final fireAt = next.isAfter(now)
+            ? next
+            : now.add(const Duration(seconds: 1));
+        await _scheduleAlarmUi(
+          fireAt: fireAt,
+          routineId: routineId,
+          audioUri: routine.AudioUri,
+          volume: routine.Volume / 100.0,
+          fadeInMs: routine.FadeIn
+              ? RA_AudioService.fadeDuration.inMilliseconds
+              : 0,
+          vibrate: routine.Vibrate,
+        );
+      }
+    } catch (_) {
+      // Ignore lookup/channel failures so unmute DB state remains consistent.
+    }
     await RA_WidgetService.updateWidgetState(db: db);
     _pingUiIsolate(routineId);
   }
@@ -1193,11 +1250,14 @@ class RA_AlarmService {
     );
     if (!recovered) return false;
 
+    final recoveredState = await db.getRoutineState(routineId);
     await scheduleNext(
       routineId: routineId,
       triggerTime: next,
       dbPath: dbPath,
       routineName: routine.Name,
+      routine: routine.copyWith(Deleted: false, IsActive: true),
+      state: recoveredState,
       refreshWidget: false,
     );
     await RA_WidgetService.updateWidgetState(db: db);
@@ -1278,6 +1338,8 @@ class RA_AlarmService {
         triggerTime: next,
         dbPath: dbPath,
         routineName: routine.Name,
+        routine: routine,
+        state: state,
         refreshWidget: false,
       );
     }
@@ -1378,6 +1440,8 @@ class RA_AlarmService {
         triggerTime: next,
         dbPath: dbPath,
         routineName: routine.Name,
+        routine: routine,
+        state: state,
         refreshWidget: false,
       );
     }
@@ -1486,6 +1550,8 @@ class RA_AlarmService {
       triggerTime: next,
       dbPath: dbPath,
       routineName: routine.Name,
+      routine: routine,
+      state: state,
       refreshWidget: false,
     );
     await RA_WidgetService.updateWidgetState(db: db);

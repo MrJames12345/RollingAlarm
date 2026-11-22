@@ -29,7 +29,7 @@ class AlarmReceiver : BroadcastReceiver() {
         wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
 
         val routineId = intent?.getIntExtra(EXTRA_ROUTINE_ID, -1) ?: -1
-        if (routineId < 0) {
+        if (routineId < 0 || AlarmSqliteGate.shouldSuppressRing(context, routineId)) {
             wakeLock.release()
             return
         }

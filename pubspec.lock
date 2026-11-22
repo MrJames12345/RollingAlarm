@@ -454,10 +454,10 @@ packages:
     dependency: "direct main"
     description:
       name: home_widget
-      sha256: fece84c7464099873c3ace38394ad7053509a4b0e36e57a1105a6aa31f47f23c
+      sha256: "1dbfdfbb3b47de24639adfba352050d85d66af112b9cc3ec5bf7627a7813abcb"
       url: "https://pub.dev"
     source: hosted
-    version: "0.9.3"
+    version: "0.10.0"
   hooks:
     dependency: transitive
     description:
@@ -895,6 +895,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
+  purchases_flutter:
+    dependency: "direct main"
+    description:
+      name: purchases_flutter
+      sha256: bb41c8938153258f9d1b7a77eaac8a9869d87563dcac8b379d4a29531a075a08
+      url: "https://pub.dev"
+    source: hosted
+    version: "11.0.4"
   qr:
     dependency: transitive
     description:

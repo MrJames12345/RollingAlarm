@@ -1,7 +1,6 @@
 ﻿package com.casellaweb.rolling_alarm
 
 import android.content.BroadcastReceiver
-import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -17,14 +16,15 @@ import android.provider.MediaStore
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
 import kotlin.concurrent.thread
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val soundChannel = "com.casellaweb.rolling_alarm/alarm_sound"
+    private val paywallChannel = "com.casellaweb.rolling_alarm/paywall"
     private var pickerResult: MethodChannel.Result? = null
     private var activeRequestCode: Int = 0
     private var isAlarmRinging: Boolean = false
@@ -33,6 +33,9 @@ class MainActivity : FlutterActivity() {
     /** True only for a real alarm launch intent / bringToForeground, not a stale pref. */
     private var lockOverlayFromAlarmIntent: Boolean = false
     private var alarmSoundMethodChannel: MethodChannel? = null
+    private var paywallMethodChannel: MethodChannel? = null
+    private var pendingOpenPaywall: Boolean = false
+    private var pendingPaywallTrigger: String? = null
     /** Cached side-button actions while ringing: none / snooze / dismiss. */
     private var sideButtonVolumeUp: String = ACTION_NONE
     private var sideButtonVolumeDown: String = ACTION_NONE
@@ -60,6 +63,7 @@ class MainActivity : FlutterActivity() {
         // Apply lock-screen flags before Flutter attaches so a full-screen
         // intent cold start can appear over the keyguard immediately.
         syncRingingState(intent)
+        capturePaywallIntent(intent)
         applyLockScreenFlags(isAlarmRinging)
         super.onCreate(savedInstanceState)
         // Re-apply after window attach; some OEM builds drop pre-super flags.
@@ -79,7 +83,51 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         syncRingingState(intent)
+        if (capturePaywallIntent(intent)) {
+            dispatchOpenPaywallToFlutter()
+        }
         applyLockScreenFlags(isAlarmRinging)
+    }
+
+    private fun capturePaywallIntent(intent: Intent?): Boolean {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_PAYWALL, false) != true) {
+            return false
+        }
+        pendingOpenPaywall = true
+        pendingPaywallTrigger = intent.getStringExtra(EXTRA_PAYWALL_TRIGGER)
+        intent.removeExtra(EXTRA_OPEN_PAYWALL)
+        intent.removeExtra(EXTRA_PAYWALL_TRIGGER)
+        return true
+    }
+
+    private fun dispatchOpenPaywallToFlutter() {
+        val channel = paywallMethodChannel ?: return
+        if (!pendingOpenPaywall) return
+        val trigger = pendingPaywallTrigger
+        runOnUiThread {
+            try {
+                channel.invokeMethod(
+                    "openPaywall",
+                    hashMapOf("featureTrigger" to trigger),
+                    object : MethodChannel.Result {
+                        override fun success(result: Any?) {
+                            pendingOpenPaywall = false
+                            pendingPaywallTrigger = null
+                        }
+
+                        override fun error(
+                            errorCode: String,
+                            errorMessage: String?,
+                            errorDetails: Any?,
+                        ) {}
+
+                        override fun notImplemented() {}
+                    },
+                )
+            } catch (_: Exception) {
+                // Dart handler not ready yet; consumePendingPaywall will pick it up.
+            }
+        }
     }
 
     override fun onResume() {
@@ -269,6 +317,26 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(AlarmUiSchedulerPlugin())
+        val paywallBridge = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, paywallChannel)
+        paywallMethodChannel = paywallBridge
+        paywallBridge.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "consumePendingPaywall" -> {
+                    if (pendingOpenPaywall) {
+                        val payload = hashMapOf<String, Any?>(
+                            "open" to true,
+                            "featureTrigger" to pendingPaywallTrigger,
+                        )
+                        pendingOpenPaywall = false
+                        pendingPaywallTrigger = null
+                        result.success(payload)
+                    } else {
+                        result.success(hashMapOf<String, Any?>("open" to false))
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, soundChannel)
         alarmSoundMethodChannel = channel
         channel.setMethodCallHandler { call, result ->
@@ -369,8 +437,8 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "listDeviceSounds" -> {
-                        // MediaStore scans can be large; never block the UI /
-                        // Flutter raster thread or the picker page freezes.
+                        // RingtoneManager cursor scans can touch disk; keep off
+                        // the UI / Flutter raster thread so the picker stays smooth.
                         thread(name = "ra-list-device-sounds") {
                             try {
                                 val sounds = listDeviceSounds()
@@ -510,10 +578,12 @@ class MainActivity : FlutterActivity() {
                         }
                         pickerResult = result
                         activeRequestCode = REQUEST_LOCAL_FILE
-                        // Grant flags belong on the returned URI via
-                        // takePersistableUriPermission, not on this launch intent.
                         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
+                            addFlags(
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                            )
                             type = "audio/*"
                             putExtra(
                                 Intent.EXTRA_MIME_TYPES,
@@ -703,81 +773,45 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * Builds the Device sounds list from MediaStore audio that has an OS
-     * file name (DISPLAY_NAME). System ringtone titles without a file name
-     * are omitted to match the picker UI.
+     * Enumerates system alarm and ringtone tones via [RingtoneManager] across
+     * [RingtoneManager.TYPE_ALARM] and [RingtoneManager.TYPE_RINGTONE] without
+     * requiring any media or storage permissions.
      */
     private fun listDeviceSounds(): List<Map<String, String>> {
         val byUri = LinkedHashMap<String, Map<String, String>>()
-        for (collection in mediaStoreAudioCollections()) {
-            appendMediaStoreAudio(byUri, collection)
+        for (type in intArrayOf(RingtoneManager.TYPE_ALARM, RingtoneManager.TYPE_RINGTONE)) {
+            appendRingtoneManagerSounds(byUri, type)
         }
         return byUri.values.sortedBy { it["title"]?.lowercase(Locale.ROOT) ?: "" }
     }
 
-    private fun mediaStoreAudioCollections(): List<Uri> {
-        val collections = mutableListOf(MediaStore.Audio.Media.INTERNAL_CONTENT_URI)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            collections.add(MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL))
-        } else {
-            collections.add(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
-        }
-        return collections
-    }
-
-    private fun appendMediaStoreAudio(
+    private fun appendRingtoneManagerSounds(
         byUri: LinkedHashMap<String, Map<String, String>>,
-        collection: Uri,
+        type: Int,
     ) {
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.MIME_TYPE,
-        )
-        val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "${MediaStore.Audio.Media.IS_PENDING} = 0"
-        } else {
-            null
-        }
         try {
-            contentResolver.query(
-                collection,
-                projection,
-                selection,
-                null,
-                "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC",
-            )?.use { cursor ->
-                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-                val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val manager = RingtoneManager(this)
+            manager.setType(type)
+            manager.cursor?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    val mime = cursor.getString(mimeCol)?.lowercase(Locale.ROOT)
-                    if (mime != null && !mime.startsWith("audio/") && mime != "application/ogg") {
-                        continue
+                    val uri = try {
+                        manager.getRingtoneUri(cursor.position)?.toString()
+                    } catch (_: Exception) {
+                        null
                     }
-                    val id = cursor.getLong(idCol)
-                    val uri = ContentUris.withAppendedId(collection, id).toString()
-                    if (byUri.containsKey(uri)) continue
-                    val title = cursor.getString(titleCol)?.trim().orEmpty()
-                    val displayName = cursor.getString(nameCol)?.trim().orEmpty()
-                    // Picker only shows entries that have an OS file name.
-                    if (displayName.isEmpty()) continue
-                    // Keep metadata TITLE and OS DISPLAY_NAME separate so Flutter
-                    // can show both; empty TITLE falls back to the file name.
-                    val entry = hashMapOf(
+                    if (uri.isNullOrBlank() || byUri.containsKey(uri)) continue
+                    val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX)
+                        ?.trim()
+                        .orEmpty()
+                    if (title.isEmpty()) continue
+                    byUri[uri] = hashMapOf(
                         "uri" to uri,
-                        "title" to title.ifEmpty { displayName },
-                        "displayName" to displayName,
+                        "title" to title,
                     )
-                    byUri[uri] = entry
                 }
             }
-        } catch (_: SecurityException) {
-            // READ_MEDIA_AUDIO / storage not granted yet; RingtoneManager entries remain.
         } catch (_: Exception) {
-            // Ignore one bad volume so the other collections can still load.
+            // Ignore one unavailable ringtone category so the other can still load.
         }
     }
 
@@ -789,6 +823,8 @@ class MainActivity : FlutterActivity() {
         private const val ACTION_SNOOZE = "snooze"
         private const val ACTION_DISMISS = "dismiss"
         const val EXTRA_ALARM_RINGING = "ra_alarm_ringing"
+        const val EXTRA_OPEN_PAYWALL = "ra_open_paywall"
+        const val EXTRA_PAYWALL_TRIGGER = "ra_paywall_trigger"
         private const val FLUTTER_PREFS = "FlutterSharedPreferences"
         private const val FLUTTER_RINGING_KEY = "flutter.ra_is_ringing"
         private const val FLUTTER_WAKE_AT_KEY = "flutter.ra_alarm_wake_at_ms"

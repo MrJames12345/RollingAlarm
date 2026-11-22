@@ -1,10 +1,14 @@
 ﻿package com.casellaweb.rolling_alarm
 
+import android.app.ActivityOptions
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -93,8 +97,17 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(requestIgnoreBatteryOptimizations(context))
             }
             "ensureIgnoringBatteryOptimizations" -> {
-                // Combined check + forceful prompt for create / toggle paths.
+                // Combined check + forceful prompt for manual reliability triggers.
                 result.success(ensureIgnoringBatteryOptimizations(context))
+            }
+            "canUseFullScreenIntent" -> {
+                result.success(canUseFullScreenIntent(context))
+            }
+            "canScheduleExactAlarms" -> {
+                result.success(canScheduleExactAlarms(context))
+            }
+            "getAndroidSdkInt" -> {
+                result.success(Build.VERSION.SDK_INT)
             }
             "startVibration" -> {
                 try {
@@ -175,12 +188,23 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 putExtra(MainActivity.EXTRA_ALARM_RINGING, true)
                 putExtra(AlarmReceiver.EXTRA_ROUTINE_ID, routineId)
             }
-            val showIntent = PendingIntent.getActivity(
-                context,
-                REQUEST_BASE + routineId + 5000,
-                showLaunch,
-                flags
-            )
+            val creatorOptions = creatorBalOptionsBundle()
+            val showIntent = if (creatorOptions != null) {
+                PendingIntent.getActivity(
+                    context,
+                    REQUEST_BASE + routineId + 5000,
+                    showLaunch,
+                    flags,
+                    creatorOptions
+                )
+            } else {
+                PendingIntent.getActivity(
+                    context,
+                    REQUEST_BASE + routineId + 5000,
+                    showLaunch,
+                    flags
+                )
+            }
 
             val fireAt = triggerAtMillis.coerceAtLeast(System.currentTimeMillis() + 500L)
             val clockInfo = AlarmManager.AlarmClockInfo(fireAt, showIntent)
@@ -208,6 +232,45 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         fun isIgnoringBatteryOptimizations(context: Context): Boolean {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             return pm.isIgnoringBatteryOptimizations(context.packageName)
+        }
+
+        fun canUseFullScreenIntent(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                return true
+            }
+            return try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.canUseFullScreenIntent()
+            } catch (_: Exception) {
+                true
+            }
+        }
+
+        fun canScheduleExactAlarms(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                return true
+            }
+            return try {
+                val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                am.canScheduleExactAlarms()
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        private fun creatorBalOptionsBundle(): Bundle? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                return null
+            }
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+            } else {
+                @Suppress("DEPRECATION")
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+            return ActivityOptions.makeBasic().apply {
+                setPendingIntentCreatorBackgroundActivityStartMode(mode)
+            }.toBundle()
         }
 
         private fun saveAlarmToPrefs(
