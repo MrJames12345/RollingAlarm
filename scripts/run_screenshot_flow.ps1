@@ -14,7 +14,7 @@ param(
 $ErrorActionPreference = "Continue"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $repoRoot "screenshots"
-$package = "com.example.rolling_alarm"
+$package = "com.casellaweb.rolling_alarm"
 Set-Location $repoRoot
 
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
@@ -46,7 +46,7 @@ Write-Host "Granting alarm related appops..."
 # background until the Dart suite finishes.
 $grantJob = Start-Job -ArgumentList $DeviceId -ScriptBlock {
     param($DeviceId)
-    $pkg = "com.example.rolling_alarm"
+    $pkg = "com.casellaweb.rolling_alarm"
     for ($i = 0; $i -lt 240; $i++) {
         adb -s $DeviceId shell cmd appops set $pkg SCHEDULE_EXACT_ALARM allow 2>$null | Out-Null
         adb -s $DeviceId shell pm grant $pkg android.permission.POST_NOTIFICATIONS 2>$null | Out-Null

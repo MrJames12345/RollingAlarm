@@ -10,7 +10,7 @@ Expected PNG files (produced by integration_test/screenshot_flow_test.dart):
 
 On Android the test prefers app-scoped writable dirs (no extra storage Manifest
 permission), typically:
-  /sdcard/Android/data/com.example.rolling_alarm/files/screenshots/
+  /sdcard/Android/data/com.casellaweb.rolling_alarm/files/screenshots/
   <app documents>/screenshots/   (pulled via run-as)
 
 Pull into this folder after a device run:

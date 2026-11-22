@@ -4,7 +4,7 @@
 $ErrorActionPreference = "Continue"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $repoRoot "screenshots"
-$package = "com.example.rolling_alarm"
+$package = "com.casellaweb.rolling_alarm"
 
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 

@@ -1,8 +1,8 @@
 # Grants SCHEDULE_EXACT_ALARM via adb appops for automated / CI environments.
-# Usage: .\scripts\adb_grant_exact_alarm.ps1 [-PackageName com.example.rolling_alarm]
+# Usage: .\scripts\adb_grant_exact_alarm.ps1 [-PackageName com.casellaweb.rolling_alarm]
 
 param(
-    [string]$PackageName = "com.example.rolling_alarm"
+    [string]$PackageName = "com.casellaweb.rolling_alarm"
 )
 
 $ErrorActionPreference = "Continue"

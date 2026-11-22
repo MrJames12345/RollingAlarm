@@ -9,7 +9,7 @@
 #   fullscreen_intent_demo.mp4   USE_FULL_SCREEN_INTENT
 #                                Screen locked, the ring page opens full screen
 #                                over the lock screen.
-#   foreground_service_demo.mp4  FOREGROUND_SERVICE_SPECIAL_USE
+#   foreground_service_demo.mp4  FOREGROUND_SERVICE_SYSTEM_EXEMPTED
 #                                App sent to the home screen, the alarm rings
 #                                from the foreground service, and the ongoing
 #                                service notification is shown in the shade.
@@ -247,8 +247,8 @@ record_demo() {
 echo "Installing demo APK..."
 adb install -r -g "$DEMO_APK" >/dev/null
 
-# The same access the app requests on first launch, granted up front so no
-# permission screens appear in the videos.
+# Core alarm and reliability access granted up front so no permission screens
+# appear in the videos.
 echo "Granting permissions..."
 adb shell pm grant "$APP_PACKAGE" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 adb shell appops set "$APP_PACKAGE" SCHEDULE_EXACT_ALARM allow >/dev/null 2>&1 || true

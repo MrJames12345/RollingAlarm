@@ -2,7 +2,7 @@
 
 **Package name:** `rolling_alarm`  
 **Application ID:** `com.casellaweb.rolling_alarm`  
-**Version:** `1.0.1+4` (version name `1.0.1`, version code `4`)  
+**Version:** `1.1.0+5` (version name `1.1.0`, version code `5`)  
 **Publisher:** Casella Web  
 **Platform:** Android only  
 **Repository:** https://github.com/MrJames12345/RollingAlarm  
@@ -44,12 +44,13 @@ Rolling Alarm is an **interval based recurring alarm** app for Android. Users cr
 
 Typical use cases:
 
-- Medication reminders every N hours
-- Habit loops (stretch, hydrate, stand)
+- Medication dose intervals every N hours
+- Rotating and FIFO shift rosters
+- ADHD routine loops (stretch, hydrate, focus, stand)
 - Caregiving or patient check intervals
 - Any task that must recur on a duration, not a clock face time
 
-The product lives fully offline on the device. There is no account system, no cloud sync, and no backend. State is SQLite via Drift, plus SharedPreferences for settings and a few cross isolate keys.
+The product is offline-first and keeps all routines and logs strictly on the device. There is no account system, no cloud sync, and no analytics/tracking backend. State is SQLite via Drift, plus SharedPreferences for settings and cross-isolate keys. Optional Rolling Alarm Pro upgrades are handled via Google Play Billing through RevenueCat (`RA_PurchaseService`, offline-first with cached entitlement fallback).
 
 ---
 
@@ -71,24 +72,25 @@ Day Start Time exists only as a daily period boundary and parking point when the
 | Layer | Choice |
 | --- | --- |
 | Language | Dart (SDK `^3.8.0`), Kotlin on Android |
-| UI | Flutter Material, Google Fonts |
+| UI | Flutter Material, Google Fonts (bundled offline via `assets/fonts/`, runtime fetching disabled) |
 | State | `flutter_riverpod` (AsyncNotifiers, StreamProviders) |
-| Database | Drift + SQLite (`sqlite3_flutter_libs`), WAL mode, schema version **17** |
+| Database | Drift + SQLite (`sqlite3_flutter_libs`), WAL mode, schema version **18** |
 | Prefs | `shared_preferences` |
 | Dart alarms | `android_alarm_manager_plus` (background isolate callback + watchdog) |
-| Native alarms | Custom Kotlin `AlarmManager.setAlarmClock` via `AlarmUiSchedulerPlugin` |
+| Native alarms | Custom Kotlin `AlarmManager.setAlarmClock` via `AlarmUiSchedulerPlugin` + `AlarmSqliteGate` read-only guard |
 | Notifications | `flutter_local_notifications` (legacy channel, FSI permission helpers; not the primary ring surface) |
-| Audio | `just_audio` + `audio_session`, plus native `AlarmRingtonePlayer` |
+| Audio | Permissionless `RingtoneManager` + `ACTION_OPEN_DOCUMENT` (`just_audio` + `audio_session`, plus native `AlarmRingtonePlayer`) |
 | Vibration | Dart service + native `AlarmVibrator` |
-| Permissions | `permission_handler` |
+| Permissions | Contextual `RA_PermissionService` (`permission_handler` + native status queries) |
+| Billing / Pro | `purchases_flutter` (RevenueCat v11, offline-first `RA_PurchaseService` + Drift v18 grandfathering) |
 | Home widget | `home_widget` + Jetpack Glance |
 | PDF / share | `pdf` + `printing` |
 | Files / links | `file_picker`, `url_launcher` |
-| Tests | `flutter_test`, `mocktail`, `integration_test`, `patrol` |
+| Tests | `flutter_test`, `mocktail`, `integration_test`, `patrol`, `sqlite3` |
 | Codegen | `drift_dev` + `build_runner` |
 | Android tooling | AGP `9.0.1`, Kotlin `2.3.20`, Java 17, Compose for Glance, desugaring |
 
-Most dependency versions in `pubspec.yaml` are unconstrained; resolved versions are in `pubspec.lock`.
+Dependency versions are pinned with caret constraints in `pubspec.yaml`; resolved versions are in `pubspec.lock`.
 
 ---
 
@@ -113,6 +115,7 @@ RollingAlarm/
 ├── android/                      Native Android (Kotlin + Glance widget)
 ├── assets/audio/                 Default alarm tone
 ├── assets/branding/              Logos / brand assets
+├── assets/fonts/                 Bundled fonts (offline Google Fonts)
 ├── test/                         Unit and widget tests
 ├── integration_test/             Device integration + screenshots
 ├── patrol_test/                  Patrol bundle
@@ -120,7 +123,7 @@ RollingAlarm/
 ├── docs/                         Product and policy documentation
 ├── dbMigrations/                 Reference SQL snippets (not auto applied)
 ├── screenshots/                  Pulled Play / QA PNGs
-├── #GooglePlay/                  Play listing helpers (e.g. translations.csv)
+├── #GooglePlay/                  Play listing helpers (`translations.csv`, `release-notes-1.1.0.xml`)
 ├── #Backup/                      Design image backups
 ├── play-policy-audit.md          Historical 1.0.0 Play permission audit
 ├── release-1.0.1-changes.md      1.0.1 changelog and verification notes
@@ -132,34 +135,38 @@ RollingAlarm/
 
 | Path | Role |
 | --- | --- |
-| `lib/main.dart` | Init DB path, AlarmManager, notifications, permissions, reconcile, `ProviderScope` |
-| `lib/services/alarm.dart` | Schedule, fire isolate, transitions, pause/mute, reconcile |
+| `lib/main.dart` | Init bundled fonts, DB path, AlarmManager, notifications, `RA_PurchaseService` + grandfathering sync, reconcile, log prune, `ProviderScope` |
+| `lib/services/alarm.dart` | Schedule, fire isolate, transitions, pause/mute (disarms native UI when muted), reconcile |
 | `lib/services/alarm_calculator.dart` | Pure next trigger math |
 | `lib/services/daily_ring_limit.dart` | Cap, day periods, create/edit retarget |
 | `lib/services/weekday_schedule.dart` | Enabled day bitmask + deferral |
+| `lib/services/permissions.dart` | `RA_PermissionService`: contextual alarm permissions + live reliability status |
+| `lib/services/purchase.dart` | `RA_PurchaseService`: offline-first RevenueCat Pro, 24h Day-0 Founding Lifetime timer, v1.0.1 grandfathering resolution, widget/prefs sync |
 | `lib/services/notification.dart` | Ringing prefs + FSI permission (+ legacy channel) |
 | `lib/services/audio.dart` / `vibration.dart` | Playback / vibrate |
 | `lib/services/settings.dart` | Theme, layout, swipe/side/card button prefs |
-| `lib/services/export.dart` | `RA1:` base64 import/export |
-| `lib/services/pdf.dart` | Log history PDF share |
+| `lib/services/export.dart` | `RA1:` base64 import/export (v10) |
+| `lib/services/pdf.dart` | Log history PDF share (background isolate) |
 | `lib/services/widget.dart` | Home widget data bridge |
-| `lib/services/alarm_sound_picker.dart` | Device / file sound selection |
+| `lib/services/alarm_sound_picker.dart` | Permissionless `RingtoneManager` device sounds + `ACTION_OPEN_DOCUMENT` local audio picker |
 | `lib/services/routine_duplicate.dart` | Duplicate a routine |
-| `lib/database/database.dart` | Drift schema v17, queries, CAS updates |
-| `lib/components/common/alarm_ring_presenter.dart` | Forces `AlarmRingPage` above all routes |
-| `lib/pages/*` | Home, edit, ring, summary, logs, settings, sound picker |
+| `lib/models/routine_template.dart` | Curated 1-tap Quick-Start routine presets |
+| `lib/database/database.dart` | Drift schema v18 (`AppMeta` grandfathering, `countLiveRoutines`, `pruneOldLogs`, CAS updates) |
+| `lib/components/common/alarm_ring_presenter.dart` | Forces `AlarmRingPage` above all routes, syncs effective Pro, handles native widget paywall bridge |
+| `lib/pages/*` | Home, edit, ring, summary, logs, settings, sound picker, paywall (`PaywallPage`) |
 
 ### Important Kotlin modules
 
 | Path | Role |
 | --- | --- |
-| `MainActivity.kt` | Lock screen flags, sound/side button MethodChannel, pickers |
-| `AlarmUiSchedulerPlugin.kt` | `setAlarmClock` schedule/cancel, battery exemption, vibration, widget refresh |
-| `AlarmReceiver.kt` | Exact alarm broadcast → FGS + activity launch |
-| `AlarmRingingService.kt` | Foreground ringing service (`systemExempted`), FSI notification |
+| `MainActivity.kt` | Lock screen flags, permissionless `RingtoneManager` listing & `ACTION_OPEN_DOCUMENT` audio picker, side-button & `paywall` MethodChannels |
+| `AlarmUiSchedulerPlugin.kt` | `setAlarmClock` schedule/cancel, manual battery exemption & permission status queries, vibration, widget refresh |
+| `AlarmSqliteGate.kt` | Read-only SQLite guard (`rolling_alarm.db`) suppressing native wake/ring/resurrection for deleted, paused, or muted routines |
+| `AlarmReceiver.kt` | Exact alarm broadcast → `AlarmSqliteGate` check → FGS + activity launch |
+| `AlarmRingingService.kt` | Foreground ringing service (`systemExempted`), `AlarmSqliteGate` check, FSI notification |
 | `AlarmRingtonePlayer.kt` / `AlarmVibrator.kt` | Native audio / vibrate |
-| `AlarmResurrectionReceiver.kt` | Boot / package replaced native re arm |
-| `RollingAlarmGlanceWidget.kt` + `WidgetConfigActivity.kt` | Home widget UI + routine picker |
+| `AlarmResurrectionReceiver.kt` | Boot / package replaced native re-arm (filtered by `AlarmSqliteGate`) |
+| `RollingAlarmGlanceWidget.kt` + `WidgetConfigActivity.kt` | Home widget UI + routine picker (enforces Free 1-widget cap with Pro bridge to `MainActivity`) |
 | `AlarmRingDisplayGate.kt` | Suppress display wake after user locks mid ring |
 
 ---
@@ -168,20 +175,23 @@ RollingAlarm/
 
 Cold start order in `lib/main.dart`:
 
-1. `WidgetsFlutterBinding.ensureInitialized()`
+1. `WidgetsFlutterBinding.ensureInitialized()` and `GoogleFonts.config.allowRuntimeFetching = false` (uses bundled `assets/fonts/` with zero network font fetches)
 2. `RA_Database.resolveDatabasePath()` → `{appDocuments}/rolling_alarm.db`
-3. `RA_AlarmService.persistDatabasePath(dbPath)` into SharedPreferences (`ra_db_path`) so background isolates can open Drift
+3. `RA_AlarmService.persistDatabasePath(dbPath)` into SharedPreferences (`ra_db_path`) so background isolates and `AlarmSqliteGate` can open Drift
 4. Construct `RA_Database()`, bind it to the notification service
 5. Register a UI isolate receive port (`ra_alarm_port`) so the alarm isolate can ping table updates
 6. `RA_AlarmService.init()` → `AndroidAlarmManager.initialize()`
 7. `RA_NotificationService.init()`
-8. Request notification, exact alarm, battery exemption, full screen intent, and system alert window permissions
-9. `reconcileAlarmsOnStartup` re arms from Drift (covers force stop / missed reboot restore)
-10. Lock portrait orientation, load theme, `runApp(ProviderScope(... RollingAlarmApp))`
+8. `RA_PurchaseService.init()` → hydrates `ra_first_seen_epoch_ms` and cached RevenueCat Pro state (`ra_rc_is_pro_cached`), lazily configures RevenueCat if `REVENUECAT_ANDROID_API_KEY` was supplied at build time (never blocks cold start), reads Drift v18 `isLegacyProGrandfathered()`, and syncs effective Pro status to SharedPreferences + HomeWidget
+9. `reconcileAlarmsOnStartup` re-arms from Drift (covers force-stop / missed reboot restore)
+10. Unawaited `database.pruneOldLogs()` (trims logs older than 365 days while preserving recoverable soft-deleted routine `Delete` rows)
+11. Lock portrait orientation, load theme, `runApp(ProviderScope(... RollingAlarmApp))`
 
-After the first frame, `RA_AlarmRingPresenter` calls `syncAlarmUiSchedules` once the Flutter engine and MethodChannel are live, so native `setAlarmClock` entries match Drift.
+**No cold-start permission bombing:** `main.dart` does not prompt for permissions on launch. Core alarm permissions are requested contextually via `RA_PermissionService.ensureCoreAlarmPermissions` when the user creates, imports, duplicates, resumes, or recovers a routine, while OEM battery/overlay controls live under Settings → Alarm Reliability.
 
-There is no `.env` or remote config. Runtime configuration is local prefs + SQLite only.
+After the first frame, `RA_AlarmRingPresenter` calls `syncAlarmUiSchedules` once the Flutter engine and MethodChannel are live, so native `setAlarmClock` entries match Drift (and muted routines remain disarmed natively).
+
+There is no `.env` file. Optional RevenueCat Android billing is configured at release build time via `--dart-define=REVENUECAT_ANDROID_API_KEY=...`; when blank or offline, `RA_PurchaseService` fails soft with cached entitlements and AUD fallback display pricing.
 
 Release signing uses `android/key.properties` and a keystore file. Both are gitignored.
 
@@ -197,10 +207,10 @@ UI (pages / components + Riverpod)
         ▼
 RA_AlarmService  ◄── RA_AlarmCalculator / RA_DailyRingLimit / RA_WeekdaySchedule
         │
-        ├── Drift (Routines / RoutineStates / LogEntries)
-        ├── SharedPreferences (settings, db path, ringing flags)
+        ├── Drift (Routines / RoutineStates / LogEntries / AppMeta)
+        ├── SharedPreferences (settings, db path, ringing & effective Pro flags)
         ├── android_alarm_manager_plus (Dart isolate callback + watchdog)
-        └── MethodChannel → setAlarmClock → AlarmReceiver
+        └── MethodChannel → setAlarmClock → AlarmReceiver (guarded by AlarmSqliteGate)
               → AlarmRingingService → MainActivity (full screen intent)
 ```
 
@@ -332,16 +342,19 @@ No timezone package. Math uses device local `DateTime` duration addition. Spring
 ```
 AlarmUiSchedulerPlugin.schedule
   → AlarmManager.setAlarmClock
-  → AlarmReceiver.onReceive (partial wake lock bridge)
-  → AlarmRingingService (FGS systemExempted + FSI notification + native audio/vibrate)
+  → AlarmReceiver.onReceive (partial wake lock bridge + AlarmSqliteGate check)
+  → AlarmRingingService (FGS systemExempted + AlarmSqliteGate check + FSI notification + native audio/vibrate)
   → MainActivity launched full screen / show when locked
 ```
 
-Reliability details hardened in 1.0.1:
+Reliability details hardened across 1.0.1 and 1.1.0:
 
 - Receiver wake lock is allowed to self expire so the CPU stays awake until the service acquires its own lock
 - Ringing service partial wake lock cap raised to 10 minutes (still released on dismiss/snooze)
 - Boot resurrection refuses to wipe saved native alarm entries when exact alarm access is unavailable
+- **`AlarmSqliteGate.kt` (v1.1.0):** Read-only SQLite guard against `rolling_alarm.db` checked in `AlarmReceiver`, `AlarmRingingService`, and `AlarmResurrectionReceiver` so deleted, paused, or muted routines are never woken or rung natively (fails open on transient storage errors so real alarms are never silenced)
+- **Silent-mute scheduling (v1.1.0):** `muteRoutine` disarms native `setAlarmClock` (`_cancelAlarmUi`), `scheduleNext` and `syncAlarmUiSchedules` skip `_scheduleAlarmUi` while `MutedAt != null` (keeping only Dart `_alarmCallback` armed for silent auto-dismiss + counting), and `unmuteRoutine` re-arms `_scheduleAlarmUi` immediately
+- **`scheduleNext` never prompts battery settings (v1.1.0):** Battery optimization exemption is strictly user-initiated from Settings → Alarm Reliability rather than invoked during alarm scheduling
 
 ### Startup and resurrection
 
@@ -361,8 +374,9 @@ Alarms do **not** rely on Flutter local notifications for primary UX. `showAlarm
 
 Path: `{appDocuments}/rolling_alarm.db`  
 Opened with WAL, busy timeout 5000, synchronous NORMAL.  
-Schema version: **17** with stepwise `onUpgrade` migrations in `lib/database/database.dart`.  
-`dbMigrations/*.sql` files are human reference notes; Drift owns real migrations.
+Schema version: **18** with stepwise `onUpgrade` migrations in `lib/database/database.dart`.  
+`dbMigrations/*.sql` files are human reference notes; Drift owns real migrations.  
+On startup, `pruneOldLogs()` removes soft-deleted logs and entries older than 365 days while preserving `Delete` rows for still-soft-deleted routines so recovery continues to work.
 
 ### Table: `Routines` (config)
 
@@ -412,6 +426,14 @@ One row per routine (`UNIQUE(RoutineId)`).
 | `WasMuted` | Muted auto dismiss flag |
 | Audit columns | Soft delete supported |
 
+### Table: `AppMeta` (schema v18)
+
+| Field | Meaning |
+| --- | --- |
+| `Key` | Primary key (`legacy_pro_grandfathered`) |
+| `MetaValue` (`value`) | String value (`'true'` when upgrading from v17 with existing routines) |
+| `UpdatedAt` | Timestamp |
+
 ### Log action codes
 
 Aligned for 0..3 with alarm actions, then lifecycle events:
@@ -422,8 +444,12 @@ Aligned for 0..3 with alarm actions, then lifecycle events:
 
 | Key / family | Purpose |
 | --- | --- |
-| `ra_db_path` | Absolute DB path for isolates |
+| `ra_db_path` | Absolute DB path for isolates and `AlarmSqliteGate` |
 | `ra_is_ringing` / related | Ringing coordination flags |
+| `ra_first_seen_epoch_ms` | Day-0 first-launch timestamp for the 24-hour Founding Lifetime offer window |
+| `ra_rc_is_pro_cached` | Offline cache of RevenueCat `'pro'` entitlement |
+| `ra_is_pro_effective` / HomeWidget `ra_is_pro` | Combined effective Pro flag (`rcPro || legacyPro`) read synchronously by `WidgetConfigActivity` |
+| `ra_perm_notif_prompted` / `ra_perm_fsi_prompted` | One-time contextual permission onboarding flags (`RA_PermissionService`) |
 | Theme, layout, swipe, side buttons, card buttons | User settings via `RA_SettingsService` |
 | Native private prefs | Cached schedules for resurrection / UI scheduler |
 
@@ -435,9 +461,10 @@ Routines, states, and logs use `Deleted` flags. Soft deleted routines can be rec
 
 ## 10. Features in detail
 
-### Routines CRUD
+### Routines CRUD & Quick-Start templates
 
-- Create / edit: `pages/routine_edit.dart` → Drift insert/update + `RA_DailyRingLimit.initialTriggerTime` / `retargetNextAfterEdit` + `scheduleNext`
+- 1-tap Quick-Start templates (`RA_RoutineTemplates` / `RA_QuickTemplatesStrip` on empty `HomePage` and `RoutineEditPage`): Medication Cadence, Focus / Hydration Grid, WA FIFO / Night Shift, and Caregiver / Patient Check
+- Create / edit: `pages/routine_edit.dart` → Drift insert/update + `RA_DailyRingLimit.initialTriggerTime` / `retargetNextAfterEdit` + `scheduleNext` + contextual `RA_PermissionService.ensureCoreAlarmPermissions`
 - Soft delete / recover: `RA_Database.softDeleteRoutine` / `recoverRoutine` + alarm cancel / reschedule
 - Duplicate: `services/routine_duplicate.dart`
 
@@ -483,8 +510,9 @@ Monday first bitmask. Disabled day proposals defer to next enabled day at Day St
 ### Mute / Unmute
 
 - Schedule keeps running; muted fires silently auto dismiss and still count
+- `muteRoutine` disarms native `setAlarmClock` (`_cancelAlarmUi`), `scheduleNext` skips `_scheduleAlarmUi` while `MutedAt != null`, and `AlarmSqliteGate` guards native wake paths so muted routines never wake the screen or play audio
 - Muting while paused clears pause first (resume then mute)
-- Unmute does not change next fire time
+- `unmuteRoutine` does not change next fire time and immediately re-arms `_scheduleAlarmUi` for active routines
 
 ### Ring UI
 
@@ -495,11 +523,18 @@ Monday first bitmask. Disabled day proposals defer to next enabled day at Day St
 
 ### Logging
 
-Global `LogsPage` plus per routine history on summary. Actions listed above. PDF share via `RA_PdfService`.
+Global `LogsPage` plus per routine history on summary. Free tier views the last 7 days; Pro unlocks full 365-day history and printable PDF share via `RA_PdfService` (generated on a background isolate).
 
 ### Sounds
 
-Device default, MediaStore list, ringtone picker, or local file (`ACTION_OPEN_DOCUMENT` with persistable URI). Encoded in `RA_AlarmSound`. Bundled fallback: `assets/audio/default_alarm.mp3`. Volume and optional fade in are per routine.
+Permissionless audio pipeline (zero `READ_MEDIA_AUDIO` or storage manifest permissions): device default, system alarm & ringtone tones enumerated via Android `RingtoneManager` (`TYPE_ALARM` + `TYPE_RINGTONE`), system ringtone picker, or custom local audio files picked via `ACTION_OPEN_DOCUMENT` with persistable URI read permissions (`Pro`). Encoded in `RA_AlarmSound`. Bundled fallback: `assets/audio/default_alarm.mp3`. Volume and optional gentle fade-in (`Pro`) are per routine.
+
+### Rolling Alarm Pro & v1.0.1 grandfathering
+
+- `RA_PurchaseService` (`lib/services/purchase.dart`) wraps RevenueCat (`purchases_flutter` v11) offline-first with cached entitlements and a 24-hour Day-0 Founding Lifetime offer (`ra_first_seen_epoch_ms`).
+- **Free forever:** Core rolling alarms, up to 2 live routines, 1 home screen widget, 7-day log history, Actual Dismissal mode, built-in and `RingtoneManager` device sounds.
+- **Rolling Alarm Pro** (one-time Lifetime unlock, Annual, or Monthly): unlimited routines and home screen widgets, Classic Interval (Initial Ring) drift compensation, Adjust Today's Max, custom local audio files, gentle fade-in, hardware volume-key actions, full 365-day log history, printable PDF reports, and `RA1:` backups.
+- **Automatic v1.0.1 grandfathering:** Devices upgrading from schema v17 to v18 with existing routines are permanently marked `legacy_pro_grandfathered = 'true'` in `AppMeta` and keep full Pro access automatically. Effective Pro (`IsProProvider`) is `rcPro || legacyPro`.
 
 ---
 
@@ -513,7 +548,8 @@ Single root `HomePage` + imperative `Navigator` + fade routes. No go_router, no 
 HomePage
   ├─ SettingsPage
   ├─ LogsPage
-  ├─ RoutineEditPage (create / edit)
+  ├─ PaywallPage (Rolling Alarm Pro upgrade / Founding offer)
+  ├─ RoutineEditPage (create / edit / Quick Templates)
   │     └─ AlarmSoundPickerPage
   ├─ RoutineSummaryPage (details + history)
   └─ AlarmRingPage  (forced above stack by RA_AlarmRingPresenter)
@@ -555,15 +591,18 @@ Full screen by screen functional blueprint for redesign work: [`docs/stitch-ui-b
 | `USE_FULL_SCREEN_INTENT` | Full screen ring over lock screen |
 | `VIBRATE` | Vibration while ringing |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SYSTEM_EXEMPTED` | Ringing FGS type |
-| `SYSTEM_ALERT_WINDOW` | Fallback when BAL blocks startActivity |
+| `SYSTEM_ALERT_WINDOW` | Optional fallback (manually enabled in Settings → Alarm Reliability) when BAL blocks startActivity |
 | `TURN_SCREEN_ON` / `DISABLE_KEYGUARD` | Wake / show over lock |
-| `READ_MEDIA_AUDIO` / legacy storage | List and play MediaStore / file sounds |
 
-### Cold start permission requests
+**Zero audio/storage permissions (v1.1.0):** `READ_MEDIA_AUDIO` and legacy external storage permissions were removed. System sounds come from permissionless `RingtoneManager`, and custom audio files use Android's Storage Access Framework (`ACTION_OPEN_DOCUMENT`) with persistable URI grants.
 
-In `main.dart`: notification, exact alarm, battery exemption, full screen intent, system alert window.
+### Contextual permission onboarding (`RA_PermissionService`)
 
-### Play policy journey (1.0.0 → 1.0.1)
+- **Cold start:** Zero permission popups on launch.
+- **First routine arming:** `RA_PermissionService.ensureCoreAlarmPermissions(context)` runs when creating, importing, duplicating, resuming, or recovering a routine — requesting `POST_NOTIFICATIONS` (once), `SCHEDULE_EXACT_ALARM` only on API 31–32 when denied, and on Android 14+ explaining lock-screen Full-Screen Alert access via a themed in-app dialog before opening OS settings.
+- **Settings → Alarm Reliability:** Unrestricted Battery exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`), Lock-Screen Full-Screen Alert, and Display Over Active Apps fallback (`SYSTEM_ALERT_WINDOW`) are exposed as 1-tap controls with live status indicators. `scheduleNext` never invokes `requestIgnoreBatteryOptimizations`.
+
+### Play policy journey (1.0.0 → 1.1.0)
 
 Historical audit: [`play-policy-audit.md`](play-policy-audit.md) (and copy under `docs/`).
 
@@ -574,6 +613,8 @@ Problems found in 1.0.0:
 
 1.0.1 fixed both and hardened wake / boot behaviour. Full change log: [`release-1.0.1-changes.md`](release-1.0.1-changes.md).
 
+1.1.0 further hardened policy compliance by dropping `READ_MEDIA_AUDIO` / storage permissions in favor of `RingtoneManager` + `ACTION_OPEN_DOCUMENT`, replacing cold-start permission bombing with contextual `RA_PermissionService` onboarding, adding `AlarmSqliteGate.kt` for silent-mute correctness, and presenting Google Play Billing–compliant disclosures on `PaywallPage`.
+
 Foreground service type in use now: **`systemExempted`**.
 
 ---
@@ -582,6 +623,7 @@ Foreground service type in use now: **`systemExempted`**.
 
 - Jetpack Glance widget + `home_widget` bridge
 - Per instance routine selection via `WidgetConfigActivity`
+- Free tier allows 1 configured home screen widget; `WidgetConfigActivity` reads synced `ra_is_pro_effective` / `ra_is_pro` prefs and bridges non-Pro users adding additional widgets directly to `PaywallPage` via `com.casellaweb.rolling_alarm/paywall`
 - Dart writes keys such as `routine_{id}_name`, next alarm time, interval label, dismissals today
 - Native refresh helpers keep the widget in sync when schedules change
 
@@ -613,12 +655,15 @@ Persisted via `RA_SettingsService` + Riverpod AsyncNotifiers:
 
 | Setting | Effect |
 | --- | --- |
+| Rolling Alarm Pro | View Pro / Early Supporter status, open `PaywallPage`, restore purchases, or manage Play subscription |
 | Theme | Dark / Light |
 | Alarm snooze/dismiss layout | Sliders vs buttons on ring page |
-| Side button actions | Volume up/down → None / Snooze / Dismiss while ringing |
+| Side button actions | Volume up/down → None / Snooze / Dismiss while ringing (`Pro`) |
 | Swipe actions | Left / right swipe on routine cards |
 | Card buttons | Bottom left / right quick actions on cards |
-| Import / Export | RA1 routines |
+| Alarm Reliability | 1-tap live status & OEM settings for Unrestricted Battery, Full-Screen Alert, and Display Over Active Apps |
+| Import / Export | RA1 routines (`Export` requires `Pro`; `Import` honors Free 2-routine cap) |
+| About & Legal | Privacy Policy, Terms of Use, App Version (`1.1.0`) |
 
 ---
 
@@ -709,7 +754,7 @@ Output: `build\app\outputs\bundle\release\app-release.aab`
 
 | Suite | Location | Notes |
 | --- | --- | --- |
-| Unit | `test/services/*`, `test/database/*`, `test/utils_test.dart`, model/component tests | Calculator, daily limit, weekdays, export, in memory DB, mocks |
+| Unit & Widget | `test/services/*`, `test/database/*`, `test/pages/*`, `test/utils_test.dart`, model/component tests | Calculator, daily limit, weekdays, export, purchase/grandfathering/paywall, alarm mute/schedule, in-memory & v17→v18 migration DB, mocks |
 | Integration | `integration_test/app_test.dart`, `alarm_cycle_test.dart`, screenshot tests | Device / emulator |
 | Patrol | `integration_test/advanced_alarm_lifecycle_test.dart` | Exact alarm / FSI / snooze dismiss lifecycle |
 | Helpers | `integration_test/helpers/*` | Pump + Android alarm helpers |
@@ -728,7 +773,8 @@ patrol test -t integration_test/advanced_alarm_lifecycle_test.dart
 
 - Package: `com.casellaweb.rolling_alarm`
 - Signed with the Casella Web upload key (keystore not in git)
-- Current shipped line: **1.0.1+4**
+- Current release line: **1.1.0+5**
+- Optional RevenueCat key for release builds: `--dart-define=REVENUECAT_ANDROID_API_KEY=...`
 - Sensitive permission declarations for Play Console must match the current manifest:
   - Exact alarm: alarm clock core functionality (`USE_EXACT_ALARM`; `SCHEDULE_EXACT_ALARM` capped at API 32)
   - Full screen intent: alarm ring over lock screen
@@ -740,9 +786,9 @@ Demo videos at repo root for Play declarations:
 - `fullscreen_intent_demo.mp4`
 - `foreground_service_demo.mp4`
 
-Listing helpers under `#GooglePlay/` (e.g. `translations.csv`).
+Listing helpers under `#GooglePlay/`: `translations.csv` (10-locale ASO store listing) and `release-notes-1.1.0.xml` (10-locale Play Console release notes).
 
-Privacy policy for the app is hosted on the Casella Web site at `/privacy/rolling-alarm` (zero data collection posture: fully offline, no accounts, no telemetry backend in this app).
+Privacy policy (`https://casellaweb.com.au/privacy/rolling-alarm`) and Terms of Use (`https://casellaweb.com.au/terms/rolling-alarm`) cover the offline-first zero-tracking posture and optional Google Play Billing upgrades via RevenueCat.
 
 ---
 
@@ -774,12 +820,11 @@ These alternate mains are development / store tooling only.
 
 ## 22. Known follow ups
 
-These were noted around the 1.0.1 release and tooling:
+These remain tracked for future releases:
 
 1. Confirm Git remote URL points at `https://github.com/MrJames12345/RollingAlarm.git` (repo was renamed from an earlier CarsonAlarm name).
-2. Update stale wording in `scripts/record_permission_demos.sh` that still mentions `FOREGROUND_SERVICE_SPECIAL_USE` in a comment header.
-3. Upgrade `home_widget` / `patrol` when they stop applying the Kotlin Gradle Plugin themselves, before a future Flutter release refuses those plugins.
-4. Keep device testing coverage on Android 12 and Android 14+ with the screen locked after any further alarm stack changes.
+2. Upgrade `home_widget` / `patrol` when they stop applying the Kotlin Gradle Plugin themselves, before a future Flutter release refuses those plugins.
+3. Keep device testing coverage on Android 12 and Android 14+ with the screen locked after any further alarm stack changes.
 
 ---
 
