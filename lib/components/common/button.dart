@@ -54,11 +54,13 @@ Widget RA_Button({
         ),
         splashFactory: InkSparkle.splashFactory,
       ),
-      child: Text(
-        text,
-        style: RA_TextStyles.mediumFont.copyWith(color: fg),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          style: RA_TextStyles.mediumFont.copyWith(color: fg),
+          maxLines: 1,
+        ),
       ),
     ),
   );

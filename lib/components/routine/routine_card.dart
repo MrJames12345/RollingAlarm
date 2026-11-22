@@ -16,11 +16,14 @@ import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/permissions.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/routine_duplicate.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
@@ -46,7 +49,7 @@ class RA_RoutineCard extends ConsumerWidget {
     );
     final isPaused = phase == RA_RoutineUiPhase.paused;
     final isMuted = phase == RA_RoutineUiPhase.muted;
-    final showButtons = true;
+    const showButtons = true;
     final chrome = _chromeFor(phase);
     final swipeActions =
         ref.watch(RoutineSwipeActionsProvider).valueOrNull ??
@@ -69,7 +72,7 @@ class RA_RoutineCard extends ConsumerWidget {
             RA_showDeleteRoutineDialog(context, routineName: routine.Name),
         onDeleteConfirmed: () => _deleteRoutine(ref),
         onMute: () => _toggleMute(ref),
-        onPause: () => _togglePause(ref),
+        onPause: () => _togglePause(context, ref),
         onResetInterval: () => _handleResetInterval(context, ref),
         onAddForToday: () => _adjustTodayMax(context, ref),
         child: AnimatedContainer(
@@ -264,7 +267,7 @@ class RA_RoutineCard extends ConsumerWidget {
       case RoutineSwipeActionEnum.Mute:
         await _toggleMute(ref);
       case RoutineSwipeActionEnum.Pause:
-        await _togglePause(ref);
+        await _togglePause(context, ref);
       case RoutineSwipeActionEnum.ResetInterval:
         await _handleResetInterval(context, ref);
       case RoutineSwipeActionEnum.AddForToday:
@@ -291,7 +294,8 @@ class RA_RoutineCard extends ConsumerWidget {
     return deleted == true;
   }
 
-  Future<void> _togglePause(WidgetRef ref) async {
+  Future<void> _togglePause(BuildContext context, WidgetRef ref) async {
+    var resumed = false;
     await RA_tryAsync(() async {
       final db = ref.read(RA_DatabaseProvider);
       final paused =
@@ -304,6 +308,7 @@ class RA_RoutineCard extends ConsumerWidget {
           routine: routine,
           dbPath: dbPath,
         );
+        resumed = true;
       } else {
         await RA_AlarmService.pauseRoutine(
           routineId: routine.Id,
@@ -313,6 +318,9 @@ class RA_RoutineCard extends ConsumerWidget {
         );
       }
     });
+    if (resumed && context.mounted) {
+      await RA_PermissionService.ensureCoreAlarmPermissions(context);
+    }
   }
 
   Future<void> _toggleMute(WidgetRef ref) async {
@@ -354,6 +362,14 @@ class RA_RoutineCard extends ConsumerWidget {
   }
 
   Future<void> _adjustTodayMax(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(IsProProvider)) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: "Adjust today's daily alarm limit with Pro",
+      );
+      if (!unlocked || !context.mounted) return;
+    }
+
     final db = ref.read(RA_DatabaseProvider);
     final state = await db.getRoutineState(routine.Id);
     if (state == null || !context.mounted) return;
@@ -388,12 +404,21 @@ class RA_RoutineCard extends ConsumerWidget {
     required bool showResetInterval,
   }) async {
     RA_Haptics.heavyUnawaited();
+    final isPro = ref.read(IsProProvider);
+    var showDuplicatePro = false;
+    if (!isPro) {
+      final liveCount = await ref.read(RA_DatabaseProvider).countLiveRoutines();
+      showDuplicatePro = liveCount >= RA_PurchaseService.freeRoutineLimit;
+    }
+    if (!context.mounted) return;
     final action = await RA_showRoutineCardActionsDialog(
       context,
       routineName: routine.Name,
       isMuted: isMuted,
       isPaused: isPaused,
       showResetInterval: showResetInterval,
+      showProBadges: !isPro,
+      showDuplicateProBadge: showDuplicatePro,
     );
     if (action == null || !context.mounted) return;
 
@@ -401,7 +426,7 @@ class RA_RoutineCard extends ConsumerWidget {
       case RA_RoutineCardMenuAction.mute:
         await _toggleMute(ref);
       case RA_RoutineCardMenuAction.pause:
-        await _togglePause(ref);
+        await _togglePause(context, ref);
       case RA_RoutineCardMenuAction.resetInterval:
         await _handleResetInterval(context, ref);
       case RA_RoutineCardMenuAction.addTodayCount:
@@ -415,7 +440,7 @@ class RA_RoutineCard extends ConsumerWidget {
           ),
         );
       case RA_RoutineCardMenuAction.duplicate:
-        await _duplicateRoutine(ref);
+        await _duplicateRoutine(context, ref);
       case RA_RoutineCardMenuAction.resetTodayCounter:
         await _resetTodayCounter(context, ref);
       case RA_RoutineCardMenuAction.delete:
@@ -429,16 +454,31 @@ class RA_RoutineCard extends ConsumerWidget {
     }
   }
 
-  Future<void> _duplicateRoutine(WidgetRef ref) async {
+  Future<void> _duplicateRoutine(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(IsProProvider)) {
+      final liveCount = await ref.read(RA_DatabaseProvider).countLiveRoutines();
+      if (!context.mounted) return;
+      if (liveCount >= RA_PurchaseService.freeRoutineLimit) {
+        final unlocked = await PaywallPage.show(
+          context,
+          featureTrigger: 'Create unlimited rolling routines with Pro',
+        );
+        if (!unlocked || !context.mounted) return;
+      }
+    }
+
     RA_Haptics.heavyUnawaited();
-    await RA_tryAsync(() async {
+    final newId = await RA_tryAsync(() async {
       final db = ref.read(RA_DatabaseProvider);
-      await RA_RoutineDuplicateService.duplicate(
+      return RA_RoutineDuplicateService.duplicate(
         db: db,
         source: routine,
         dbPath: dbPath,
       );
     });
+    if (newId != null && context.mounted) {
+      await RA_PermissionService.ensureCoreAlarmPermissions(context);
+    }
   }
 
   Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {
@@ -964,8 +1004,8 @@ class _RoutineCardStatus extends ConsumerWidget {
           ],
         );
       case RA_RoutineUiPhase.loading:
-        return SizedBox(
-          key: const ValueKey('loading'),
+        return const SizedBox(
+          key: ValueKey('loading'),
           height: RA_ShapeStyles.space24,
           width: RA_ShapeStyles.space24,
           child: CircularProgressIndicator(

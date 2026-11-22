@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/styles.dart';
 
 /// Actions offered by the home routine card long-press menu.
@@ -22,6 +23,8 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
   required bool isMuted,
   required bool isPaused,
   required bool showResetInterval,
+  bool showProBadges = false,
+  bool showDuplicateProBadge = false,
 }) {
   return showDialog<RA_RoutineCardMenuAction>(
     context: context,
@@ -69,6 +72,7 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
           _ActionTile(
             icon: Icons.add,
             label: 'Adjust Today\'s Max',
+            trailing: showProBadges ? const RA_ProBadge() : null,
             onTap: () =>
                 Navigator.pop(ctx, RA_RoutineCardMenuAction.addTodayCount),
           ),
@@ -86,6 +90,7 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
           _ActionTile(
             icon: Icons.content_copy_outlined,
             label: 'Duplicate',
+            trailing: showDuplicateProBadge ? const RA_ProBadge() : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.duplicate),
           ),
           _ActionTile(
@@ -105,12 +110,14 @@ class _ActionTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final Widget? trailing;
 
   const _ActionTile({
     required this.icon,
     required this.label,
     required this.onTap,
     this.color,
+    this.trailing,
   });
 
   @override
@@ -142,6 +149,10 @@ class _ActionTile extends StatelessWidget {
                     style: RA_TextStyles.smallFont.copyWith(color: c),
                   ),
                 ),
+                if (trailing != null) ...[
+                  const SizedBox(width: RA_ShapeStyles.space8),
+                  trailing!,
+                ],
               ],
             ),
           ),

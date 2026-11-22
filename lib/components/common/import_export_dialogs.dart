@@ -50,9 +50,10 @@ void RA_showNoRoutinesToExportWarning(BuildContext context) {
 
 Future<void> RA_showImportDialog(
   BuildContext context, {
-  required Future<void> Function(String text) onImport,
+  required Future<bool> Function(String text) onImport,
 }) {
   final controller = TextEditingController();
+  var importing = false;
   return showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -72,19 +73,22 @@ Future<void> RA_showImportDialog(
       ),
       actions: [
         RA_DialogButton('Import', () async {
+          if (importing) return;
           final text = controller.text.trim();
           if (text.isEmpty) return;
+          importing = true;
           try {
-            await onImport(text);
-            if (ctx.mounted) Navigator.pop(ctx);
+            final shouldClose = await onImport(text);
+            if (shouldClose && ctx.mounted) Navigator.pop(ctx);
           } catch (_) {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 behavior: SnackBarBehavior.floating,
                 backgroundColor: RA_ColourStyles.surface,
-                shape: const RoundedRectangleBorder(
+                shape: RoundedRectangleBorder(
                   borderRadius: RA_ShapeStyles.largeBorderRadius,
+                  side: BorderSide(color: RA_ShapeStyles.idleSurfaceBorder),
                 ),
                 content: Text(
                   'Import failed. Check the RA1 string and try again.',
@@ -94,6 +98,8 @@ Future<void> RA_showImportDialog(
                 ),
               ),
             );
+          } finally {
+            importing = false;
           }
         }, color: RA_ColourStyles.secondary),
         RA_DialogButton('Cancel', () => Navigator.pop(ctx)),

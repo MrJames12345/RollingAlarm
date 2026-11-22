@@ -14,7 +14,7 @@ InputDecoration RA_InputDecoration({
       ? RA_ShapeStyles.tinyBorderRadius
       : RA_ShapeStyles.largeBorderRadius;
   final idleSide = hasError
-      ? BorderSide(color: RA_ColourStyles.softCoral, width: 1.5)
+      ? const BorderSide(color: RA_ColourStyles.softCoral, width: 1.5)
       : dense
           ? BorderSide(
               color: RA_ColourStyles.secondary.withValues(

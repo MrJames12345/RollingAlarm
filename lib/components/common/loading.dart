@@ -50,7 +50,7 @@ class _RA_LoadingState extends State<RA_Loading>
         child: SizedBox(
           width: widget.size,
           height: widget.size,
-          child: CircularProgressIndicator(
+          child: const CircularProgressIndicator(
             strokeWidth: 3,
             color: RA_ColourStyles.secondary,
           ),

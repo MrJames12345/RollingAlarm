@@ -24,6 +24,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
@@ -57,6 +58,7 @@ const double _ringPulseFreezeValue = 0.35;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   final route = PlatformDispatcher.instance.defaultRouteName;
   final uri = Uri.parse(route);
@@ -90,7 +92,10 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      overrides: [RA_DatabaseProvider.overrideWithValue(database)],
+      overrides: [
+        RA_DatabaseProvider.overrideWithValue(database),
+        IsProProvider.overrideWithValue(true),
+      ],
       child: RollingAlarmApp(dbPath: dbPath),
     ),
   );

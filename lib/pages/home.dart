@@ -8,13 +8,17 @@ import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
+import 'package:rolling_alarm/components/routine/quick_templates_strip.dart';
 import 'package:rolling_alarm/components/routine/routine_card.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
+import 'package:rolling_alarm/models/routine_template.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/logs.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/pages/settings.dart';
-import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/providers/providers.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/styles.dart';
 
 class HomePage extends ConsumerWidget {
@@ -84,14 +88,9 @@ class HomePage extends ConsumerWidget {
             ),
             onPressed: () {
               RA_Haptics.heavyUnawaited();
-              unawaited(
-                Navigator.push(
-                  context,
-                  RA_Routes.fade(RoutineEditPage(dbPath: dbPath)),
-                ),
-              );
+              unawaited(_openNewRoutine(context, ref, dbPath: dbPath));
             },
-            child: Icon(
+            child: const Icon(
               Icons.add,
               size: 28,
               color: RA_ColourStyles.onAccent,
@@ -101,6 +100,31 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _openNewRoutine(
+  BuildContext context,
+  WidgetRef ref, {
+  required String dbPath,
+  RA_RoutineTemplate? initialTemplate,
+}) async {
+  if (!ref.read(IsProProvider)) {
+    final liveCount = await ref.read(RA_DatabaseProvider).countLiveRoutines();
+    if (!context.mounted) return;
+    if (liveCount >= RA_PurchaseService.freeRoutineLimit) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: 'Create unlimited rolling routines with Pro',
+      );
+      if (!unlocked || !context.mounted) return;
+    }
+  }
+  await Navigator.push(
+    context,
+    RA_Routes.fade(
+      RoutineEditPage(dbPath: dbPath, initialTemplate: initialTemplate),
+    ),
+  );
 }
 
 /// Isolated list body: only this subtree rebuilds on [RoutineListProvider].
@@ -116,21 +140,49 @@ class _HomeRoutineList extends ConsumerWidget {
 
     return RA_AsyncListBody(
       async: routinesAsync,
-      empty: RA_StatusMessage(
-        icon: Icons.alarm_add,
-        title: 'No Routines Yet',
-        message:
-            'Tap the icon or + below to create your first automated alarm routine.',
-        iconSemanticsLabel: 'Add routine',
-        onIconTap: () {
-          RA_Haptics.heavyUnawaited();
-          unawaited(
-            Navigator.push(
-              context,
-              RA_Routes.fade(RoutineEditPage(dbPath: dbPath)),
+      empty: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          padding: const EdgeInsets.only(
+            bottom: RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  (constraints.maxHeight -
+                          (RA_ShapeStyles.space48 + RA_ShapeStyles.space48))
+                      .clamp(0.0, double.infinity),
             ),
-          );
-        },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                RA_StatusMessage(
+                  icon: Icons.alarm_add,
+                  title: 'No Routines Yet',
+                  message:
+                      'Tap a Quick Template below or + to create your first automated alarm routine.',
+                  iconSemanticsLabel: 'Add routine',
+                  onIconTap: () {
+                    RA_Haptics.heavyUnawaited();
+                    unawaited(_openNewRoutine(context, ref, dbPath: dbPath));
+                  },
+                ),
+                RA_QuickTemplatesStrip(
+                  horizontalPadding: const EdgeInsets.symmetric(
+                    horizontal: RA_ShapeStyles.space16,
+                  ),
+                  onSelect: (template) => unawaited(
+                    _openNewRoutine(
+                      context,
+                      ref,
+                      dbPath: dbPath,
+                      initialTemplate: template,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       errorTitle: 'Could Not Load Routines',
       onRetry: () => ref.invalidate(RoutineListProvider),

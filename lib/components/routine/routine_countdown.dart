@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
@@ -50,7 +52,7 @@ class RA_Countdown extends ConsumerWidget {
         if (current.phase == RA_RoutineUiPhase.countingDown &&
             current.nextTriggerTime?.millisecondsSinceEpoch ==
                 nextTriggerTime!.millisecondsSinceEpoch) {
-          RA_AlarmService.forceRingIfDue(routineId!);
+          unawaited(RA_AlarmService.forceRingIfDue(routineId!));
         }
       }
     });

@@ -8,6 +8,7 @@ import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/common/section_label.dart';
 import 'package:rolling_alarm/components/common/unsaved_changes_dialog.dart';
 import 'package:rolling_alarm/components/field/duration_field.dart';
@@ -19,17 +20,22 @@ import 'package:rolling_alarm/components/field/time_of_day_field.dart';
 import 'package:rolling_alarm/components/field/toggle.dart';
 import 'package:rolling_alarm/components/field/volume_field.dart';
 import 'package:rolling_alarm/components/field/weekday_field.dart';
+import 'package:rolling_alarm/components/routine/quick_templates_strip.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
+import 'package:rolling_alarm/models/routine_template.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
 import 'package:rolling_alarm/pages/alarm_sound_picker.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/permissions.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/routine_duplicate.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
@@ -43,11 +49,15 @@ class RoutineEditPage extends ConsumerStatefulWidget {
   /// When set, scrolls to this field after open and briefly highlights it.
   final RoutineEditFieldEnum? scrollToField;
 
+  /// Optional 1-tap quick-start template to prefill a new routine.
+  final RA_RoutineTemplate? initialTemplate;
+
   const RoutineEditPage({
     super.key,
     required this.dbPath,
     this.existingRoutine,
     this.scrollToField,
+    this.initialTemplate,
   });
 
   @override
@@ -85,6 +95,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   final GlobalKey _daysFieldKey = GlobalKey();
 
   RoutineEditFieldEnum? _highlightedField;
+  String? _selectedTemplateId;
+  bool _saving = false;
 
   bool get _isEditing => widget.existingRoutine != null;
 
@@ -188,7 +200,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       _fadeIn = r.FadeIn;
     } else {
       unawaited(RA_AlarmService.setSystemAlarmVolume(0.5));
-      WidgetsBinding.instance.addPostFrameCallback((_) => _focusNameField());
+      final initialTemplate = widget.initialTemplate;
+      if (initialTemplate != null) {
+        final isPro = ref.read(IsProProvider);
+        _applyTemplateFields(initialTemplate, isPro: isPro);
+        if (initialTemplate.usesProDriftMode && !isPro) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _showTemplateProDriftSnackBar();
+          });
+        }
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _focusNameField());
+      }
     }
 
     final scrollTo = widget.scrollToField;
@@ -196,6 +220,87 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(_scrollToAndHighlight(scrollTo));
       });
+    }
+  }
+
+  void _applyTemplateFields(
+    RA_RoutineTemplate template, {
+    required bool isPro,
+  }) {
+    _selectedTemplateId = template.id;
+    _nameController.text = template.routineName;
+    _interval = template.interval;
+    _snoozeDuration = template.snooze;
+    _maxTimesPerDayEnabled = template.maxTimesPerDayEnabled;
+    _maxTimesPerDay = template.maxTimesPerDay;
+    _dayStart = template.dayStart;
+    _enabledWeekdays = _normalizeEnabledWeekdays(template.enabledWeekdays);
+    _compensation = template.effectiveCompensation(isPro: isPro);
+    _showValidationErrors = false;
+  }
+
+  void _onSelectTemplate(RA_RoutineTemplate template) {
+    final isPro = ref.read(IsProProvider);
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _applyTemplateFields(template, isPro: isPro);
+    });
+    if (template.usesProDriftMode && !isPro && mounted) {
+      _showTemplateProDriftSnackBar();
+    }
+  }
+
+  void _showTemplateProDriftSnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: RA_ColourStyles.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          side: BorderSide(color: RA_ShapeStyles.idleSurfaceBorder),
+        ),
+        content: Text(
+          'Applied with Actual Dismissal. Unlock Pro for Classic Interval grid.',
+          style: RA_TextStyles.tinyFont,
+        ),
+        action: SnackBarAction(
+          label: 'Unlock',
+          textColor: RA_ColourStyles.secondary,
+          onPressed: () => unawaited(_unlockInitialRing()),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onToggleFadeIn(bool nextValue) async {
+    if (nextValue && !ref.read(IsProProvider)) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: 'Unlock gentle alarm Fade-In with Pro',
+      );
+      if (!unlocked || !mounted) return;
+    }
+    setState(() => _fadeIn = nextValue);
+  }
+
+  Future<void> _onSelectCompensation(DriftCompensationTypeCodeEnum next) async {
+    if (next == _compensation) return;
+    if (next == DriftCompensationTypeCodeEnum.InitialRing &&
+        !ref.read(IsProProvider)) {
+      await _unlockInitialRing();
+      return;
+    }
+    setState(() => _compensation = next);
+  }
+
+  Future<void> _unlockInitialRing() async {
+    final unlocked = await PaywallPage.show(
+      context,
+      featureTrigger: 'Unlock Initial Ring Drift Compensation',
+    );
+    if (unlocked && mounted) {
+      setState(() => _compensation = DriftCompensationTypeCodeEnum.InitialRing);
     }
   }
 
@@ -344,6 +449,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         intervalSeconds: _interval.inSeconds,
         enabledWeekdays: _enabledWeekdays,
       );
+      final savedRoutine = await db.getRoutineById(id);
       if (next != null) {
         if (previousNext == null ||
             next.millisecondsSinceEpoch !=
@@ -358,11 +464,25 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           triggerTime: next,
           dbPath: widget.dbPath,
           routineName: name,
+          routine: savedRoutine,
+          state: state?.copyWith(NextTriggerTime: Value(next)),
           refreshWidget: false,
         );
       }
       await RA_WidgetService.updateWidgetState(db: db);
-      return db.getRoutineById(id);
+      return savedRoutine;
+    }
+
+    if (!_isEditing && !ref.read(IsProProvider)) {
+      final liveCount = await db.countLiveRoutines();
+      if (liveCount >= RA_PurchaseService.freeRoutineLimit) {
+        if (!mounted) return null;
+        final unlocked = await PaywallPage.show(
+          context,
+          featureTrigger: 'Create unlimited rolling routines with Pro',
+        );
+        if (!unlocked || !mounted) return null;
+      }
     }
 
     final dayStartSeconds = RA_DailyRingLimit.normalizeDayStartSeconds(
@@ -379,24 +499,35 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       routine: _companion(),
       nextTriggerTime: nextTrigger,
     );
+    final createdRoutine = await db.getRoutineById(routineId);
+    final createdState = await db.getRoutineState(routineId);
     await RA_AlarmService.scheduleNext(
       routineId: routineId,
       triggerTime: nextTrigger,
       dbPath: widget.dbPath,
       routineName: name,
+      routine: createdRoutine,
+      state: createdState,
       refreshWidget: false,
     );
     await RA_WidgetService.updateWidgetState(db: db);
-    return db.getRoutineById(routineId);
+    return createdRoutine;
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    _saving = true;
     try {
       final saved = await _persistRoutine();
-      if (saved != null && mounted) Navigator.pop(context);
+      if (saved != null && mounted) {
+        await RA_PermissionService.ensureCoreAlarmPermissions(context);
+        if (mounted) Navigator.pop(context);
+      }
     } catch (_) {
       // Persist / schedule failures still leave the editor.
       if (mounted) Navigator.pop(context);
+    } finally {
+      _saving = false;
     }
   }
 
@@ -417,6 +548,10 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(AppThemeModeProvider);
+    final isPro = ref.watch(IsProProvider);
+    final showInitialRingProBadge =
+        !isPro && _compensation != DriftCompensationTypeCodeEnum.InitialRing;
+
     return RA_PageScaffold(
       title: _isEditing ? 'Edit Routine' : 'New Routine',
       leading: RA_AppBarIconButton(
@@ -436,12 +571,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (!_isEditing) ...[
+              RA_QuickTemplatesStrip(
+                selectedTemplateId: _selectedTemplateId,
+                onSelect: _onSelectTemplate,
+              ),
+              const SizedBox(height: RA_ShapeStyles.space24),
+            ],
             KeyedSubtree(
               key: _nameFieldKey,
               child: RA_TextField(
                 controller: _nameController,
                 focusNode: _nameFocusNode,
-                autofocus: !_isEditing,
+                autofocus: !_isEditing && widget.initialTemplate == null,
                 label: 'Name',
                 placeholder: 'e.g. Morning Medication',
                 errorText: _nameError,
@@ -484,7 +626,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                         child: RA_Toggle(
                           label: 'Fade in',
                           value: _sound.isSilent ? false : _fadeIn,
-                          onChanged: (v) => setState(() => _fadeIn = v),
+                          trailingBadge:
+                              !isPro && !_fadeIn ? const RA_ProBadge() : null,
+                          onChanged: (v) => unawaited(_onToggleFadeIn(v)),
                         ),
                       ),
                     ),
@@ -635,13 +779,16 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                     : RA_ShapeStyles.space48 + RA_ShapeStyles.space48,
                 child: RA_RadioGroup<DriftCompensationTypeCodeEnum>(
                   groupValue: _compensation,
-                  onChanged: (v) => setState(() => _compensation = v),
-                  options: const [
+                  onChanged: (v) => unawaited(_onSelectCompensation(v)),
+                  options: [
                     RA_RadioOption(
                       value: DriftCompensationTypeCodeEnum.InitialRing,
                       title: 'Classic Interval',
+                      trailing: showInitialRingProBadge
+                          ? const RA_ProBadge()
+                          : null,
                     ),
-                    RA_RadioOption(
+                    const RA_RadioOption(
                       value: DriftCompensationTypeCodeEnum.ActualDismissal,
                       title: 'Actual Dismissal',
                       subtitle: 'Next alarm based on when you dismiss',
@@ -677,6 +824,19 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     final existing = widget.existingRoutine;
     if (existing == null) return;
 
+    if (!ref.read(IsProProvider)) {
+      final db = ref.read(RA_DatabaseProvider);
+      final liveCount = await db.countLiveRoutines();
+      if (!mounted) return;
+      if (liveCount >= RA_PurchaseService.freeRoutineLimit) {
+        final unlocked = await PaywallPage.show(
+          context,
+          featureTrigger: 'Create unlimited rolling routines with Pro',
+        );
+        if (!unlocked || !mounted) return;
+      }
+    }
+
     var source = existing;
     if (_hasUnsavedChanges) {
       final choice = await RA_showUnsavedChangesDialog(
@@ -706,6 +866,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       );
     });
     if (newId == null || !mounted) return;
+
+    await RA_PermissionService.ensureCoreAlarmPermissions(context);
+    if (!mounted) return;
 
     final db = ref.read(RA_DatabaseProvider);
     final copy = await db.getRoutineById(newId);

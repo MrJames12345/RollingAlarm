@@ -8,8 +8,11 @@ import 'package:rolling_alarm/components/common/recover_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/permissions.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
 
@@ -78,18 +81,33 @@ Future<void> _recoverFromHistory(
   required String routineName,
   required String dbPath,
 }) async {
+  if (!ref.read(IsProProvider)) {
+    final liveCount = await ref.read(RA_DatabaseProvider).countLiveRoutines();
+    if (!context.mounted) return;
+    if (liveCount >= RA_PurchaseService.freeRoutineLimit) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: 'Create unlimited rolling routines with Pro',
+      );
+      if (!unlocked || !context.mounted) return;
+    }
+  }
+
   final confirmed = await RA_showRecoverRoutineDialog(
     context,
     routineName: routineName,
   );
   if (confirmed != true) return;
 
-  await RA_tryAsync(() async {
+  final recovered = await RA_tryAsync(() async {
     final db = ref.read(RA_DatabaseProvider);
-    await RA_AlarmService.recoverRoutine(
+    return RA_AlarmService.recoverRoutine(
       routineId: entry.RoutineId,
       db: db,
       dbPath: dbPath,
     );
   });
+  if (recovered == true && context.mounted) {
+    await RA_PermissionService.ensureCoreAlarmPermissions(context);
+  }
 }

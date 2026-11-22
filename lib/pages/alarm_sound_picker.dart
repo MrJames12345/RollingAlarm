@@ -1,32 +1,38 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rolling_alarm/components/common/app_theme_scope.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
+import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
-import 'package:rolling_alarm/components/common/app_theme_scope.dart';
 import 'package:rolling_alarm/components/field/input_decoration.dart';
 import 'package:rolling_alarm/enums/alarm_sound_source.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
+import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm_sound_picker.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/sound_preview.dart';
 import 'package:rolling_alarm/styles.dart';
 
-/// Alarm sound picker page for selecting Silent, Default, or device sounds.
-class AlarmSoundPickerPage extends StatefulWidget {
+/// Alarm sound picker page for selecting Silent, Default, custom local files,
+/// or system device sounds.
+class AlarmSoundPickerPage extends ConsumerStatefulWidget {
   final RA_AlarmSound initial;
 
   const AlarmSoundPickerPage({super.key, required this.initial});
 
   @override
-  State<AlarmSoundPickerPage> createState() => _AlarmSoundPickerPageState();
+  ConsumerState<AlarmSoundPickerPage> createState() =>
+      _AlarmSoundPickerPageState();
 }
 
-class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
+class _AlarmSoundPickerPageState extends ConsumerState<AlarmSoundPickerPage> {
   List<RA_AlarmSound> _deviceSounds = const [];
   bool _loadingDevice = true;
   late RA_AlarmSound _selected;
@@ -42,8 +48,8 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
       if (!mounted) return;
       setState(() => _isPlaying = playing);
     });
-    // Show Silent / Default / spinner immediately; start the MediaStore scan
-    // only after the fade transition so the page is not blocked mid-open.
+    // Show Silent / Default / spinner immediately; start the system ringtone
+    // scan only after the fade transition so the page is not blocked mid-open.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_startLoadingAfterTransition());
     });
@@ -65,15 +71,14 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
   Future<void> _loadDeviceSounds() async {
     final sounds = await RA_AlarmSoundPickerService.listDeviceSounds();
     if (!mounted) return;
-    // System tones without an OS file name are omitted from the list.
-    final withFileNames = sounds
+    final playable = sounds
         .where((sound) {
-          final name = sound.fileName?.trim();
-          return name != null && name.isNotEmpty;
+          final uri = sound.uri?.trim();
+          return uri != null && uri.isNotEmpty;
         })
         .toList(growable: false);
     setState(() {
-      _deviceSounds = withFileNames;
+      _deviceSounds = playable;
       _loadingDevice = false;
     });
   }
@@ -103,9 +108,46 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
     await RA_SoundPreviewService.togglePause();
   }
 
+  Future<void> _pickCustomLocalFile() async {
+    await RA_SoundPreviewService.stop();
+    if (!mounted) return;
+    if (!ref.read(IsProProvider)) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: 'Use custom local audio files with Pro',
+      );
+      if (!unlocked || !mounted) return;
+    }
+    final picked = await RA_AlarmSoundPickerService.pickLocalFile(
+      onError: (message) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: RA_ColourStyles.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: RA_ShapeStyles.largeBorderRadius,
+              side: BorderSide(color: RA_ShapeStyles.idleSurfaceBorder),
+            ),
+            content: Text(
+              message,
+              style: RA_TextStyles.smallFont.copyWith(
+                color: RA_ColourStyles.softCoral,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      await _preview(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     RA_AppThemeScope.of(context);
+    final isPro = ref.watch(IsProProvider);
     return RA_PageScaffold(
       title: 'Alarm sound',
       leading: RA_AppBarIconButton(
@@ -165,8 +207,10 @@ class _AlarmSoundPickerPageState extends State<AlarmSoundPickerPage> {
         loading: _loadingDevice,
         sounds: _deviceSounds,
         selected: _selected,
+        isPro: isPro,
         onSelectSilent: () => unawaited(_preview(RA_AlarmSound.silent)),
         onSelectDefault: () => unawaited(_preview(RA_AlarmSound.deviceDefault)),
+        onPickCustomFile: () => unawaited(_pickCustomLocalFile()),
         onSelectSound: (sound) => unawaited(_preview(sound)),
       ),
     );
@@ -177,16 +221,20 @@ class _DeviceSoundsBody extends StatefulWidget {
   final bool loading;
   final List<RA_AlarmSound> sounds;
   final RA_AlarmSound selected;
+  final bool isPro;
   final VoidCallback onSelectSilent;
   final VoidCallback onSelectDefault;
+  final VoidCallback onPickCustomFile;
   final ValueChanged<RA_AlarmSound> onSelectSound;
 
   const _DeviceSoundsBody({
     required this.loading,
     required this.sounds,
     required this.selected,
+    required this.isPro,
     required this.onSelectSilent,
     required this.onSelectDefault,
+    required this.onPickCustomFile,
     required this.onSelectSound,
   });
 
@@ -307,6 +355,22 @@ class _DeviceSoundsBodyState extends State<_DeviceSoundsBody> {
                         RA_AlarmSoundSource.deviceDefault,
                     onTap: widget.onSelectDefault,
                   ),
+                  const SizedBox(height: RA_ShapeStyles.space8),
+                  _SoundTile(
+                    title:
+                        widget.selected.source == RA_AlarmSoundSource.localFile
+                        ? widget.selected.displayLabel
+                        : 'Custom audio file',
+                    subtitle:
+                        widget.selected.source == RA_AlarmSoundSource.localFile
+                        ? (widget.selected.listFileName ??
+                              'Local audio file · Tap to change')
+                        : 'Choose an audio file from your device',
+                    selected:
+                        widget.selected.source == RA_AlarmSoundSource.localFile,
+                    trailing: !widget.isPro ? const RA_ProBadge() : null,
+                    onTap: widget.onPickCustomFile,
+                  ),
                   const SizedBox(height: RA_ShapeStyles.space24),
                   Text(
                     'Device sounds',
@@ -418,12 +482,14 @@ class _SoundTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool selected;
+  final Widget? trailing;
   final VoidCallback onTap;
 
   const _SoundTile({
     required this.title,
     this.subtitle,
     required this.selected,
+    this.trailing,
     required this.onTap,
   });
 
@@ -447,7 +513,10 @@ class _SoundTile extends StatelessWidget {
                   : null,
               borderWidth: selected ? 1.5 : 1,
               fill: selected
-                  ? RA_ColourStyles.secondary.withValues(alpha: 0.08)
+                  ? Color.alphaBlend(
+                      RA_ColourStyles.secondary.withValues(alpha: 0.08),
+                      RA_ColourStyles.surface,
+                    )
                   : null,
             ),
             child: Padding(
@@ -494,6 +563,10 @@ class _SoundTile extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: RA_ShapeStyles.space8),
+                    trailing!,
+                  ],
                 ],
               ),
             ),

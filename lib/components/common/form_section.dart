@@ -7,12 +7,13 @@ Widget RA_FormSection({
   required String label,
   required Widget child,
   String? errorText,
+  Widget? labelTrailing,
   double bottomSpacing = RA_ShapeStyles.space24,
 }) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      RA_SectionLabel(label, errorText: errorText),
+      RA_SectionLabel(label, errorText: errorText, trailing: labelTrailing),
       const SizedBox(height: RA_ShapeStyles.space8),
       child,
       SizedBox(height: bottomSpacing),

@@ -11,6 +11,7 @@ Widget RA_Toggle({
   required String label,
   required bool value,
   required ValueChanged<bool> onChanged,
+  Widget? trailingBadge,
 }) {
   return Material(
     color: Colors.transparent,
@@ -40,11 +41,21 @@ Widget RA_Toggle({
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                label,
-                style: RA_TextStyles.smallFont,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: RA_TextStyles.smallFont,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (trailingBadge != null) ...[
+                    const SizedBox(width: RA_ShapeStyles.space8),
+                    trailingBadge,
+                  ],
+                ],
               ),
             ),
             const SizedBox(width: RA_ShapeStyles.space16),

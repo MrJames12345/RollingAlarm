@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_side_button_action.dart';
 import 'package:rolling_alarm/enums/alarm_snooze_dismiss_layout.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/enums/routine_swipe_action.dart';
 import 'package:rolling_alarm/enums/routine_ui_phase.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/settings.dart';
 import 'package:rolling_alarm/styles.dart';
 
@@ -222,12 +226,74 @@ final RingingRoutineStatesProvider =
       return db.watchRingingRoutineStates();
     });
 
-/// Watches all log entries, optionally filtered by routine ID.
+/// Watches log entries (default capped at 250), optionally filtered by routine ID.
 final LogEntriesProvider = StreamProvider.autoDispose
     .family<List<LogEntryModel>, int?>((ref, routineId) {
       final db = ref.watch(RA_DatabaseProvider);
       return db.watchLogEntries(routineId: routineId);
     });
+
+/// Watches whether this device upgraded from v1.0.1 with existing routines
+/// and is permanently grandfathered into Rolling Alarm Pro.
+final LegacyProGrandfatheredProvider = StreamProvider<bool>((ref) {
+  final db = ref.watch(RA_DatabaseProvider);
+  return db.watchLegacyProGrandfathered().map((isLegacy) {
+    RA_PurchaseService.setCachedLegacyPro(isLegacy);
+    unawaited(
+      RA_PurchaseService.syncEffectiveProStatusIfChanged(
+        RA_PurchaseService.resolveEffectivePro(
+          rcPro: RA_PurchaseService.cachedRcPro,
+          legacyPro: isLegacy,
+        ),
+      ),
+    );
+    return isLegacy;
+  });
+});
+
+/// Watches the RevenueCat `'pro'` entitlement (immediately seeded from the
+/// offline `SharedPreferences` cache).
+final RevenueCatProProvider = StreamProvider<bool>((ref) {
+  return RA_PurchaseService.watchRcPro();
+});
+
+/// Effective Pro entitlement across RevenueCat (live or cached) and v1.0.1
+/// legacy grandfathering.
+///
+/// Overridable via [ProviderScope.overrides] or
+/// [RA_PurchaseService.debugOverrideIsPro] in tests.
+final IsProProvider = Provider<bool>((ref) {
+  final rcPro =
+      ref.watch(RevenueCatProProvider).valueOrNull ??
+      RA_PurchaseService.cachedRcPro;
+  final legacyPro =
+      ref.watch(LegacyProGrandfatheredProvider).valueOrNull ??
+      RA_PurchaseService.cachedLegacyPro;
+  return RA_PurchaseService.resolveEffectivePro(
+    rcPro: rcPro,
+    legacyPro: legacyPro,
+  );
+});
+
+/// Fetches live RevenueCat offerings for [PaywallPage], returning `null`
+/// gracefully when offline or when `REVENUECAT_ANDROID_API_KEY` is blank.
+final OfferingsProvider = FutureProvider.autoDispose<Offerings?>((ref) {
+  return RA_PurchaseService.getOfferings();
+});
+
+/// Watches paginated log entries with an explicit row limit and optional
+/// lower timestamp bound [since].
+final PagedLogEntriesProvider = StreamProvider.autoDispose
+    .family<List<LogEntryModel>, ({int? routineId, int limit, DateTime? since})>(
+      (ref, args) {
+        final db = ref.watch(RA_DatabaseProvider);
+        return db.watchLogEntries(
+          routineId: args.routineId,
+          limit: args.limit,
+          since: args.since,
+        );
+      },
+    );
 
 /// Shared wall-clock second stream so every countdown flips on the same tick.
 ///

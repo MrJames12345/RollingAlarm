@@ -109,7 +109,7 @@ Widget RA_LogEntryTile({
               ),
               if (canRecover) ...[
                 const SizedBox(width: RA_ShapeStyles.space8),
-                _RecoverButton(onPressed: onRecover!),
+                _RecoverButton(onPressed: onRecover),
               ] else if (entry.TimeSinceLastDismissalSeconds != null) ...[
                 const SizedBox(width: RA_ShapeStyles.space8),
                 RA_FittedText(

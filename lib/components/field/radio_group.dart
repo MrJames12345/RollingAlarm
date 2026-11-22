@@ -7,11 +7,13 @@ class RA_RadioOption<T> {
   final T value;
   final String title;
   final String? subtitle;
+  final Widget? trailing;
 
   const RA_RadioOption({
     required this.value,
     required this.title,
     this.subtitle,
+    this.trailing,
   });
 }
 
@@ -128,6 +130,10 @@ class _RadioTile<T> extends StatelessWidget {
                         ],
                       ),
               ),
+              if (option.trailing != null) ...[
+                const SizedBox(width: RA_ShapeStyles.space8),
+                option.trailing!,
+              ],
             ],
           ),
         ),

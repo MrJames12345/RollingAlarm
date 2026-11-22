@@ -15,6 +15,7 @@ Widget RA_PageScaffold({
   required Widget body,
   List<Widget>? actions,
   Widget? leading,
+  bool automaticallyImplyLeading = true,
   Widget? floatingActionButton,
 }) {
   return Builder(
@@ -27,6 +28,7 @@ Widget RA_PageScaffold({
         child: Scaffold(
           backgroundColor: RA_ColourStyles.offBlack,
           appBar: AppBar(
+            automaticallyImplyLeading: automaticallyImplyLeading,
             title: Text(
               title,
               style: RA_TextStyles.largeFont,

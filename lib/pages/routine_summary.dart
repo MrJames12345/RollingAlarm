@@ -3,12 +3,14 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rolling_alarm/components/common/adjust_today_max_dialog.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
 import 'package:rolling_alarm/components/common/press_scale.dart';
+import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/common/reset_today_counter_dialog.dart';
 import 'package:rolling_alarm/components/common/status_message.dart';
 import 'package:rolling_alarm/components/routine/routine_history_list.dart';
@@ -17,6 +19,7 @@ import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/routine_edit_field.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
@@ -173,18 +176,32 @@ class _SummaryTab extends ConsumerWidget {
       DateTime(2000, 1, 1).add(Duration(seconds: dayStart)),
     );
 
-    final todayCount = ref.watch(
+    final isPro = ref.watch(IsProProvider);
+    final todayMetrics = ref.watch(
       ActiveRoutineStateProvider(routine.Id).select((async) {
         final state = async.valueOrNull;
-        if (state == null) return 0;
-        return RA_DailyRingLimit.countForDay(
+        if (state == null) return (count: 0, extra: 0);
+        final now = DateTime.now();
+        final count = RA_DailyRingLimit.countForDay(
           timesRingToday: state.TimesRingToday,
           timesRingDay: state.TimesRingDay,
-          now: DateTime.now(),
+          now: now,
           dayStartSeconds: routine.DayStartSeconds,
         );
+        final samePeriod =
+            state.TimesRingDay != null &&
+            RA_DailyRingLimit.isSamePeriod(
+              state.TimesRingDay!,
+              now,
+              routine.DayStartSeconds,
+            );
+        final extra = samePeriod ? state.ExtraMaxTimesToday : 0;
+        return (count: count, extra: extra);
       }),
     );
+    final todayCount = todayMetrics.count;
+    final effectiveDailyMax = (routine.MaxTimesPerDay + todayMetrics.extra)
+        .clamp(0, 999);
 
     final dailyLimitTiles = <Widget>[
       _SummaryTile(
@@ -195,7 +212,7 @@ class _SummaryTab extends ConsumerWidget {
       if (routine.MaxTimesPerDayEnabled) ...[
         _SummaryTile(
           label: 'Limit',
-          value: '${routine.MaxTimesPerDay}',
+          value: '$effectiveDailyMax',
           onTap: () => _openEdit(context, RoutineEditFieldEnum.maxTimesLimit),
         ),
         _SummaryTile(
@@ -222,6 +239,7 @@ class _SummaryTab extends ConsumerWidget {
             compensationLabel,
             dailyLimitTiles,
             stretch,
+            isPro: isPro,
           ),
         );
       },
@@ -234,8 +252,9 @@ class _SummaryTab extends ConsumerWidget {
     RA_AlarmSound sound,
     String compensationLabel,
     List<Widget> dailyLimitTiles,
-    double stretch,
-  ) {
+    double stretch, {
+    required bool isPro,
+  }) {
     final sectionSpacing = lerpDouble(
       RA_ShapeStyles.space24,
       RA_ShapeStyles.space64,
@@ -318,6 +337,11 @@ class _SummaryTab extends ConsumerWidget {
                   stretch,
                 ),
               ),
+              _AdjustTodayMaxActionCard(
+                showProBadge: !isPro,
+                onTap: () => unawaited(_adjustTodayMax(context, ref)),
+              ),
+              const SizedBox(height: RA_ShapeStyles.space8),
               RA_Button(
                 text: "Reset Today's Counter",
                 isPrimary: false,
@@ -328,6 +352,50 @@ class _SummaryTab extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _adjustTodayMax(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(IsProProvider)) {
+      final unlocked = await PaywallPage.show(
+        context,
+        featureTrigger: "Adjust today's daily alarm limit with Pro",
+      );
+      if (!unlocked || !context.mounted) return;
+    }
+
+    final db = ref.read(RA_DatabaseProvider);
+    final state = await db.getRoutineState(routine.Id);
+    if (state == null || !context.mounted) return;
+
+    final now = DateTime.now();
+    final samePeriod =
+        state.TimesRingDay != null &&
+        RA_DailyRingLimit.isSamePeriod(
+          state.TimesRingDay!,
+          now,
+          routine.DayStartSeconds,
+        );
+    final currentExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
+    final currentMax =
+        (routine.MaxTimesPerDayEnabled ? routine.MaxTimesPerDay : 0) +
+        currentExtra;
+
+    final newTotalMax = await RA_showAdjustTodayMaxDialog(
+      context,
+      currentMax: currentMax,
+    );
+    if (newTotalMax == null || newTotalMax < 0) return;
+
+    RA_Haptics.heavyUnawaited();
+    await RA_tryAsync(() async {
+      await RA_AlarmService.setTodayMaxCount(
+        routineId: routine.Id,
+        db: db,
+        routine: routine,
+        dbPath: dbPath,
+        newTotalMax: newTotalMax,
+      );
+    });
   }
 
   Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {
@@ -468,6 +536,68 @@ class _SummaryTile extends StatelessWidget {
           child: Ink(
             decoration: RA_ShapeStyles.elevatedSurface(),
             child: content,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdjustTodayMaxActionCard extends StatelessWidget {
+  final bool showProBadge;
+  final VoidCallback onTap;
+
+  const _AdjustTodayMaxActionCard({
+    required this.showProBadge,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RA_PressScale(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            RA_Haptics.heavyUnawaited();
+            onTap();
+          },
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          splashColor: RA_ColourStyles.secondary.withValues(alpha: 0.16),
+          highlightColor: RA_ColourStyles.secondary.withValues(alpha: 0.08),
+          child: Ink(
+            decoration: RA_ShapeStyles.elevatedSurface(
+              borderColor: RA_ColourStyles.secondary.withValues(alpha: 0.35),
+              borderWidth: 1.5,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: RA_ShapeStyles.space16,
+                  vertical: RA_ShapeStyles.space8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Adjust Today's Max",
+                          style: RA_TextStyles.mediumFont,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
+                    if (showProBadge) ...[
+                      const SizedBox(width: RA_ShapeStyles.space8),
+                      const RA_ProBadge(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

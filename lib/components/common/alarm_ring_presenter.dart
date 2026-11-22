@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/alarm_ring.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 
 /// Presents [AlarmRingPage] on the root navigator whenever a routine is ringing.
 ///
@@ -26,8 +28,15 @@ class RA_AlarmRingPresenter extends ConsumerStatefulWidget {
 
 class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     with WidgetsBindingObserver {
+  static const MethodChannel _paywallChannel = MethodChannel(
+    'com.casellaweb.rolling_alarm/paywall',
+  );
+
   /// True from the moment a ring push is accepted until that route pops.
   bool _ringPushInFlight = false;
+
+  /// True while a native-triggered [PaywallPage] route is currently presented.
+  bool _paywallPushInFlight = false;
 
   /// Routine currently shown (or being opened) on [AlarmRingPage].
   int? _openRingRoutineId;
@@ -43,9 +52,11 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _paywallChannel.setMethodCallHandler(_onPaywallPlatformCall);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_ensureRingPageVisible());
+      unawaited(_checkPendingPaywall());
       // Native UI setAlarmClock channel is only live after the engine attaches.
       unawaited(
         RA_AlarmService.syncAlarmUiSchedules(ref.read(RA_DatabaseProvider)),
@@ -56,6 +67,7 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
 
   @override
   void dispose() {
+    _paywallChannel.setMethodCallHandler(null);
     _stopForegroundWatchdog();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -68,11 +80,70 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
         _startForegroundWatchdogIfResumed();
         unawaited(_ensureRingPageVisible());
         unawaited(_checkForegroundAlarms());
+        unawaited(_checkPendingPaywall());
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
         _stopForegroundWatchdog();
+    }
+  }
+
+  Future<Object?> _onPaywallPlatformCall(MethodCall call) async {
+    if (call.method != 'openPaywall') return null;
+    String? trigger;
+    final args = call.arguments;
+    if (args is Map<Object?, Object?>) {
+      trigger = args['featureTrigger'] as String?;
+    } else if (args is String) {
+      trigger = args;
+    }
+    unawaited(_presentPaywall(featureTrigger: trigger));
+    return true;
+  }
+
+  Future<void> _checkPendingPaywall() async {
+    try {
+      final raw = await _paywallChannel.invokeMethod<Map<Object?, Object?>>(
+        'consumePendingPaywall',
+      );
+      if (raw == null || raw['open'] != true) return;
+      final trigger = raw['featureTrigger'] as String?;
+      await _presentPaywall(featureTrigger: trigger);
+    } catch (_) {
+      // Missing plugin / test environment: fail soft.
+    }
+  }
+
+  Future<void> _presentPaywall({String? featureTrigger}) async {
+    if (!mounted ||
+        _paywallPushInFlight ||
+        PaywallPage.isShowing ||
+        _ringPushInFlight ||
+        _openRingRoutineId != null) {
+      return;
+    }
+    if (ref.read(IsProProvider)) return;
+    final navContext = RA_navigatorKey.currentContext;
+    if (navContext == null || !navContext.mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_presentPaywall(featureTrigger: featureTrigger));
+        }
+      });
+      return;
+    }
+
+    _paywallPushInFlight = true;
+    try {
+      await PaywallPage.show(
+        navContext,
+        featureTrigger:
+            featureTrigger ??
+            'Unlock unlimited home screen routine widgets with Pro',
+      );
+    } finally {
+      _paywallPushInFlight = false;
     }
   }
 
@@ -236,6 +307,13 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
 
   @override
   Widget build(BuildContext context) {
+    // Keep IsProProvider active at the app root so RevenueCat and AppMeta
+    // updates always sync `ra_is_pro_effective` and HomeWidget `ra_is_pro`
+    // even when HomePage is showing routines and not directly watching Pro.
+    ref.listen<bool>(IsProProvider, (previous, next) {
+      unawaited(RA_PurchaseService.syncEffectiveProStatusIfChanged(next));
+    });
+
     ref.listen(RingingRoutineStatesProvider, (previous, next) {
       next.whenData((states) {
         if (states.isEmpty) {

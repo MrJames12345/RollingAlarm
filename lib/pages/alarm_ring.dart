@@ -112,6 +112,10 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   }
 
   Future<void> _syncSideButtonActions() async {
+    if (!ref.read(IsProProvider)) {
+      await _clearSideButtonActions();
+      return;
+    }
     final settings =
         ref.read(AlarmSideButtonsProvider).valueOrNull ??
         await RA_SettingsService.getSideButtons();
@@ -206,9 +210,12 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
   @override
   Widget build(BuildContext context) {
     ref.watch(AppThemeModeProvider);
-    // Keep native key remapping in sync if Settings change while ringing.
+    // Keep native key remapping in sync if Settings or Pro status change while ringing.
     ref.listen(AlarmSideButtonsProvider, (previous, next) {
       next.whenData((_) => unawaited(_syncSideButtonActions()));
+    });
+    ref.listen<bool>(IsProProvider, (previous, next) {
+      unawaited(_syncSideButtonActions());
     });
 
     // Notification snooze/dismiss can clear ringing while this page is open.
@@ -640,7 +647,7 @@ class _RingPulseIcon extends StatelessWidget {
           ),
         );
       },
-      child: Icon(Icons.alarm, size: 80, color: RA_ColourStyles.softCoral),
+      child: const Icon(Icons.alarm, size: 80, color: RA_ColourStyles.softCoral),
     );
   }
 }
