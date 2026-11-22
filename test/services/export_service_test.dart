@@ -181,7 +181,7 @@ void main() {
         expect(r.IntervalSeconds, 3600);
         expect(r.SnoozeSeconds, 300);
         expect(r.MaxTimesPerDayEnabled, isFalse);
-        expect(r.MaxTimesPerDay, 0);
+        expect(r.MaxTimesPerDay, 1);
         expect(r.DayStartSeconds, 0);
         expect(
           r.DriftCompensationTypeCode,
@@ -195,5 +195,113 @@ void main() {
         expect(r.IsActive, isTrue);
       },
     );
+
+    test('rejects payload larger than 512 KB', () {
+      final oversized = 'RA1:${'A' * (RA_ExportService.maxPayloadBytes + 1)}';
+      expect(
+        () => RA_ExportService.decodeExportString(oversized),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('512 KB'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects payload with more than 50 routines', () {
+      final payload = {
+        'version': 10,
+        'routines': List<Map<String, Object?>>.generate(
+          51,
+          (i) => {'Name': 'Routine $i', 'IntervalSeconds': 3600},
+        ),
+      };
+      final encoded = 'RA1:${base64Encode(utf8.encode(jsonEncode(payload)))}';
+      expect(
+        () => RA_ExportService.decodeExportString(encoded),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('50'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects payload with non-object routine entries', () {
+      final payload = {
+        'version': 10,
+        'routines': ['not-an-object', 123],
+      };
+      final encoded = 'RA1:${base64Encode(utf8.encode(jsonEncode(payload)))}';
+      expect(
+        () => RA_ExportService.decodeExportString(encoded),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('clamps and sanitizes out-of-range RA1 imported fields', () async {
+      final longName = 'X' * 300;
+      final payload = {
+        'version': 10,
+        'routines': [
+          {
+            'Name': '   ',
+            'IntervalSeconds': 0,
+            'SnoozeSeconds': -120,
+            'Volume': 1,
+            'DayStartSeconds': -50,
+            'MaxTimesPerDayEnabled': true,
+            'MaxTimesPerDay': 0,
+            'EnabledWeekdays': 0,
+            'DriftCompensationTypeCode': 999,
+          },
+          {
+            'Name': longName,
+            'IntervalSeconds': 9999999,
+            'SnoozeSeconds': 99999,
+            'Volume': 250,
+            'DayStartSeconds': 100000,
+            'MaxTimesPerDayEnabled': true,
+            'MaxTimesPerDay': 500,
+            'EnabledWeekdays': 0x85, // bit 7 stripped -> 0x05
+            'DriftCompensationTypeCode': -1,
+          },
+        ],
+      };
+      final encoded = 'RA1:${base64Encode(utf8.encode(jsonEncode(payload)))}';
+      final ids = await RA_ExportService.importFromBase64(db, encoded);
+      expect(ids, hasLength(2));
+
+      final low = await db.getRoutineById(ids[0]);
+      expect(low.Name, equals('Imported Routine'));
+      expect(low.IntervalSeconds, equals(60));
+      expect(low.SnoozeSeconds, equals(60));
+      expect(low.Volume, equals(5));
+      expect(low.DayStartSeconds, equals(0));
+      expect(low.MaxTimesPerDayEnabled, isTrue);
+      expect(low.MaxTimesPerDay, equals(1));
+      expect(low.EnabledWeekdays, equals(0x7F));
+      expect(
+        low.DriftCompensationTypeCode,
+        equals(DriftCompensationTypeCodeEnum.ActualDismissal.index),
+      );
+
+      final high = await db.getRoutineById(ids[1]);
+      expect(high.Name.length, equals(255));
+      expect(high.IntervalSeconds, equals(604800));
+      expect(high.SnoozeSeconds, equals(7200));
+      expect(high.Volume, equals(100));
+      expect(high.DayStartSeconds, equals(86399));
+      expect(high.MaxTimesPerDay, equals(99));
+      expect(high.EnabledWeekdays, equals(0x05));
+      expect(
+        high.DriftCompensationTypeCode,
+        equals(DriftCompensationTypeCodeEnum.ActualDismissal.index),
+      );
+    });
   });
 }

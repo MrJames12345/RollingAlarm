@@ -7,6 +7,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const channel = MethodChannel('com.casellaweb.rolling_alarm/alarm_sound');
+  const permissionChannel = MethodChannel(
+    'flutter.baseflow.com/permissions/methods',
+  );
 
   group('RA_AlarmSoundPickerService', () {
     test('isValidAudioFile accepts recognized audio formats', () {
@@ -52,34 +55,46 @@ void main() {
       expect(errorMessage, isNull);
     });
 
-    test('listDeviceSounds maps metadata title and OS file name', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'listDeviceSounds') {
-          return [
-            {
-              'uri': 'content://media/external/audio/media/1',
-              'title': 'Sunrise',
-              'displayName': 'sunrise_alarm.mp3',
-            },
-            {
-              'uri': 'content://media/external/audio/media/2',
-              'displayName': 'no_tags.wav',
-            },
-          ];
-        }
-        return null;
-      });
+    test(
+      'listDeviceSounds maps RingtoneManager entries without requesting audio or storage permissions',
+      () async {
+        final permissionCalls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(permissionChannel, (call) async {
+              permissionCalls.add(call);
+              return null;
+            });
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              if (call.method == 'listDeviceSounds') {
+                return [
+                  {
+                    'uri': 'content://media/internal/audio/media/1',
+                    'title': 'Alarm Clock',
+                  },
+                  {
+                    'uri': 'content://media/internal/audio/media/2',
+                    'title': 'Sunrise',
+                    'displayName': 'sunrise_alarm.ogg',
+                  },
+                ];
+              }
+              return null;
+            });
 
-      final sounds = await RA_AlarmSoundPickerService.listDeviceSounds();
-      expect(sounds, hasLength(2));
-      expect(sounds[0].label, 'Sunrise');
-      expect(sounds[0].fileName, 'sunrise_alarm.mp3');
-      expect(sounds[0].listFileName, 'sunrise_alarm.mp3');
-      expect(sounds[1].label, 'no_tags.wav');
-      expect(sounds[1].fileName, 'no_tags.wav');
-      expect(sounds[1].listFileName, isNull);
-    });
+        final sounds = await RA_AlarmSoundPickerService.listDeviceSounds();
+        expect(permissionCalls, isEmpty);
+        expect(sounds, hasLength(2));
+        expect(sounds[0].source, RA_AlarmSoundSource.deviceSounds);
+        expect(sounds[0].uri, 'content://media/internal/audio/media/1');
+        expect(sounds[0].label, 'Alarm Clock');
+        expect(sounds[0].fileName, isNull);
+        expect(sounds[0].listFileName, isNull);
+        expect(sounds[1].label, 'Sunrise');
+        expect(sounds[1].fileName, 'sunrise_alarm.ogg');
+        expect(sounds[1].listFileName, 'sunrise_alarm.ogg');
+      },
+    );
 
     test('pickLocalFile rejects non-audio file from channel and triggers onError', () async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -145,6 +160,8 @@ void main() {
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(permissionChannel, null);
     });
   });
 }

@@ -32,6 +32,7 @@ void main() {
         ProviderScope(
           overrides: [
             RA_DatabaseProvider.overrideWithValue(database),
+            IsProProvider.overrideWithValue(true),
           ],
           child: RollingAlarmApp(dbPath: dbPath),
         ),

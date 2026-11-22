@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 void main() {
   setUpAll(() {
@@ -518,5 +519,239 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'fresh v18 database is not grandfathered and countLiveRoutines excludes deleted',
+      () async {
+        expect(await db.isLegacyProGrandfathered(), isFalse);
+        expect(await db.watchLegacyProGrandfathered().first, isFalse);
+        expect(await db.countLiveRoutines(), equals(0));
+
+        final r1 = await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('Live 1'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: DateTime(2026, 1, 1, 10, 0),
+        );
+        final r2 = await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('Live 2'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: DateTime(2026, 1, 1, 11, 0),
+        );
+        expect(await db.countLiveRoutines(), equals(2));
+
+        await db.softDeleteRoutine(r2);
+        expect(await db.countLiveRoutines(), equals(1));
+        expect(r1, greaterThan(0));
+      },
+    );
+
+    test(
+      'v17 to v18 migration grandfathers devices that already had routines',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mig_v18_');
+        final dbPath = p.join(tempDir.path, 'legacy_v17.db');
+        try {
+          final raw = sqlite3.sqlite3.open(dbPath);
+          raw.execute('''
+            CREATE TABLE routines (
+              id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              snooze_seconds INTEGER NOT NULL DEFAULT 300,
+              interval_seconds INTEGER NOT NULL,
+              max_times_per_day INTEGER NOT NULL DEFAULT 0,
+              day_start_seconds INTEGER NOT NULL DEFAULT 0,
+              max_times_per_day_enabled INTEGER NOT NULL DEFAULT 0,
+              enabled_weekdays INTEGER NOT NULL DEFAULT 127,
+              drift_compensation_type_code INTEGER NOT NULL,
+              show_preview INTEGER NOT NULL DEFAULT 1,
+              vibrate INTEGER NOT NULL DEFAULT 1,
+              volume INTEGER NOT NULL DEFAULT 50,
+              fade_in INTEGER NOT NULL DEFAULT 0,
+              audio_uri TEXT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+              modified_at INTEGER NULL,
+              deleted INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+          raw.execute('''
+            INSERT INTO routines (name, interval_seconds, drift_compensation_type_code)
+            VALUES ('Early Adopter Alarm', 3600, 0);
+          ''');
+          raw.execute('PRAGMA user_version = 17;');
+          raw.close();
+
+          final upgraded = RA_Database.openForIsolate(dbPath);
+          try {
+            expect(await upgraded.isLegacyProGrandfathered(), isTrue);
+            expect(await upgraded.watchLegacyProGrandfathered().first, isTrue);
+            expect(await upgraded.countLiveRoutines(), equals(1));
+          } finally {
+            await upgraded.close();
+          }
+        } finally {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        }
+      },
+    );
+
+    test(
+      'v17 to v18 migration does NOT grandfather devices with zero routines',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mig_empty_');
+        final dbPath = p.join(tempDir.path, 'empty_v17.db');
+        try {
+          final raw = sqlite3.sqlite3.open(dbPath);
+          raw.execute('''
+            CREATE TABLE routines (
+              id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              snooze_seconds INTEGER NOT NULL DEFAULT 300,
+              interval_seconds INTEGER NOT NULL,
+              max_times_per_day INTEGER NOT NULL DEFAULT 0,
+              day_start_seconds INTEGER NOT NULL DEFAULT 0,
+              max_times_per_day_enabled INTEGER NOT NULL DEFAULT 0,
+              enabled_weekdays INTEGER NOT NULL DEFAULT 127,
+              drift_compensation_type_code INTEGER NOT NULL,
+              show_preview INTEGER NOT NULL DEFAULT 1,
+              vibrate INTEGER NOT NULL DEFAULT 1,
+              volume INTEGER NOT NULL DEFAULT 50,
+              fade_in INTEGER NOT NULL DEFAULT 0,
+              audio_uri TEXT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+              modified_at INTEGER NULL,
+              deleted INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+          raw.execute('PRAGMA user_version = 17;');
+          raw.close();
+
+          final upgraded = RA_Database.openForIsolate(dbPath);
+          try {
+            expect(await upgraded.isLegacyProGrandfathered(), isFalse);
+            expect(await upgraded.watchLegacyProGrandfathered().first, isFalse);
+          } finally {
+            await upgraded.close();
+          }
+        } finally {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        }
+      },
+    );
+
+    test(
+      'watchLogEntries respects limit/since and pruneOldLogs preserves recoverable delete logs',
+      () async {
+        final now = DateTime.now();
+        final oldTime = now.subtract(const Duration(days: 400));
+        final recentTime = now.subtract(const Duration(days: 5));
+
+        final liveRoutineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Live Routine'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+        );
+        final softDeletedRoutineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Deleted Routine'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            Deleted: const Value(true),
+          ),
+        );
+
+        // 1. Old normal log on live routine -> should be pruned.
+        final oldLiveLog = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(liveRoutineId),
+            Timestamp: Value(oldTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
+          ),
+        );
+        // 2. Old Delete log on live (recovered) routine -> should be pruned.
+        final oldRecoveredDeleteLog = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(liveRoutineId),
+            Timestamp: Value(oldTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Delete.index),
+          ),
+        );
+        // 3. Old Delete log on still soft-deleted routine -> MUST be preserved!
+        final oldRecoverableDeleteLog = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(softDeletedRoutineId),
+            Timestamp: Value(oldTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Delete.index),
+          ),
+        );
+        // 4. Old Ring log on soft-deleted routine -> should be pruned (not a Delete log).
+        final oldDeletedRoutineRingLog = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(softDeletedRoutineId),
+            Timestamp: Value(oldTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Ring.index),
+          ),
+        );
+        // 5. Recent soft-deleted log row -> should be pruned because Deleted == true.
+        final softDeletedLogRow = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(liveRoutineId),
+            Timestamp: Value(recentTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Ring.index),
+            Deleted: const Value(true),
+          ),
+        );
+        // 6. Recent live log -> MUST be preserved.
+        final recentLiveLog = await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(liveRoutineId),
+            Timestamp: Value(recentTime),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
+          ),
+        );
+
+        // Verify limit & since filtering before prune.
+        final capped = await db.watchLogEntries(limit: 2).first;
+        expect(capped.length, equals(2));
+        final sinceRecent = await db
+            .watchLogEntries(since: now.subtract(const Duration(days: 10)))
+            .first;
+        expect(sinceRecent.map((e) => e.Id), equals([recentLiveLog]));
+        final forExport = await db.getLogEntriesForExport(limit: 3);
+        expect(forExport.length, equals(3));
+
+        await db.pruneOldLogs(maxAge: const Duration(days: 365));
+
+        final remainingAll = await db.select(db.logEntries).get();
+        final remainingIds = remainingAll.map((e) => e.Id).toSet();
+        expect(remainingIds, contains(recentLiveLog));
+        expect(remainingIds, contains(oldRecoverableDeleteLog));
+        expect(remainingIds, isNot(contains(oldLiveLog)));
+        expect(remainingIds, isNot(contains(oldRecoveredDeleteLog)));
+        expect(remainingIds, isNot(contains(oldDeletedRoutineRingLog)));
+        expect(remainingIds, isNot(contains(softDeletedLogRow)));
+      },
+    );
   });
 }

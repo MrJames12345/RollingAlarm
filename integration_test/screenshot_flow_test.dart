@@ -178,7 +178,10 @@ Future<(String dbPath, RA_Database database)> _boot(WidgetTester tester) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [RA_DatabaseProvider.overrideWithValue(database)],
+      overrides: [
+        RA_DatabaseProvider.overrideWithValue(database),
+        IsProProvider.overrideWithValue(true),
+      ],
       child: RollingAlarmApp(dbPath: dbPath),
     ),
   );

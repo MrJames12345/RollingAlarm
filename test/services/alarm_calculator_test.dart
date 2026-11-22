@@ -392,5 +392,100 @@ void main() {
       // Drift accumulated: 06:27 + 4:30 = 10:57
       expect(dismissResult, DateTime(2026, 1, 1, 10, 57, 0));
     });
+
+    // --------------------------------------------------------------------- //
+    // Zero / negative duration guards: never enter an infinite CPU loop
+    // --------------------------------------------------------------------- //
+    test(
+      'clamps zero and negative IntervalSeconds to 60s without hanging',
+      () {
+        final initialRing = DateTime(2026, 1, 1, 6, 0, 0);
+        final now = DateTime(2026, 1, 1, 6, 5, 30);
+
+        final initialRingZero = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 0,
+          SnoozeSeconds: 300,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(initialRingZero, DateTime(2026, 1, 1, 6, 6, 0));
+        expect(initialRingZero.isAfter(now), isTrue);
+
+        final initialRingNegative = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: -999,
+          SnoozeSeconds: 300,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(initialRingNegative, DateTime(2026, 1, 1, 6, 6, 0));
+
+        final actualZero = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
+          IntervalSeconds: 0,
+          SnoozeSeconds: 300,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(actualZero, DateTime(2026, 1, 1, 6, 6, 30));
+
+        final skipZero = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Skip,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: -5,
+          SnoozeSeconds: 300,
+          InitialRingTime: initialRing,
+          Now: now,
+        );
+        expect(skipZero, DateTime(2026, 1, 1, 6, 6, 30));
+      },
+    );
+
+    test('clamps zero and negative SnoozeSeconds to 60s', () {
+      final now = DateTime(2026, 1, 1, 6, 0, 0);
+
+      final snoozeZero = RA_AlarmCalculator.calculateNextTrigger(
+        Action: RA_AlarmActionTypeCodeEnum.Snooze,
+        Compensation: DriftCompensationTypeCodeEnum.ActualDismissal,
+        IntervalSeconds: 3600,
+        SnoozeSeconds: 0,
+        InitialRingTime: now,
+        Now: now,
+      );
+      expect(snoozeZero, DateTime(2026, 1, 1, 6, 1, 0));
+
+      final autoSnoozeNegative = RA_AlarmCalculator.calculateNextTrigger(
+        Action: RA_AlarmActionTypeCodeEnum.AutoSnooze,
+        Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+        IntervalSeconds: 3600,
+        SnoozeSeconds: -60,
+        InitialRingTime: now,
+        Now: now,
+      );
+      expect(autoSnoozeNegative, DateTime(2026, 1, 1, 6, 1, 0));
+    });
+
+    test(
+      'InitialRing advances multi-year stale ring anchors instantaneously',
+      () {
+        final ancientRing = DateTime(2020, 1, 1, 0, 0, 0);
+        final now = DateTime(2026, 1, 1, 0, 0, 30);
+
+        final result = RA_AlarmCalculator.calculateNextTrigger(
+          Action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          Compensation: DriftCompensationTypeCodeEnum.InitialRing,
+          IntervalSeconds: 60,
+          SnoozeSeconds: 300,
+          InitialRingTime: ancientRing,
+          Now: now,
+        );
+        expect(result, DateTime(2026, 1, 1, 0, 1, 0));
+        expect(result.isAfter(now), isTrue);
+      },
+    );
   });
 }

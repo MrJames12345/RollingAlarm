@@ -51,7 +51,9 @@ class FakeLogEntriesCompanion extends Fake implements LogEntriesCompanion {}
 
 void main() {
   final alarmChannelCalls = <MethodCall>[];
+  final uiSchedulerChannelCalls = <MethodCall>[];
   final notifChannelCalls = <MethodCall>[];
+  var mockIgnoringBatteryOptimizations = true;
 
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -77,8 +79,9 @@ void main() {
         .setMockMethodCallHandler(uiSchedulerChannel, (
           MethodCall methodCall,
         ) async {
+          uiSchedulerChannelCalls.add(methodCall);
           if (methodCall.method == 'isIgnoringBatteryOptimizations') {
-            return true;
+            return mockIgnoringBatteryOptimizations;
           }
           if (methodCall.method == 'requestIgnoreBatteryOptimizations') {
             return true;
@@ -130,7 +133,9 @@ void main() {
       mockDb = MockDatabase();
       SharedPreferences.setMockInitialValues({});
       alarmChannelCalls.clear();
+      uiSchedulerChannelCalls.clear();
       notifChannelCalls.clear();
+      mockIgnoringBatteryOptimizations = true;
     });
 
     test(
@@ -1668,6 +1673,7 @@ void main() {
           ),
         );
 
+        uiSchedulerChannelCalls.clear();
         await RA_AlarmService.simulateAlarmCallback(routineId);
 
         final state = await db.getRoutineState(routineId);
@@ -1677,6 +1683,16 @@ void main() {
         expect(state.NextTriggerTime, isNotNull);
         expect(state.NextTriggerTime!.isAfter(now), isTrue);
 
+        // Silent muted fire reschedules Dart callback only, never native UI wake.
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'schedule'),
+          isEmpty,
+        );
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'cancel'),
+          isNotEmpty,
+        );
+
         final logs = await db.getAllLogEntries();
         expect(logs.length, equals(1));
         expect(
@@ -1684,6 +1700,439 @@ void main() {
           LogActionTypeCodeEnum.Dismiss.index,
         );
         expect(logs.first.WasMuted, isTrue);
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'muteRoutine cancels native alarm UI schedule without scheduling a wake',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mute_ui_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final next = now.add(const Duration(hours: 2));
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Mute Native Cancel'),
+            IntervalSeconds: const Value(7200),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(next),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.muteRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+
+        final cancelCalls = uiSchedulerChannelCalls
+            .where((c) => c.method == 'cancel')
+            .toList();
+        final scheduleCalls = uiSchedulerChannelCalls
+            .where((c) => c.method == 'schedule')
+            .toList();
+        expect(cancelCalls, isNotEmpty);
+        final cancelArgs = cancelCalls.last.arguments as Map<Object?, Object?>;
+        expect(cancelArgs['routineId'], equals(routineId));
+        expect(scheduleCalls, isEmpty);
+
+        // Muting from a paused state resumes internally then cancels native UI.
+        await RA_AlarmService.pauseRoutine(
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          dbPath: dbPath,
+        );
+        uiSchedulerChannelCalls.clear();
+
+        await RA_AlarmService.muteRoutine(
+          routineId: routineId,
+          db: db,
+          routine: await db.getRoutineById(routineId),
+          dbPath: dbPath,
+        );
+
+        final routineCalls = uiSchedulerChannelCalls.where((c) {
+          if (c.method != 'schedule' && c.method != 'cancel') return false;
+          final args = c.arguments as Map<Object?, Object?>?;
+          return args?['routineId'] == routineId;
+        }).toList();
+        expect(routineCalls, isNotEmpty);
+        expect(routineCalls.last.method, equals('cancel'));
+
+        // Muting a currently ringing routine stops native ringing, clears
+        // IsRinging, sets MutedAt, and ends with native UI cancelled.
+        await db.updateRoutineState(
+          routineId,
+          const RoutineStatesCompanion(
+            IsRinging: Value(true),
+            MutedAt: Value(null),
+          ),
+        );
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.muteRoutine(
+          routineId: routineId,
+          db: db,
+          routine: await db.getRoutineById(routineId),
+          dbPath: dbPath,
+        );
+        final mutedAfterRing = await db.getRoutineState(routineId);
+        expect(mutedAfterRing!.IsRinging, isFalse);
+        expect(mutedAfterRing.MutedAt, isNotNull);
+        expect(
+          uiSchedulerChannelCalls.any((c) => c.method == 'stopRinging'),
+          isTrue,
+        );
+        final ringMuteScheduleCalls = uiSchedulerChannelCalls.where((c) {
+          if (c.method != 'schedule' && c.method != 'cancel') return false;
+          final args = c.arguments as Map<Object?, Object?>?;
+          return args?['routineId'] == routineId;
+        }).toList();
+        expect(ringMuteScheduleCalls, isNotEmpty);
+        expect(ringMuteScheduleCalls.last.method, equals('cancel'));
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'scheduleNext skips native alarm UI and cancels it while MutedAt != null',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_sched_mute_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final trigger = now.add(const Duration(hours: 1));
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Muted Schedule'),
+            IntervalSeconds: const Value(3600),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(trigger),
+            MutedAt: Value(now),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+        final mutedState = (await db.getRoutineState(routineId))!;
+
+        // 1. Passing muted state directly skips _scheduleAlarmUi and calls cancel.
+        alarmChannelCalls.clear();
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.scheduleNext(
+          routineId: routineId,
+          triggerTime: trigger,
+          dbPath: dbPath,
+          routineName: routine.Name,
+          routine: routine,
+          state: mutedState,
+          refreshWidget: false,
+        );
+
+        expect(
+          alarmChannelCalls.any((c) => c.method == 'Alarm.oneShotAt'),
+          isTrue,
+        );
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'schedule'),
+          isEmpty,
+        );
+        final directCancels = uiSchedulerChannelCalls
+            .where((c) => c.method == 'cancel')
+            .toList();
+        expect(directCancels.length, equals(1));
+        expect(
+          (directCancels.single.arguments as Map<Object?, Object?>)['routineId'],
+          equals(routineId),
+        );
+
+        // 2. Omitting state causes scheduleNext to resolve MutedAt from SQLite.
+        alarmChannelCalls.clear();
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.scheduleNext(
+          routineId: routineId,
+          triggerTime: trigger,
+          dbPath: dbPath,
+          refreshWidget: false,
+        );
+
+        expect(
+          alarmChannelCalls.any((c) => c.method == 'Alarm.oneShotAt'),
+          isTrue,
+        );
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'schedule'),
+          isEmpty,
+        );
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'cancel').length,
+          equals(1),
+        );
+
+        // 3. Contrast: unmuted state DOES invoke native _scheduleAlarmUi.
+        uiSchedulerChannelCalls.clear();
+        final unmutedState = mutedState.copyWith(MutedAt: const Value(null));
+        await RA_AlarmService.scheduleNext(
+          routineId: routineId,
+          triggerTime: trigger,
+          dbPath: dbPath,
+          routineName: routine.Name,
+          routine: routine,
+          state: unmutedState,
+          refreshWidget: false,
+        );
+
+        final unmutedSchedules = uiSchedulerChannelCalls
+            .where((c) => c.method == 'schedule')
+            .toList();
+        expect(unmutedSchedules.length, equals(1));
+        expect(
+          (unmutedSchedules.single.arguments
+              as Map<Object?, Object?>)['routineId'],
+          equals(routineId),
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'unmuteRoutine re-arms native alarm UI schedule for active routine and skips inactive ones',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_unmute_ui_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final trigger = DateTime.fromMillisecondsSinceEpoch(
+          (now.add(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000) *
+              1000,
+        );
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Unmute Re-arm'),
+            IntervalSeconds: const Value(7200),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            Vibrate: const Value(true),
+            Volume: const Value(80),
+            FadeIn: const Value(true),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(trigger),
+            MutedAt: Value(now.subtract(const Duration(minutes: 5))),
+          ),
+        );
+
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.unmuteRoutine(routineId: routineId, db: db);
+
+        final after = await db.getRoutineState(routineId);
+        expect(after!.MutedAt, isNull);
+        expect(
+          after.NextTriggerTime!.millisecondsSinceEpoch,
+          equals(trigger.millisecondsSinceEpoch),
+        );
+
+        final scheduleCalls = uiSchedulerChannelCalls
+            .where((c) => c.method == 'schedule')
+            .toList();
+        expect(scheduleCalls.length, equals(1));
+        final args = scheduleCalls.single.arguments as Map<Object?, Object?>;
+        expect(args['routineId'], equals(routineId));
+        expect(args['triggerAtMillis'], equals(trigger.millisecondsSinceEpoch));
+        expect(args['volume'], closeTo(0.8, 0.001));
+        expect(args['fadeInMs'], greaterThan(0));
+        expect(args['vibrate'], isTrue);
+
+        // Inactive routine should clear MutedAt without arming native UI.
+        final inactiveId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Inactive Muted'),
+            IntervalSeconds: const Value(7200),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(false),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(inactiveId),
+            NextTriggerTime: Value(trigger),
+            MutedAt: Value(now),
+          ),
+        );
+
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.unmuteRoutine(routineId: inactiveId, db: db);
+        expect((await db.getRoutineState(inactiveId))!.MutedAt, isNull);
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'schedule'),
+          isEmpty,
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'scheduleNext and reconcileAlarmsOnStartup never invoke requestIgnoreBatteryOptimizations',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_no_batt_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final trigger = now.add(const Duration(hours: 3));
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('No Battery Prompt'),
+            IntervalSeconds: const Value(10800),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(trigger),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+        final state = (await db.getRoutineState(routineId))!;
+
+        // Simulate an OEM device where battery exemption is NOT granted so any
+        // legacy auto-prompt inside scheduleNext would fire requestIgnore*.
+        mockIgnoringBatteryOptimizations = false;
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.scheduleNext(
+          routineId: routineId,
+          triggerTime: trigger,
+          dbPath: dbPath,
+          routineName: routine.Name,
+          routine: routine,
+          state: state,
+          refreshWidget: false,
+        );
+        await RA_AlarmService.reconcileAlarmsOnStartup(db: db, dbPath: dbPath);
+
+        const forbiddenBatteryMethods = {
+          'requestIgnoreBatteryOptimizations',
+          'ensureIgnoringBatteryOptimizations',
+          'isIgnoringBatteryOptimizations',
+        };
+        final batteryCalls = uiSchedulerChannelCalls
+            .where((c) => forbiddenBatteryMethods.contains(c.method))
+            .toList();
+        expect(batteryCalls, isEmpty);
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'syncAlarmUiSchedules cancels muted routines and schedules unmuted routines',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_sync_ui_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final trigger = now.add(const Duration(hours: 1));
+
+        final activeId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Active Unmuted'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(activeId),
+            NextTriggerTime: Value(trigger),
+          ),
+        );
+
+        final mutedId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Active Muted'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(mutedId),
+            NextTriggerTime: Value(trigger),
+            MutedAt: Value(now),
+          ),
+        );
+
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.syncAlarmUiSchedules(db);
+
+        final scheduledIds = uiSchedulerChannelCalls
+            .where((c) => c.method == 'schedule')
+            .map((c) => (c.arguments as Map<Object?, Object?>)['routineId'])
+            .toList();
+        final cancelledIds = uiSchedulerChannelCalls
+            .where((c) => c.method == 'cancel')
+            .map((c) => (c.arguments as Map<Object?, Object?>)['routineId'])
+            .toList();
+
+        expect(scheduledIds, equals([activeId]));
+        expect(cancelledIds, equals([mutedId]));
 
         await db.close();
         await tempDir.delete(recursive: true);

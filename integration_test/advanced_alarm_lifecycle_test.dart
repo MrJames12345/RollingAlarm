@@ -38,7 +38,10 @@ Future<(String dbPath, RA_Database database)> _bootApp(
 
   await $.pumpWidget(
     ProviderScope(
-      overrides: [RA_DatabaseProvider.overrideWithValue(database)],
+      overrides: [
+        RA_DatabaseProvider.overrideWithValue(database),
+        IsProProvider.overrideWithValue(true),
+      ],
       child: RollingAlarmApp(dbPath: dbPath),
     ),
   );
@@ -54,7 +57,10 @@ Future<void> _simulateAppRestart(
 }) async {
   await $.pumpWidget(
     ProviderScope(
-      overrides: [RA_DatabaseProvider.overrideWithValue(database)],
+      overrides: [
+        RA_DatabaseProvider.overrideWithValue(database),
+        IsProProvider.overrideWithValue(true),
+      ],
       child: RollingAlarmApp(dbPath: dbPath),
     ),
   );

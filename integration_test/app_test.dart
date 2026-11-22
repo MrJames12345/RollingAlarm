@@ -27,7 +27,10 @@ void main() {
 
       await $.pumpWidget(
         ProviderScope(
-          overrides: [RA_DatabaseProvider.overrideWithValue(database)],
+          overrides: [
+            RA_DatabaseProvider.overrideWithValue(database),
+            IsProProvider.overrideWithValue(true),
+          ],
           child: RollingAlarmApp(dbPath: dbPath),
         ),
       );
