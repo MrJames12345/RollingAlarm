@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:rolling_alarm/database/tables/app_meta.dart';
 import 'package:rolling_alarm/database/tables/log_entries.dart';
 import 'package:rolling_alarm/database/tables/routine_states.dart';
 import 'package:rolling_alarm/database/tables/routines.dart';
@@ -11,15 +12,17 @@ import 'package:rolling_alarm/enums/log_action_type_code.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Routines, RoutineStates, LogEntries])
+@DriftDatabase(tables: [Routines, RoutineStates, LogEntries, AppMeta])
 class RA_Database extends _$RA_Database {
+  static const String legacyProGrandfatheredKey = 'legacy_pro_grandfathered';
+
   RA_Database() : super(_openConnection());
 
   /// Named constructor for testing with an in-memory database.
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -137,6 +140,22 @@ class RA_Database extends _$RA_Database {
       if (from < 17) {
         await m.addColumn(routineStates, routineStates.ExtraMaxTimesToday);
       }
+      if (from < 18) {
+        await m.createTable(appMeta);
+        final rows = await customSelect(
+          'SELECT COUNT(*) AS cnt FROM routines',
+        ).get();
+        final existingCount = rows.isNotEmpty
+            ? rows.first.read<int>('cnt')
+            : 0;
+        if (existingCount > 0) {
+          await customStatement(
+            'INSERT OR REPLACE INTO app_meta ("key", "value", "updated_at") '
+            "VALUES (?, 'true', CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER))",
+            [legacyProGrandfatheredKey],
+          );
+        }
+      }
     },
   );
 
@@ -177,6 +196,36 @@ class RA_Database extends _$RA_Database {
           ..where((r) => r.Deleted.equals(false))
           ..where((r) => r.IsActive.equals(true)))
         .get();
+  }
+
+  /// Counts live (non-deleted) routines.
+  Future<int> countLiveRoutines() async {
+    final countExp = routines.Id.count();
+    final query = selectOnly(routines)
+      ..addColumns([countExp])
+      ..where(routines.Deleted.equals(false));
+    final row = await query.getSingle();
+    return row.read(countExp) ?? 0;
+  }
+
+  // --------------------------------------------------------------------- //
+  // AppMeta queries
+  // --------------------------------------------------------------------- //
+
+  /// True when this device upgraded from v1.0.1 with existing routines.
+  Future<bool> isLegacyProGrandfathered() async {
+    final row = await (select(
+      appMeta,
+    )..where((m) => m.Key.equals(legacyProGrandfatheredKey))).getSingleOrNull();
+    return row?.MetaValue == 'true';
+  }
+
+  /// Reactive stream of [isLegacyProGrandfathered].
+  Stream<bool> watchLegacyProGrandfathered() {
+    return (select(appMeta)
+          ..where((m) => m.Key.equals(legacyProGrandfatheredKey)))
+        .watchSingleOrNull()
+        .map((row) => row?.MetaValue == 'true');
   }
 
   Future<int> insertRoutine(RoutinesCompanion routine) {
@@ -384,12 +433,25 @@ class RA_Database extends _$RA_Database {
   // LogEntry queries
   // --------------------------------------------------------------------- //
 
-  Stream<List<LogEntryModel>> watchLogEntries({int? routineId}) {
+  Stream<List<LogEntryModel>> watchLogEntries({
+    int? routineId,
+    int limit = 250,
+    DateTime? since,
+  }) {
     final query = select(logEntries)
       ..where((l) => l.Deleted.equals(false))
-      ..orderBy([(l) => OrderingTerm.desc(l.Timestamp)]);
+      ..orderBy([
+        (l) => OrderingTerm.desc(l.Timestamp),
+        (l) => OrderingTerm.desc(l.Id),
+      ]);
     if (routineId != null) {
       query.where((l) => l.RoutineId.equals(routineId));
+    }
+    if (since != null) {
+      query.where((l) => l.Timestamp.isBiggerOrEqualValue(since));
+    }
+    if (limit > 0) {
+      query.limit(limit);
     }
     return query.watch();
   }
@@ -416,8 +478,57 @@ class RA_Database extends _$RA_Database {
   Future<List<LogEntryModel>> getAllLogEntries() {
     return (select(logEntries)
           ..where((l) => l.Deleted.equals(false))
-          ..orderBy([(l) => OrderingTerm.desc(l.Timestamp)]))
+          ..orderBy([
+            (l) => OrderingTerm.desc(l.Timestamp),
+            (l) => OrderingTerm.desc(l.Id),
+          ]))
         .get();
+  }
+
+  /// Fetches the newest non-deleted log entries capped at [limit] for export.
+  Future<List<LogEntryModel>> getLogEntriesForExport({int limit = 1000}) {
+    final query = select(logEntries)
+      ..where((l) => l.Deleted.equals(false))
+      ..orderBy([
+        (l) => OrderingTerm.desc(l.Timestamp),
+        (l) => OrderingTerm.desc(l.Id),
+      ]);
+    if (limit > 0) {
+      query.limit(limit);
+    }
+    return query.get();
+  }
+
+  /// Hard-deletes soft-deleted log entries and entries older than [maxAge],
+  /// while preserving `Delete` log rows belonging to routines that are still
+  /// soft-deleted so recovery from Alarm Logs keeps working.
+  Future<void> pruneOldLogs({
+    Duration maxAge = const Duration(days: 365),
+  }) async {
+    final cutoff = DateTime.now().subtract(maxAge);
+    final deleteActionCode = LogActionTypeCodeEnum.Delete.index;
+
+    await transaction(() async {
+      final softDeletedRoutines = await (select(
+        routines,
+      )..where((r) => r.Deleted.equals(true))).get();
+      final softDeletedRoutineIds = softDeletedRoutines
+          .map((r) => r.Id)
+          .toList(growable: false);
+
+      await (delete(logEntries)..where((l) {
+            final isDeletedRow = l.Deleted.equals(true);
+            final isOld = l.Timestamp.isSmallerThanValue(cutoff);
+            if (softDeletedRoutineIds.isEmpty) {
+              return isDeletedRow | isOld;
+            }
+            final isRecoverableDeleteLog =
+                l.LogActionTypeCode.equals(deleteActionCode) &
+                l.RoutineId.isIn(softDeletedRoutineIds);
+            return isDeletedRow | (isOld & isRecoverableDeleteLog.not());
+          }))
+          .go();
+    });
   }
 
   /// Count of [LogActionTypeCodeEnum.Dismiss] events for [routineId] at or

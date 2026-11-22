@@ -21,6 +21,9 @@ class RA_AlarmCalculator {
   /// - [InitialRingTime]: the timestamp when the alarm first rang this cycle
   ///   (before any snoozes).
   /// - [Now]: the injected current time (never uses DateTime.now()).
+  /// Fallback seconds used if a malformed caller passes a non-positive duration.
+  static const int _fallbackSeconds = 60;
+
   static DateTime calculateNextTrigger({
     required RA_AlarmActionTypeCodeEnum Action,
     required DriftCompensationTypeCodeEnum Compensation,
@@ -29,8 +32,14 @@ class RA_AlarmCalculator {
     required DateTime InitialRingTime,
     required DateTime Now,
   }) {
-    final interval = Duration(seconds: IntervalSeconds);
-    final snoozeDuration = Duration(seconds: SnoozeSeconds);
+    final safeIntervalSeconds = IntervalSeconds < 1
+        ? _fallbackSeconds
+        : IntervalSeconds;
+    final safeSnoozeSeconds = SnoozeSeconds < 1
+        ? _fallbackSeconds
+        : SnoozeSeconds;
+    final interval = Duration(seconds: safeIntervalSeconds);
+    final snoozeDuration = Duration(seconds: safeSnoozeSeconds);
 
     return switch (Action) {
       RA_AlarmActionTypeCodeEnum.Dismiss => _calculateDismiss(
@@ -62,9 +71,20 @@ class RA_AlarmCalculator {
       case DriftCompensationTypeCodeEnum.ActualDismissal:
         return Now.add(Interval);
       case DriftCompensationTypeCodeEnum.InitialRing:
-        var next = InitialRingTime.add(Interval);
-        while (!next.isAfter(Now)) {
-          next = next.add(Interval);
+        final safeInterval = Interval.inMicroseconds < 1
+            ? const Duration(seconds: _fallbackSeconds)
+            : Interval;
+        var next = InitialRingTime.add(safeInterval);
+        if (!next.isAfter(Now)) {
+          final diffMicros = Now.difference(InitialRingTime).inMicroseconds;
+          final intervalMicros = safeInterval.inMicroseconds;
+          final steps = (diffMicros ~/ intervalMicros) + 1;
+          next = InitialRingTime.add(
+            Duration(microseconds: steps * intervalMicros),
+          );
+          while (!next.isAfter(Now)) {
+            next = next.add(safeInterval);
+          }
         }
         return next;
     }

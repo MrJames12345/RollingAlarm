@@ -14,6 +14,21 @@ class RA_ExportService {
   static const int _currentVersion = 10;
   static const int _minSupportedVersion = 1;
 
+  /// Hard bounds defending against malformed or hostile RA1 import strings.
+  static const int maxPayloadBytes = 512 * 1024;
+  static const int maxRoutinesPerImport = 50;
+  static const int minIntervalSeconds = 60;
+  static const int maxIntervalSeconds = 604800; // 7 days
+  static const int minSnoozeSeconds = 60;
+  static const int maxSnoozeSeconds = 7200; // 2 hours
+  static const int minVolume = 5;
+  static const int maxVolume = 100;
+  static const int minDayStartSeconds = 0;
+  static const int maxDayStartSeconds = 86399;
+  static const int minMaxTimesPerDay = 1;
+  static const int maxMaxTimesPerDay = 99;
+  static const int maxNameLength = 255;
+
   /// Matches the new-routine form default (2h 30m) when interval is absent.
   static const int _defaultIntervalSeconds = 9000;
   static const int _defaultSnoozeSeconds = 300;
@@ -25,12 +40,12 @@ class RA_ExportService {
       db.routines,
     )..where((r) => r.Deleted.equals(false))).get();
 
-    final payload = {
+    final payload = <String, Object?>{
       'version': _currentVersion,
       'exportedAt': DateTime.now().toIso8601String(),
       'routines': routines
           .map(
-            (r) => {
+            (r) => <String, Object?>{
               'Name': r.Name,
               'SnoozeSeconds': r.SnoozeSeconds,
               'IntervalSeconds': r.IntervalSeconds,
@@ -56,8 +71,14 @@ class RA_ExportService {
   }
 
   /// Validates and decodes a base64 export string.
-  /// Returns the decoded payload map or throws on invalid input.
-  static Map<String, dynamic> decodeExportString(String exportString) {
+  /// Returns the decoded payload map or throws [FormatException] on invalid input.
+  static Map<String, Object?> decodeExportString(String exportString) {
+    if (exportString.length > maxPayloadBytes ||
+        utf8.encode(exportString).length > maxPayloadBytes) {
+      throw const FormatException(
+        'Export payload exceeds maximum allowed size of 512 KB',
+      );
+    }
     if (!exportString.startsWith(_versionPrefix)) {
       throw const FormatException(
         'Invalid export format: missing version prefix "$_versionPrefix"',
@@ -77,22 +98,39 @@ class RA_ExportService {
         '(expected $_minSupportedVersion-$_currentVersion)',
       );
     }
-    if (payload['routines'] is! List) {
+
+    final rawRoutines = payload['routines'];
+    if (rawRoutines is! List<Object?>) {
       throw const FormatException('Missing or invalid "routines" field');
     }
+    if (rawRoutines.length > maxRoutinesPerImport) {
+      throw FormatException(
+        'Export contains ${rawRoutines.length} routines '
+        '(maximum $maxRoutinesPerImport allowed per import)',
+      );
+    }
+    for (final item in rawRoutines) {
+      if (item is! Map<Object?, Object?>) {
+        throw const FormatException(
+          'Invalid entry in "routines": each routine must be a JSON object',
+        );
+      }
+    }
+
     return payload;
   }
 
-  static Map<String, dynamic> _decodeJsonPayload(String base64Part) {
+  static Map<String, Object?> _decodeJsonPayload(String base64Part) {
     try {
       final jsonString = utf8.decode(base64Decode(base64Part));
-      final decoded = jsonDecode(jsonString);
-      if (decoded is! Map<String, dynamic> || !decoded.containsKey('version')) {
+      final Object? decoded = jsonDecode(jsonString);
+      if (decoded is! Map<Object?, Object?> ||
+          !decoded.containsKey('version')) {
         throw const FormatException(
           'Missing "version" field in export payload',
         );
       }
-      return decoded;
+      return Map<String, Object?>.from(decoded);
     } on FormatException {
       rethrow;
     } catch (e) {
@@ -100,64 +138,116 @@ class RA_ExportService {
     }
   }
 
-  /// Total interval seconds from a routine map.
+  static int? _readInt(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    if (value is int) return value;
+    if (value is num && value.isFinite) return value.toInt();
+    return null;
+  }
+
+  static bool? _readBool(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    return value is bool ? value : null;
+  }
+
+  static String? _readString(Map<String, Object?> map, String key) {
+    final Object? value = map[key];
+    return value is String ? value : null;
+  }
+
+  /// Total interval seconds from a routine map, clamped to [minIntervalSeconds..maxIntervalSeconds].
   ///
   /// Version 4+ stores a single [IntervalSeconds] total. Older exports used
   /// hours + minutes + remainder seconds. Missing interval data uses
   /// [_defaultIntervalSeconds].
-  static int _intervalSecondsFromMap(Map<String, dynamic> r) {
-    final hours = r['IntervalHours'] as int?;
-    final minutes = r['IntervalMinutes'] as int?;
-    final seconds = r['IntervalSeconds'] as int?;
+  static int _intervalSecondsFromMap(Map<String, Object?> r) {
+    final hours = _readInt(r, 'IntervalHours');
+    final minutes = _readInt(r, 'IntervalMinutes');
+    final seconds = _readInt(r, 'IntervalSeconds');
+    final int raw;
     if (hours == null && minutes == null && seconds == null) {
-      return _defaultIntervalSeconds;
+      raw = _defaultIntervalSeconds;
+    } else if (hours != null || minutes != null) {
+      raw = ((hours ?? 0) * 3600) + ((minutes ?? 0) * 60) + (seconds ?? 0);
+    } else {
+      raw = seconds ?? _defaultIntervalSeconds;
     }
-    if (hours != null || minutes != null) {
-      return ((hours ?? 0) * 3600) + ((minutes ?? 0) * 60) + (seconds ?? 0);
-    }
-    return seconds ?? _defaultIntervalSeconds;
+    return raw.clamp(minIntervalSeconds, maxIntervalSeconds);
   }
 
-  /// Total snooze seconds from a routine map.
+  /// Total snooze seconds from a routine map, clamped to [minSnoozeSeconds..maxSnoozeSeconds].
   ///
   /// Version 8+ stores [SnoozeSeconds]. Older exports used [SnoozeMinutes].
   /// Missing snooze data uses [_defaultSnoozeSeconds].
-  static int _snoozeSecondsFromMap(Map<String, dynamic> r) {
-    final snoozeSecs = r['SnoozeSeconds'] as int?;
-    if (snoozeSecs != null) return snoozeSecs;
-    final snoozeMins = r['SnoozeMinutes'] as int?;
-    if (snoozeMins != null) return snoozeMins * 60;
-    return _defaultSnoozeSeconds;
+  static int _snoozeSecondsFromMap(Map<String, Object?> r) {
+    final snoozeSecs = _readInt(r, 'SnoozeSeconds');
+    final int raw;
+    if (snoozeSecs != null) {
+      raw = snoozeSecs;
+    } else {
+      final snoozeMins = _readInt(r, 'SnoozeMinutes');
+      raw = snoozeMins != null ? snoozeMins * 60 : _defaultSnoozeSeconds;
+    }
+    return raw.clamp(minSnoozeSeconds, maxSnoozeSeconds);
   }
 
-  /// Builds a [RoutinesCompanion] from one export map entry.
+  /// Builds a validated, bounds-clamped [RoutinesCompanion] from one export map entry.
   ///
   /// Only known keys are read; any extra or legacy fields (for example
   /// MaxSnoozes, AutoSnoozeOnIgnore, IntervalHours) are ignored or folded into
   /// current columns. Absent fields receive the same defaults as a new routine.
-  static RoutinesCompanion _routineCompanionFromMap(Map<String, dynamic> r) {
-    final name = (r['Name'] as String?)?.trim();
-    final maxTimesPerDay = (r['MaxTimesPerDay'] as int?) ?? 0;
+  static RoutinesCompanion _routineCompanionFromMap(Map<String, Object?> r) {
+    final trimmedName = _readString(r, 'Name')?.trim() ?? '';
+    final String safeName;
+    if (trimmedName.isEmpty) {
+      safeName = _defaultName;
+    } else if (trimmedName.length > maxNameLength) {
+      safeName = trimmedName.substring(0, maxNameLength);
+    } else {
+      safeName = trimmedName;
+    }
+
+    final rawMaxTimes = _readInt(r, 'MaxTimesPerDay');
+    final maxTimesPerDayEnabled =
+        _readBool(r, 'MaxTimesPerDayEnabled') ?? ((rawMaxTimes ?? 0) > 0);
+    final maxTimesPerDay = (rawMaxTimes ?? minMaxTimesPerDay).clamp(
+      minMaxTimesPerDay,
+      maxMaxTimesPerDay,
+    );
+
+    final dayStartSeconds = (_readInt(r, 'DayStartSeconds') ?? 0).clamp(
+      minDayStartSeconds,
+      maxDayStartSeconds,
+    );
+
+    final maskedWeekdays = (_readInt(r, 'EnabledWeekdays') ?? 0x7F) & 0x7F;
+    final enabledWeekdays = maskedWeekdays == 0 ? 0x7F : maskedWeekdays;
+
+    final rawCompensation = _readInt(r, 'DriftCompensationTypeCode');
+    final compensationCode =
+        (rawCompensation != null &&
+            rawCompensation >= 0 &&
+            rawCompensation < DriftCompensationTypeCodeEnum.values.length)
+        ? rawCompensation
+        : DriftCompensationTypeCodeEnum.ActualDismissal.index;
+
+    final volume = (_readInt(r, 'Volume') ?? 50).clamp(minVolume, maxVolume);
+
     return RoutinesCompanion(
-      Name: Value((name == null || name.isEmpty) ? _defaultName : name),
+      Name: Value(safeName),
       IntervalSeconds: Value(_intervalSecondsFromMap(r)),
       SnoozeSeconds: Value(_snoozeSecondsFromMap(r)),
-      MaxTimesPerDayEnabled: Value(
-        (r['MaxTimesPerDayEnabled'] as bool?) ?? (maxTimesPerDay > 0),
-      ),
+      MaxTimesPerDayEnabled: Value(maxTimesPerDayEnabled),
       MaxTimesPerDay: Value(maxTimesPerDay),
-      DayStartSeconds: Value((r['DayStartSeconds'] as int?) ?? 0),
-      EnabledWeekdays: Value((r['EnabledWeekdays'] as int?) ?? 0x7F),
-      DriftCompensationTypeCode: Value(
-        (r['DriftCompensationTypeCode'] as int?) ??
-            DriftCompensationTypeCodeEnum.ActualDismissal.index,
-      ),
-      ShowPreview: Value((r['ShowPreview'] as bool?) ?? true),
-      Vibrate: Value((r['Vibrate'] as bool?) ?? true),
-      Volume: Value(((r['Volume'] as int?) ?? 50).clamp(5, 100)),
-      FadeIn: Value((r['FadeIn'] as bool?) ?? false),
-      AudioUri: Value(r['AudioUri'] as String?),
-      IsActive: Value((r['IsActive'] as bool?) ?? true),
+      DayStartSeconds: Value(dayStartSeconds),
+      EnabledWeekdays: Value(enabledWeekdays),
+      DriftCompensationTypeCode: Value(compensationCode),
+      ShowPreview: Value(_readBool(r, 'ShowPreview') ?? true),
+      Vibrate: Value(_readBool(r, 'Vibrate') ?? true),
+      Volume: Value(volume),
+      FadeIn: Value(_readBool(r, 'FadeIn') ?? false),
+      AudioUri: Value(_readString(r, 'AudioUri')),
+      IsActive: Value(_readBool(r, 'IsActive') ?? true),
     );
   }
 
@@ -173,11 +263,19 @@ class RA_ExportService {
     String exportString,
   ) async {
     final payload = decodeExportString(exportString);
-    final routinesData = payload['routines'] as List;
-    final importedIds = <int>[];
+    final rawRoutines = payload['routines'];
+    if (rawRoutines is! List<Object?>) {
+      throw const FormatException('Missing or invalid "routines" field');
+    }
 
-    for (final routineMap in routinesData) {
-      final r = routineMap as Map<String, dynamic>;
+    final importedIds = <int>[];
+    for (final item in rawRoutines) {
+      if (item is! Map<Object?, Object?>) {
+        throw const FormatException(
+          'Invalid entry in "routines": each routine must be a JSON object',
+        );
+      }
+      final r = Map<String, Object?>.from(item);
       final companion = _routineCompanionFromMap(r);
       final intervalSeconds = companion.IntervalSeconds.value;
       final nextTrigger = RA_DailyRingLimit.initialTriggerTime(

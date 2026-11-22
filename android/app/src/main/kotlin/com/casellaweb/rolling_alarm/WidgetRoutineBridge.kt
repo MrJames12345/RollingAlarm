@@ -7,7 +7,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 /**
  * Bridges Drift SQLite routine rows into HomeWidgetPreferences keys that each
@@ -173,20 +172,25 @@ object WidgetRoutineBridge {
 
     private fun periodStartMillis(nowMillis: Long, dayStartSeconds: Int): Long {
         val offsetSec = dayStartSeconds.coerceIn(0, 24 * 3600 - 1)
+        val hour = offsetSec / 3600
+        val minute = (offsetSec % 3600) / 60
+        val second = offsetSec % 60
         val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
         val todayStart = Calendar.getInstance().apply {
             timeInMillis = nowMillis
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, second)
             set(Calendar.MILLISECOND, 0)
-            add(Calendar.SECOND, offsetSec)
         }
-        return if (cal.before(todayStart)) {
-            todayStart.timeInMillis - TimeUnit.DAYS.toMillis(1)
-        } else {
-            todayStart.timeInMillis
+        if (cal.before(todayStart)) {
+            todayStart.add(Calendar.DAY_OF_MONTH, -1)
+            todayStart.set(Calendar.HOUR_OF_DAY, hour)
+            todayStart.set(Calendar.MINUTE, minute)
+            todayStart.set(Calendar.SECOND, second)
+            todayStart.set(Calendar.MILLISECOND, 0)
         }
+        return todayStart.timeInMillis
     }
 
     private fun dbPath(context: Context): String? {

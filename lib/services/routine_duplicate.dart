@@ -56,11 +56,15 @@ class RA_RoutineDuplicateService {
       nextTriggerTime: nextTrigger,
       activityLog: LogActionTypeCodeEnum.Duplicate,
     );
+    final createdRoutine = await db.getRoutineById(routineId);
+    final createdState = await db.getRoutineState(routineId);
     await RA_AlarmService.scheduleNext(
       routineId: routineId,
       triggerTime: nextTrigger,
       dbPath: dbPath,
-      routineName: companion.Name.value,
+      routineName: createdRoutine.Name,
+      routine: createdRoutine,
+      state: createdState,
       refreshWidget: false,
     );
     await RA_WidgetService.updateWidgetState(db: db);

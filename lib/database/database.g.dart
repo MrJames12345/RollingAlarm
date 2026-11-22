@@ -2542,12 +2542,280 @@ class LogEntriesCompanion extends UpdateCompanion<LogEntryModel> {
   }
 }
 
+class $AppMetaTable extends AppMeta
+    with TableInfo<$AppMetaTable, AppMetaModel> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppMetaTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _KeyMeta = const VerificationMeta('Key');
+  @override
+  late final GeneratedColumn<String> Key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _MetaValueMeta = const VerificationMeta(
+    'MetaValue',
+  );
+  @override
+  late final GeneratedColumn<String> MetaValue = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _UpdatedAtMeta = const VerificationMeta(
+    'UpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> UpdatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [Key, MetaValue, UpdatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_meta';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppMetaModel> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _KeyMeta,
+        Key.isAcceptableOrUnknown(data['key']!, _KeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_KeyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _MetaValueMeta,
+        MetaValue.isAcceptableOrUnknown(data['value']!, _MetaValueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_MetaValueMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _UpdatedAtMeta,
+        UpdatedAt.isAcceptableOrUnknown(data['updated_at']!, _UpdatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {Key};
+  @override
+  AppMetaModel map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppMetaModel(
+      Key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      MetaValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      UpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AppMetaTable createAlias(String alias) {
+    return $AppMetaTable(attachedDatabase, alias);
+  }
+}
+
+class AppMetaModel extends DataClass implements Insertable<AppMetaModel> {
+  final String Key;
+
+  /// Persisted as SQLite column `value` (Dart identifier avoids shadowing Drift's `Value<T>`).
+  final String MetaValue;
+  final DateTime UpdatedAt;
+  const AppMetaModel({
+    required this.Key,
+    required this.MetaValue,
+    required this.UpdatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(Key);
+    map['value'] = Variable<String>(MetaValue);
+    map['updated_at'] = Variable<DateTime>(UpdatedAt);
+    return map;
+  }
+
+  AppMetaCompanion toCompanion(bool nullToAbsent) {
+    return AppMetaCompanion(
+      Key: Value(Key),
+      MetaValue: Value(MetaValue),
+      UpdatedAt: Value(UpdatedAt),
+    );
+  }
+
+  factory AppMetaModel.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppMetaModel(
+      Key: serializer.fromJson<String>(json['Key']),
+      MetaValue: serializer.fromJson<String>(json['MetaValue']),
+      UpdatedAt: serializer.fromJson<DateTime>(json['UpdatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'Key': serializer.toJson<String>(Key),
+      'MetaValue': serializer.toJson<String>(MetaValue),
+      'UpdatedAt': serializer.toJson<DateTime>(UpdatedAt),
+    };
+  }
+
+  AppMetaModel copyWith({
+    String? Key,
+    String? MetaValue,
+    DateTime? UpdatedAt,
+  }) => AppMetaModel(
+    Key: Key ?? this.Key,
+    MetaValue: MetaValue ?? this.MetaValue,
+    UpdatedAt: UpdatedAt ?? this.UpdatedAt,
+  );
+  AppMetaModel copyWithCompanion(AppMetaCompanion data) {
+    return AppMetaModel(
+      Key: data.Key.present ? data.Key.value : this.Key,
+      MetaValue: data.MetaValue.present ? data.MetaValue.value : this.MetaValue,
+      UpdatedAt: data.UpdatedAt.present ? data.UpdatedAt.value : this.UpdatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppMetaModel(')
+          ..write('Key: $Key, ')
+          ..write('MetaValue: $MetaValue, ')
+          ..write('UpdatedAt: $UpdatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(Key, MetaValue, UpdatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppMetaModel &&
+          other.Key == this.Key &&
+          other.MetaValue == this.MetaValue &&
+          other.UpdatedAt == this.UpdatedAt);
+}
+
+class AppMetaCompanion extends UpdateCompanion<AppMetaModel> {
+  final Value<String> Key;
+  final Value<String> MetaValue;
+  final Value<DateTime> UpdatedAt;
+  final Value<int> rowid;
+  const AppMetaCompanion({
+    this.Key = const Value.absent(),
+    this.MetaValue = const Value.absent(),
+    this.UpdatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppMetaCompanion.insert({
+    required String Key,
+    required String MetaValue,
+    this.UpdatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : Key = Value(Key),
+       MetaValue = Value(MetaValue);
+  static Insertable<AppMetaModel> custom({
+    Expression<String>? Key,
+    Expression<String>? MetaValue,
+    Expression<DateTime>? UpdatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (Key != null) 'key': Key,
+      if (MetaValue != null) 'value': MetaValue,
+      if (UpdatedAt != null) 'updated_at': UpdatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppMetaCompanion copyWith({
+    Value<String>? Key,
+    Value<String>? MetaValue,
+    Value<DateTime>? UpdatedAt,
+    Value<int>? rowid,
+  }) {
+    return AppMetaCompanion(
+      Key: Key ?? this.Key,
+      MetaValue: MetaValue ?? this.MetaValue,
+      UpdatedAt: UpdatedAt ?? this.UpdatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (Key.present) {
+      map['key'] = Variable<String>(Key.value);
+    }
+    if (MetaValue.present) {
+      map['value'] = Variable<String>(MetaValue.value);
+    }
+    if (UpdatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(UpdatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppMetaCompanion(')
+          ..write('Key: $Key, ')
+          ..write('MetaValue: $MetaValue, ')
+          ..write('UpdatedAt: $UpdatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RA_Database extends GeneratedDatabase {
   _$RA_Database(QueryExecutor e) : super(e);
   $RA_DatabaseManager get managers => $RA_DatabaseManager(this);
   late final $RoutinesTable routines = $RoutinesTable(this);
   late final $RoutineStatesTable routineStates = $RoutineStatesTable(this);
   late final $LogEntriesTable logEntries = $LogEntriesTable(this);
+  late final $AppMetaTable appMeta = $AppMetaTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2556,6 +2824,7 @@ abstract class _$RA_Database extends GeneratedDatabase {
     routines,
     routineStates,
     logEntries,
+    appMeta,
   ];
 }
 
@@ -3700,6 +3969,168 @@ typedef $$LogEntriesTableProcessedTableManager =
       LogEntryModel,
       PrefetchHooks Function()
     >;
+typedef $$AppMetaTableCreateCompanionBuilder =
+    AppMetaCompanion Function({
+      required String Key,
+      required String MetaValue,
+      Value<DateTime> UpdatedAt,
+      Value<int> rowid,
+    });
+typedef $$AppMetaTableUpdateCompanionBuilder =
+    AppMetaCompanion Function({
+      Value<String> Key,
+      Value<String> MetaValue,
+      Value<DateTime> UpdatedAt,
+      Value<int> rowid,
+    });
+
+class $$AppMetaTableFilterComposer
+    extends Composer<_$RA_Database, $AppMetaTable> {
+  $$AppMetaTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get Key => $composableBuilder(
+    column: $table.Key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get MetaValue => $composableBuilder(
+    column: $table.MetaValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get UpdatedAt => $composableBuilder(
+    column: $table.UpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppMetaTableOrderingComposer
+    extends Composer<_$RA_Database, $AppMetaTable> {
+  $$AppMetaTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get Key => $composableBuilder(
+    column: $table.Key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get MetaValue => $composableBuilder(
+    column: $table.MetaValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get UpdatedAt => $composableBuilder(
+    column: $table.UpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppMetaTableAnnotationComposer
+    extends Composer<_$RA_Database, $AppMetaTable> {
+  $$AppMetaTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get Key =>
+      $composableBuilder(column: $table.Key, builder: (column) => column);
+
+  GeneratedColumn<String> get MetaValue =>
+      $composableBuilder(column: $table.MetaValue, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get UpdatedAt =>
+      $composableBuilder(column: $table.UpdatedAt, builder: (column) => column);
+}
+
+class $$AppMetaTableTableManager
+    extends
+        RootTableManager<
+          _$RA_Database,
+          $AppMetaTable,
+          AppMetaModel,
+          $$AppMetaTableFilterComposer,
+          $$AppMetaTableOrderingComposer,
+          $$AppMetaTableAnnotationComposer,
+          $$AppMetaTableCreateCompanionBuilder,
+          $$AppMetaTableUpdateCompanionBuilder,
+          (
+            AppMetaModel,
+            BaseReferences<_$RA_Database, $AppMetaTable, AppMetaModel>,
+          ),
+          AppMetaModel,
+          PrefetchHooks Function()
+        > {
+  $$AppMetaTableTableManager(_$RA_Database db, $AppMetaTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppMetaTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppMetaTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppMetaTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> Key = const Value.absent(),
+                Value<String> MetaValue = const Value.absent(),
+                Value<DateTime> UpdatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppMetaCompanion(
+                Key: Key,
+                MetaValue: MetaValue,
+                UpdatedAt: UpdatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String Key,
+                required String MetaValue,
+                Value<DateTime> UpdatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppMetaCompanion.insert(
+                Key: Key,
+                MetaValue: MetaValue,
+                UpdatedAt: UpdatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppMetaTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RA_Database,
+      $AppMetaTable,
+      AppMetaModel,
+      $$AppMetaTableFilterComposer,
+      $$AppMetaTableOrderingComposer,
+      $$AppMetaTableAnnotationComposer,
+      $$AppMetaTableCreateCompanionBuilder,
+      $$AppMetaTableUpdateCompanionBuilder,
+      (
+        AppMetaModel,
+        BaseReferences<_$RA_Database, $AppMetaTable, AppMetaModel>,
+      ),
+      AppMetaModel,
+      PrefetchHooks Function()
+    >;
 
 class $RA_DatabaseManager {
   final _$RA_Database _db;
@@ -3710,4 +4141,6 @@ class $RA_DatabaseManager {
       $$RoutineStatesTableTableManager(_db, _db.routineStates);
   $$LogEntriesTableTableManager get logEntries =>
       $$LogEntriesTableTableManager(_db, _db.logEntries);
+  $$AppMetaTableTableManager get appMeta =>
+      $$AppMetaTableTableManager(_db, _db.appMeta);
 }
