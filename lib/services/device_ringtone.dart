@@ -38,7 +38,7 @@ class RA_DeviceRingtone {
     }
     try {
       final started = await _channel
-          .invokeMethod<bool>('playDeviceSound', <String, dynamic>{
+          .invokeMethod<bool>('playDeviceSound', <String, Object?>{
             'uri': uri,
             'loop': loop,
             'asAlarm': asAlarm,
@@ -78,7 +78,7 @@ class RA_DeviceRingtone {
     try {
       final started = await _channel.invokeMethod<bool>(
         'playAlarmSound',
-        <String, dynamic>{
+        <String, Object?>{
           'audioUri': audioUri,
           'loop': loop,
           'fadeInMs': fadeInMs,

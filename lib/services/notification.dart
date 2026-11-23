@@ -126,13 +126,17 @@ class RA_NotificationService {
   static Future<void> cancelNotification(int routineId) async {
     try {
       await _plugin.cancel(id: routineId);
-      await RA_AlarmService.stopNativeRinging(routineId);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(ringingPrefKey, false);
-      await prefs.remove(alarmWakeAtPrefKey);
     } catch (_) {
       // Ignore notification cancel errors in headless test environments
     }
+    try {
+      await RA_AlarmService.stopNativeRinging(routineId);
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(ringingPrefKey, false);
+      await prefs.remove(alarmWakeAtPrefKey);
+    } catch (_) {}
   }
 
   /// Clears the lock-screen ringing preference without cancelling a specific id.

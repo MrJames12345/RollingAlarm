@@ -22,7 +22,7 @@ class RA_AudioService {
   static AudioPlayer? _player;
   static Timer? _fadeTimer;
   static ReceivePort? _controlPort;
-  static StreamSubscription<dynamic>? _controlSub;
+  static StreamSubscription<Object?>? _controlSub;
 
   /// Bumps on each [startAlarm] / [stopAlarm] so stale fade timers cannot
   /// keep adjusting volume after a newer start or stop.
@@ -56,6 +56,7 @@ class RA_AudioService {
       return;
     }
 
+    final startId = ++_playbackGeneration;
     final systemVolume = (volume.clamp(0, 100) / 100.0);
 
     // Stop any existing playback before changing STREAM_ALARM. Applying
@@ -65,20 +66,24 @@ class RA_AudioService {
     if (existingPort != null && _controlPort == null) {
       existingPort.send('stop');
       await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (startId != _playbackGeneration) return;
     }
 
     try {
       await RA_SoundPreviewService.stop();
-      await stopAlarm();
-
-      // Claim this start only after stop so stale fade timers cannot win.
-      final startId = ++_playbackGeneration;
+      if (startId != _playbackGeneration) return;
+      await _stopActivePlaybackOnly();
+      if (startId != _playbackGeneration) return;
 
       await _applySystemAlarmVolume(systemVolume);
       if (startId != _playbackGeneration) return;
 
       if (vibrate) {
         await RA_VibrationService.start();
+        if (startId != _playbackGeneration) {
+          await RA_VibrationService.stop();
+          return;
+        }
       }
 
       final sound = RA_AlarmSound.decode(audioUri);
@@ -110,35 +115,75 @@ class RA_AudioService {
       }
       // Every native source failed with a live channel; try just_audio.
 
-      _registerControlPort();
       await _configureSession();
       if (startId != _playbackGeneration) return;
 
-      _player = AudioPlayer();
-      if (sound.hasPlayableUri) {
-        await _player!.setUrl(sound.uri!);
-      } else {
-        await _player!.setAsset(defaultAlarmAsset);
+      final player = AudioPlayer();
+      try {
+        if (sound.hasPlayableUri) {
+          await player.setUrl(sound.uri!);
+        } else {
+          await player.setAsset(defaultAlarmAsset);
+        }
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(player);
+          return;
+        }
+        await player.setLoopMode(LoopMode.one);
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(player);
+          return;
+        }
+        await _applyPlayerGain(player, fadeIn: fadeIn);
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(player);
+          return;
+        }
+      } catch (_) {
+        await _disposePlayerQuietly(player);
+        rethrow;
       }
-      await _player!.setLoopMode(LoopMode.one);
-      await _applyPlayerGain(fadeIn: fadeIn);
-      if (startId != _playbackGeneration) return;
+
+      _registerControlPort();
+      _player = player;
       await _startLoopingPlayer(fadeIn: fadeIn, startId: startId);
     } catch (_) {
+      if (startId != _playbackGeneration) return;
       // Primary source failed; try bundled default so the visual alarm still
       // has audio when possible.
+      AudioPlayer? fallbackPlayer;
       try {
-        final startId = _playbackGeneration;
         await RA_DeviceRingtone.stop();
+        if (startId != _playbackGeneration) return;
+        await _disposePlayerQuietly(_player);
+        _player = null;
+
+        fallbackPlayer = AudioPlayer();
+        await fallbackPlayer.setAsset(defaultAlarmAsset);
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(fallbackPlayer);
+          return;
+        }
+        await fallbackPlayer.setLoopMode(LoopMode.one);
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(fallbackPlayer);
+          return;
+        }
+        await _applyPlayerGain(fallbackPlayer, fadeIn: fadeIn);
+        if (startId != _playbackGeneration) {
+          await _disposePlayerQuietly(fallbackPlayer);
+          return;
+        }
         _registerControlPort();
-        _player ??= AudioPlayer();
-        await _player!.setAsset(defaultAlarmAsset);
-        await _player!.setLoopMode(LoopMode.one);
-        await _applyPlayerGain(fadeIn: fadeIn);
+        _player = fallbackPlayer;
+        fallbackPlayer = null;
         await _startLoopingPlayer(fadeIn: fadeIn, startId: startId);
       } catch (_) {
+        await _disposePlayerQuietly(fallbackPlayer);
         // Audio playback failed; continue visual alarm gracefully.
-        await stopAlarm();
+        if (startId == _playbackGeneration) {
+          await stopAlarm();
+        }
       }
     }
   }
@@ -146,6 +191,10 @@ class RA_AudioService {
   /// Stops the alarm audio and cleans up.
   static Future<void> stopAlarm() async {
     _playbackGeneration++;
+    await _stopActivePlaybackOnly();
+  }
+
+  static Future<void> _stopActivePlaybackOnly() async {
     _fadeTimer?.cancel();
     _fadeTimer = null;
 
@@ -169,13 +218,19 @@ class RA_AudioService {
 
     await RA_DeviceRingtone.stop();
 
+    final activePlayer = _player;
+    _player = null;
+    await _disposePlayerQuietly(activePlayer);
+  }
+
+  static Future<void> _disposePlayerQuietly(AudioPlayer? player) async {
+    if (player == null) return;
     try {
-      await _player?.stop();
-      await _player?.dispose();
+      await player.stop();
+      await player.dispose();
     } catch (_) {
       // Ignore audio stop/dispose errors in test environments
     }
-    _player = null;
   }
 
   static void _registerControlPort() {
@@ -222,7 +277,7 @@ class RA_AudioService {
     final player = _player;
     if (player == null) return;
 
-    unawaited(player.play());
+    unawaited(player.play().catchError((Object _) {}));
     if (startId != _playbackGeneration) return;
 
     if (fadeIn) {
@@ -237,7 +292,7 @@ class RA_AudioService {
         }
       }
       if (startId != _playbackGeneration) return;
-      await _applyPlayerGain(fadeIn: true);
+      await _applyPlayerGain(player, fadeIn: true);
       if (startId == _playbackGeneration) {
         _startFadeIn(startId);
       }
@@ -254,8 +309,10 @@ class RA_AudioService {
   }
 
   /// Sets internal player gain for the fade-in on/off paths.
-  static Future<void> _applyPlayerGain({required bool fadeIn}) async {
-    final player = _player;
+  static Future<void> _applyPlayerGain(
+    AudioPlayer? player, {
+    required bool fadeIn,
+  }) async {
     if (player == null) return;
     await player.setVolume(fadeIn ? 0.0 : 1.0);
   }
@@ -270,17 +327,21 @@ class RA_AudioService {
     _fadeTimer = Timer.periodic(step, (timer) {
       if (startId != _playbackGeneration) {
         timer.cancel();
-        _fadeTimer = null;
+        if (identical(_fadeTimer, timer)) {
+          _fadeTimer = null;
+        }
         return;
       }
       final player = _player;
       if (player != null) {
-        unawaited(player.setVolume(1.0));
+        unawaited(player.setVolume(1.0).catchError((Object _) {}));
       }
       elapsed += step;
       if (elapsed >= holdDuration) {
         timer.cancel();
-        _fadeTimer = null;
+        if (identical(_fadeTimer, timer)) {
+          _fadeTimer = null;
+        }
       }
     });
   }
@@ -294,19 +355,25 @@ class RA_AudioService {
     _fadeTimer = Timer.periodic(stepDuration, (timer) {
       if (startId != _playbackGeneration) {
         timer.cancel();
-        _fadeTimer = null;
+        if (identical(_fadeTimer, timer)) {
+          _fadeTimer = null;
+        }
         return;
       }
       currentStep++;
       final volume = currentStep / _fadeSteps;
       final player = _player;
       if (player != null) {
-        unawaited(player.setVolume(volume.clamp(0.0, 1.0)));
+        unawaited(
+          player.setVolume(volume.clamp(0.0, 1.0)).catchError((Object _) {}),
+        );
       }
 
       if (currentStep >= _fadeSteps) {
         timer.cancel();
-        _fadeTimer = null;
+        if (identical(_fadeTimer, timer)) {
+          _fadeTimer = null;
+        }
       }
     });
   }

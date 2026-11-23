@@ -50,7 +50,9 @@ class RA_PermissionService {
       final notifGranted = await isNotificationGranted();
       if (!notifGranted && prefs.getBool(_notifPromptedKey) != true) {
         await prefs.setBool(_notifPromptedKey, true);
-        await Permission.notification.request();
+        try {
+          await Permission.notification.request();
+        } catch (_) {}
       }
 
       // 2. Exact alarm capability (request SCHEDULE_EXACT_ALARM only on API 31-32
@@ -59,10 +61,12 @@ class RA_PermissionService {
       if (sdkInt >= 31 && sdkInt <= 32) {
         final exactAllowed = await canScheduleExactAlarms();
         if (!exactAllowed) {
-          final status = await Permission.scheduleExactAlarm.status;
-          if (!status.isGranted) {
-            await Permission.scheduleExactAlarm.request();
-          }
+          try {
+            final status = await Permission.scheduleExactAlarm.status;
+            if (!status.isGranted) {
+              await Permission.scheduleExactAlarm.request();
+            }
+          } catch (_) {}
         }
       }
 
@@ -171,6 +175,7 @@ class RA_PermissionService {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         backgroundColor: RA_ColourStyles.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: RA_ShapeStyles.largeBorderRadius,

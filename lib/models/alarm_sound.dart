@@ -97,7 +97,7 @@ class RA_AlarmSound {
     }
     if (value.startsWith('{')) {
       try {
-        final map = jsonDecode(value) as Map<String, dynamic>;
+        final map = jsonDecode(value) as Map<String, Object?>;
         return RA_AlarmSound(
           source: AlarmSoundSourceDetails.fromStorageKey(
             map['source'] as String? ?? 'default',

@@ -119,6 +119,7 @@ class RA_PurchaseService {
   static bool _cachedLegacyPro = false;
   static int? _firstSeenEpochMs;
   static String? _latestManagementUrl;
+  static bool? _queuedEffectivePro;
   static bool? _lastSyncedEffectivePro;
   static Future<void> _syncQueue = Future<void>.value();
 
@@ -233,6 +234,7 @@ class RA_PurchaseService {
   ///
   /// Writes are serialized so out-of-order updates cannot overwrite newer state.
   static Future<void> syncEffectiveProStatus(bool isPro) {
+    _queuedEffectivePro = isPro;
     final next = _syncQueue.catchError((Object _) {}).then((_) async {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -249,7 +251,13 @@ class RA_PurchaseService {
 
   /// Deduplicated wrapper around [syncEffectiveProStatus] for provider updates.
   static Future<void> syncEffectiveProStatusIfChanged(bool isPro) async {
-    if (_lastSyncedEffectivePro == isPro) return;
+    if (_queuedEffectivePro == isPro && _lastSyncedEffectivePro == isPro) {
+      return;
+    }
+    if (_queuedEffectivePro == isPro) {
+      await _syncQueue;
+      return;
+    }
     await syncEffectiveProStatus(isPro);
   }
 
@@ -442,6 +450,16 @@ class RA_PurchaseService {
           isPro: _cachedRcPro,
         );
       }
+      if (code == PurchasesErrorCode.productAlreadyPurchasedError) {
+        await refreshCustomerInfo();
+        if (_cachedRcPro) {
+          return const RA_PurchaseOutcome(
+            status: RA_PurchaseStatus.restored,
+            isPro: true,
+            message: 'Rolling Alarm Pro purchases restored.',
+          );
+        }
+      }
       return RA_PurchaseOutcome(
         status: RA_PurchaseStatus.error,
         isPro: _cachedRcPro,
@@ -500,11 +518,16 @@ class RA_PurchaseService {
 
   /// Opens the Google Play Subscriptions management screen externally.
   static Future<bool> openManageSubscriptions() async {
-    final targetUrl =
-        (_latestManagementUrl != null && _latestManagementUrl!.isNotEmpty)
-        ? _latestManagementUrl!
-        : playSubscriptionsUrl;
-    return openExternalUrl(targetUrl);
+    final managementUrl = _latestManagementUrl;
+    if (managementUrl != null && managementUrl.isNotEmpty) {
+      if (await openExternalUrl(managementUrl)) {
+        return true;
+      }
+      if (managementUrl == playSubscriptionsUrl) {
+        return false;
+      }
+    }
+    return openExternalUrl(playSubscriptionsUrl);
   }
 
   /// Opens [url] in the user's external browser / Play Store app.
@@ -546,7 +569,9 @@ class RA_PurchaseService {
   @visibleForTesting
   static void resetForTesting() {
     if (_listenerRegistered) {
-      Purchases.removeCustomerInfoUpdateListener(_handleCustomerInfoUpdate);
+      try {
+        Purchases.removeCustomerInfoUpdateListener(_handleCustomerInfoUpdate);
+      } catch (_) {}
     }
     _initialized = false;
     _configured = false;
@@ -555,6 +580,7 @@ class RA_PurchaseService {
     _cachedLegacyPro = false;
     _firstSeenEpochMs = null;
     _latestManagementUrl = null;
+    _queuedEffectivePro = null;
     _lastSyncedEffectivePro = null;
     _syncQueue = Future<void>.value();
     debugOverrideIsPro = null;

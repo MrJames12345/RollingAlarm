@@ -24,7 +24,7 @@ enum LogActionTypeCodeEnum {
 }
 
 LogActionTypeCodeEnum? RA_logActionFromCode(int code) =>
-    code < LogActionTypeCodeEnum.values.length
+    code >= 0 && code < LogActionTypeCodeEnum.values.length
     ? LogActionTypeCodeEnum.values[code]
     : null;
 

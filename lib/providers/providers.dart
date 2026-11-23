@@ -239,10 +239,13 @@ final LegacyProGrandfatheredProvider = StreamProvider<bool>((ref) {
   final db = ref.watch(RA_DatabaseProvider);
   return db.watchLegacyProGrandfathered().map((isLegacy) {
     RA_PurchaseService.setCachedLegacyPro(isLegacy);
+    final rcPro =
+        ref.read(RevenueCatProProvider).valueOrNull ??
+        RA_PurchaseService.cachedRcPro;
     unawaited(
       RA_PurchaseService.syncEffectiveProStatusIfChanged(
         RA_PurchaseService.resolveEffectivePro(
-          rcPro: RA_PurchaseService.cachedRcPro,
+          rcPro: rcPro,
           legacyPro: isLegacy,
         ),
       ),
