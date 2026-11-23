@@ -49,7 +49,8 @@ class RA_Countdown extends ConsumerWidget {
         // AnimatedSwitcher keeps old widgets mounted while fading out (which pauses
         // indefinitely if the route is hidden), so a stale countdown can reach zero.
         final current = ref.read(RoutineUiSnapshotProvider(routineId!));
-        if (current.phase == RA_RoutineUiPhase.countingDown &&
+        if ((current.phase == RA_RoutineUiPhase.countingDown ||
+                current.phase == RA_RoutineUiPhase.muted) &&
             current.nextTriggerTime?.millisecondsSinceEpoch ==
                 nextTriggerTime!.millisecondsSinceEpoch) {
           unawaited(RA_AlarmService.forceRingIfDue(routineId!));

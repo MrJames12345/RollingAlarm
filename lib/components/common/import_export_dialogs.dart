@@ -11,11 +11,13 @@ Future<void> RA_showExportDialog(BuildContext context, String exportStr) {
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text('Export Routines', style: RA_TextStyles.mediumFont),
-      content: SelectableText(
-        exportStr,
-        style: RA_TextStyles.tinyFont.copyWith(
-          fontFeatures: RA_TextStyles.tabularFeatures,
-          height: 1.4,
+      content: SingleChildScrollView(
+        child: SelectableText(
+          exportStr,
+          style: RA_TextStyles.tinyFont.copyWith(
+            fontFeatures: RA_TextStyles.tabularFeatures,
+            height: 1.4,
+          ),
         ),
       ),
       actions: [
@@ -58,16 +60,18 @@ Future<void> RA_showImportDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text('Import Routines', style: RA_TextStyles.mediumFont),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        style: RA_TextStyles.tinyFont.copyWith(height: 1.35),
-        maxLines: 3,
-        decoration: RA_InputDecoration(
-          dense: true,
-          hintText: 'Paste RA1:... string here',
-          hintStyle: RA_TextStyles.tinyFont.copyWith(
-            color: RA_ColourStyles.mutedPrimary,
+      content: SingleChildScrollView(
+        child: TextField(
+          controller: controller,
+          autofocus: true,
+          style: RA_TextStyles.tinyFont.copyWith(height: 1.35),
+          maxLines: 3,
+          decoration: RA_InputDecoration(
+            dense: true,
+            hintText: 'Paste RA1:... string here',
+            hintStyle: RA_TextStyles.tinyFont.copyWith(
+              color: RA_ColourStyles.mutedPrimary,
+            ),
           ),
         ),
       ),

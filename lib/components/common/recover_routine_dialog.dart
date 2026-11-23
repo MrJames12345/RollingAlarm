@@ -17,9 +17,11 @@ Future<bool?> RA_showRecoverRoutineDialog(
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
       title: Text('Recover routine?', style: RA_TextStyles.mediumFont),
-      content: Text(
-        'Recover "$routineName"? It will return to your list and its alarm will be scheduled again.',
-        style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+      content: SingleChildScrollView(
+        child: Text(
+          'Recover "$routineName"? It will return to your list and its alarm will be scheduled again.',
+          style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+        ),
       ),
       actions: [
         RA_DialogButton('Cancel', () => Navigator.pop(ctx, false)),

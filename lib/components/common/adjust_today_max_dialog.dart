@@ -44,9 +44,10 @@ Future<int?> RA_showAdjustTodayMaxDialog(
             }
           }
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Text(
                 'Enter the new max limit for today.',
                 style: RA_TextStyles.smallFont.copyWith(height: 1.35),
@@ -99,6 +100,7 @@ Future<int?> RA_showAdjustTodayMaxDialog(
                 ],
               ),
             ],
+            ),
           );
         },
       ),
@@ -112,5 +114,5 @@ Future<int?> RA_showAdjustTodayMaxDialog(
         }, color: RA_ColourStyles.secondary),
       ],
     ),
-  );
+  ).whenComplete(controller.dispose);
 }

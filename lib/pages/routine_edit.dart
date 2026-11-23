@@ -97,6 +97,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   RoutineEditFieldEnum? _highlightedField;
   String? _selectedTemplateId;
   bool _saving = false;
+  bool _wasDirty = false;
 
   bool get _isEditing => widget.existingRoutine != null;
 
@@ -435,6 +436,15 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       // Keep the active timer as-is so interval / other edits apply next
       // cycle. Retarget when day-start changes while waiting on that
       // boundary, or when the daily cap crosses today's count.
+      final now = DateTime.now();
+      final samePeriod =
+          state?.TimesRingDay != null &&
+          RA_DailyRingLimit.isSamePeriod(
+            state!.TimesRingDay!,
+            now,
+            oldDayStart,
+          );
+      final effectiveExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
       final next = RA_DailyRingLimit.retargetNextAfterEdit(
         previousNext: previousNext,
         oldDayStartSeconds: oldDayStart,
@@ -443,9 +453,11 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         newMaxTimesPerDayEnabled: _maxTimesPerDayEnabled,
         oldMaxTimesPerDay: existing.MaxTimesPerDay,
         newMaxTimesPerDay: _maxTimesPerDay,
+        oldExtraMaxTimesToday: effectiveExtra,
+        newExtraMaxTimesToday: effectiveExtra,
         timesRingToday: state?.TimesRingToday ?? 0,
         timesRingDay: state?.TimesRingDay,
-        now: DateTime.now(),
+        now: now,
         intervalSeconds: _interval.inSeconds,
         enabledWeekdays: _enabledWeekdays,
       );
@@ -459,15 +471,17 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             RoutineStatesCompanion(NextTriggerTime: Value(next)),
           );
         }
-        await RA_AlarmService.scheduleNext(
-          routineId: id,
-          triggerTime: next,
-          dbPath: widget.dbPath,
-          routineName: name,
-          routine: savedRoutine,
-          state: state?.copyWith(NextTriggerTime: Value(next)),
-          refreshWidget: false,
-        );
+        if (savedRoutine.IsActive && state?.PausedAt == null) {
+          await RA_AlarmService.scheduleNext(
+            routineId: id,
+            triggerTime: next,
+            dbPath: widget.dbPath,
+            routineName: name,
+            routine: savedRoutine,
+            state: state?.copyWith(NextTriggerTime: Value(next)),
+            refreshWidget: false,
+          );
+        }
       }
       await RA_WidgetService.updateWidgetState(db: db);
       return savedRoutine;
@@ -516,7 +530,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
 
   Future<void> _save() async {
     if (_saving) return;
-    _saving = true;
+    setState(() => _saving = true);
     try {
       final saved = await _persistRoutine();
       if (saved != null && mounted) {
@@ -527,8 +541,31 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       // Persist / schedule failures still leave the editor.
       if (mounted) Navigator.pop(context);
     } finally {
-      _saving = false;
+      if (mounted) {
+        setState(() => _saving = false);
+      } else {
+        _saving = false;
+      }
     }
+  }
+
+  Future<void> _handleExit() async {
+    if (_saving) return;
+    if (!_hasUnsavedChanges) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final name = widget.existingRoutine?.Name.trim();
+    final choice = await RA_showUnsavedChangesDialog(
+      context,
+      routineName: (name != null && name.isNotEmpty) ? name : 'this routine',
+    );
+    if (choice == null || !mounted) return;
+    if (choice == RA_UnsavedChangesChoice.saveAndContinue) {
+      await _save();
+      return;
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   Widget _highlightTarget({
@@ -551,47 +588,59 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     final isPro = ref.watch(IsProProvider);
     final showInitialRingProBadge =
         !isPro && _compensation != DriftCompensationTypeCodeEnum.InitialRing;
+    final hasUnsavedChanges = _hasUnsavedChanges;
+    _wasDirty = hasUnsavedChanges;
 
-    return RA_PageScaffold(
-      title: _isEditing ? 'Edit Routine' : 'New Routine',
-      leading: RA_AppBarIconButton(
-        icon: Icons.close,
-        tooltip: 'Close',
-        onPressed: () => Navigator.pop(context),
-      ),
-      actions: [
-        RA_DialogButton(
-          'Save',
-          () => unawaited(_save()),
-          color: RA_ColourStyles.secondary,
+    return PopScope(
+      canPop: !hasUnsavedChanges && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(_handleExit());
+      },
+      child: RA_PageScaffold(
+        title: _isEditing ? 'Edit Routine' : 'New Routine',
+        leading: RA_AppBarIconButton(
+          icon: Icons.close,
+          tooltip: 'Close',
+          onPressed: () => unawaited(_handleExit()),
         ),
-      ],
-      body: SingleChildScrollView(
-        padding: RA_ShapeStyles.bodyPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!_isEditing) ...[
-              RA_QuickTemplatesStrip(
-                selectedTemplateId: _selectedTemplateId,
-                onSelect: _onSelectTemplate,
+        actions: [
+          RA_DialogButton(
+            'Save',
+            () => unawaited(_save()),
+            color: RA_ColourStyles.secondary,
+          ),
+        ],
+        body: SingleChildScrollView(
+          padding: RA_ShapeStyles.bodyPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!_isEditing) ...[
+                RA_QuickTemplatesStrip(
+                  selectedTemplateId: _selectedTemplateId,
+                  onSelect: _onSelectTemplate,
+                ),
+                const SizedBox(height: RA_ShapeStyles.space24),
+              ],
+              KeyedSubtree(
+                key: _nameFieldKey,
+                child: RA_TextField(
+                  controller: _nameController,
+                  focusNode: _nameFocusNode,
+                  autofocus: !_isEditing && widget.initialTemplate == null,
+                  label: 'Name',
+                  placeholder: 'e.g. Morning Medication',
+                  errorText: _nameError,
+                  onChanged: (_) {
+                    final dirty = _hasUnsavedChanges;
+                    if (_showValidationErrors || dirty != _wasDirty) {
+                      _wasDirty = dirty;
+                      setState(() {});
+                    }
+                  },
+                ),
               ),
-              const SizedBox(height: RA_ShapeStyles.space24),
-            ],
-            KeyedSubtree(
-              key: _nameFieldKey,
-              child: RA_TextField(
-                controller: _nameController,
-                focusNode: _nameFocusNode,
-                autofocus: !_isEditing && widget.initialTemplate == null,
-                label: 'Name',
-                placeholder: 'e.g. Morning Medication',
-                errorText: _nameError,
-                onChanged: (_) {
-                  if (_showValidationErrors) setState(() {});
-                },
-              ),
-            ),
             const SizedBox(height: RA_ShapeStyles.space24),
             RA_FormSection(
               label: 'Alarm sound',
@@ -816,6 +865,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

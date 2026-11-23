@@ -17,9 +17,11 @@ Future<bool?> RA_showDeleteRoutineDialog(
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
       title: Text('Delete routine?', style: RA_TextStyles.mediumFont),
-      content: Text(
-        'Remove "$routineName" from your list and cancel its alarm? The routine is not permanently erased; you can recover it later from Alarm Logs.',
-        style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+      content: SingleChildScrollView(
+        child: Text(
+          'Remove "$routineName" from your list and cancel its alarm? The routine is not permanently erased; you can recover it later from Alarm Logs.',
+          style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+        ),
       ),
       actions: [
         RA_DialogButton('Cancel', () => Navigator.pop(ctx, false)),

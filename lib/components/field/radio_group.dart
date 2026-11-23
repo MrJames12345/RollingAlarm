@@ -60,8 +60,10 @@ class _RadioTile<T> extends StatelessWidget {
 
   TextStyle _titleStyle(bool selected) {
     return RA_TextStyles.smallFont.copyWith(
-      height: 1,
-      color: selected ? RA_ColourStyles.secondary : RA_ColourStyles.primary,
+      height: 1.2,
+      color: selected
+          ? RA_ColourStyles.readableAccent(RA_ColourStyles.secondary)
+          : RA_ColourStyles.primary,
     );
   }
 
@@ -108,8 +110,10 @@ class _RadioTile<T> extends StatelessWidget {
               const SizedBox(width: RA_ShapeStyles.space16),
               Expanded(
                 child: option.subtitle == null
-                    ? SizedBox(
-                        height: _radioSize,
+                    ? ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: _radioSize,
+                        ),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(option.title, style: titleStyle),

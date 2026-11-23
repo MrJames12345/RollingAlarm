@@ -86,7 +86,11 @@ Widget RA_DialogButton(
       },
       child: Text(
         text,
-        style: base.copyWith(color: color ?? RA_ColourStyles.primary),
+        style: base.copyWith(
+          color: color != null
+              ? RA_ColourStyles.readableAccent(color)
+              : RA_ColourStyles.primary,
+        ),
       ),
     ),
   );

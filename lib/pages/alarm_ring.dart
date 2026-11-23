@@ -10,6 +10,7 @@ import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/alarm_side_button_action.dart';
 import 'package:rolling_alarm/enums/alarm_snooze_dismiss_layout.dart';
+import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/audio.dart';
@@ -97,7 +98,7 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
     } catch (_) {}
   }
 
-  Future<dynamic> _onPlatformCall(MethodCall call) async {
+  Future<Object?> _onPlatformCall(MethodCall call) async {
     if (call.method != 'sideButtonAction') return null;
     final raw = call.arguments;
     if (raw is! String) return null;
@@ -255,76 +256,134 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
               fit: StackFit.expand,
               children: [
                 _RingUrgencyGlow(pulse: _pulse, escalation: _escalation),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(flex: 2),
-                    _RingPulseIcon(pulse: _pulse, escalation: _escalation),
-                    const SizedBox(height: RA_ShapeStyles.space32),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: RA_ShapeStyles.space24,
-                      ),
-                      child: RA_FittedText(
-                        widget.routineName,
-                        alignment: Alignment.center,
-                        style: RA_TextStyles.giantFont.copyWith(
-                          color: RA_ColourStyles.softCoral,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxHeight < 600;
+                    final topGap = compact
+                        ? RA_ShapeStyles.space16
+                        : RA_ShapeStyles.space32;
+                    final bottomGap = compact
+                        ? RA_ShapeStyles.space24
+                        : RA_ShapeStyles.space48 + RA_ShapeStyles.space8;
+
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: RA_ShapeStyles.space8),
-                    Text(
-                      'ALARM RINGING',
-                      style: RA_TextStyles.mediumFont.copyWith(
-                        color: RA_ColourStyles.softCoral.withValues(
-                          alpha: 0.85,
-                        ),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: RA_ShapeStyles.space16),
-                    const _LiveClock(),
-                    const Spacer(flex: 2),
-                    AnimatedOpacity(
-                      duration: RA_ShapeStyles.stateTransitionDuration,
-                      opacity: _busy ? 0.45 : 1,
-                      child: IgnorePointer(
-                        ignoring: _busy,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: RA_ShapeStyles.space24,
-                          ),
-                          child: _RingActions(
-                            layout:
-                                ref
-                                    .watch(AlarmSnoozeDismissLayoutProvider)
-                                    .valueOrNull ??
-                                AlarmSnoozeDismissLayoutEnum.Sliders,
-                            routine: _routine,
-                            state: widget.isPreview
-                                ? null
-                                : ref
-                                      .watch(
-                                        ActiveRoutineStateProvider(
-                                          widget.routineId,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 560),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                SizedBox(height: topGap),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _RingPulseIcon(
+                                      pulse: _pulse,
+                                      escalation: _escalation,
+                                      compact: compact,
+                                    ),
+                                    SizedBox(
+                                      height: compact
+                                          ? RA_ShapeStyles.space16
+                                          : RA_ShapeStyles.space32,
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: RA_ShapeStyles.space24,
+                                      ),
+                                      child: RA_FittedText(
+                                        widget.routineName,
+                                        alignment: Alignment.center,
+                                        style: RA_TextStyles.giantFont.copyWith(
+                                          color: RA_ColourStyles.readableAccent(
+                                            RA_ColourStyles.softCoral,
+                                          ),
                                         ),
-                                      )
-                                      .valueOrNull,
-                            onSnooze: () => unawaited(
-                              _handleAction(RA_AlarmActionTypeCodeEnum.Snooze),
-                            ),
-                            onDismiss: () => unawaited(
-                              _handleAction(RA_AlarmActionTypeCodeEnum.Dismiss),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: RA_ShapeStyles.space8,
+                                    ),
+                                    Text(
+                                      'ALARM RINGING',
+                                      style: RA_TextStyles.mediumFont.copyWith(
+                                        color: RA_ColourStyles.readableAccent(
+                                          RA_ColourStyles.softCoral,
+                                        ).withValues(alpha: 0.9),
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: compact
+                                          ? RA_ShapeStyles.space8
+                                          : RA_ShapeStyles.space16,
+                                    ),
+                                    const _LiveClock(),
+                                  ],
+                                ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(height: topGap),
+                                    AnimatedOpacity(
+                                      duration:
+                                          RA_ShapeStyles.stateTransitionDuration,
+                                      opacity: _busy ? 0.45 : 1,
+                                      child: IgnorePointer(
+                                        ignoring: _busy,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: RA_ShapeStyles.space24,
+                                          ),
+                                          child: _RingActions(
+                                            layout:
+                                                ref
+                                                    .watch(
+                                                      AlarmSnoozeDismissLayoutProvider,
+                                                    )
+                                                    .valueOrNull ??
+                                                AlarmSnoozeDismissLayoutEnum
+                                                    .Sliders,
+                                            routine: _routine,
+                                            state: widget.isPreview
+                                                ? null
+                                                : ref
+                                                      .watch(
+                                                        ActiveRoutineStateProvider(
+                                                          widget.routineId,
+                                                        ),
+                                                      )
+                                                      .valueOrNull,
+                                            onSnooze: () => unawaited(
+                                              _handleAction(
+                                                RA_AlarmActionTypeCodeEnum
+                                                    .Snooze,
+                                              ),
+                                            ),
+                                            onDismiss: () => unawaited(
+                                              _handleAction(
+                                                RA_AlarmActionTypeCodeEnum
+                                                    .Dismiss,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: bottomGap),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(
-                      height: RA_ShapeStyles.space48 + RA_ShapeStyles.space8,
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -393,34 +452,47 @@ class _RingActionsState extends ConsumerState<_RingActions> {
         : 'Slide to dismiss alarm, next ring $dismissNext';
 
     if (widget.layout == AlarmSnoozeDismissLayoutEnum.Buttons) {
-      return Row(
-        children: [
-          Expanded(
-            child: _RingActionButton(
-              key: const Key('ra_ring_snooze'),
-              label: 'Snooze',
-              nextLabel: snoozeNext,
-              semanticsLabel: snoozeSemantics,
-              accent: RA_ColourStyles.secondary,
-              glow: RA_ShapeStyles.tealGlow,
-              icon: Icons.snooze,
-              onPressed: widget.onSnooze,
-            ),
-          ),
-          const SizedBox(width: RA_ShapeStyles.space24),
-          Expanded(
-            child: _RingActionButton(
-              key: const Key('ra_ring_dismiss'),
-              label: 'Dismiss',
-              nextLabel: dismissNext,
-              semanticsLabel: dismissSemantics,
-              accent: RA_ColourStyles.softCoral,
-              glow: RA_ShapeStyles.softCoralGlow,
-              icon: Icons.alarm_off,
-              onPressed: widget.onDismiss,
-            ),
-          ),
-        ],
+      final snoozeButton = _RingActionButton(
+        key: const Key('ra_ring_snooze'),
+        label: 'Snooze',
+        nextLabel: snoozeNext,
+        semanticsLabel: snoozeSemantics,
+        accent: RA_ColourStyles.secondary,
+        glow: RA_ShapeStyles.tealGlow,
+        icon: Icons.snooze,
+        onPressed: widget.onSnooze,
+      );
+      final dismissButton = _RingActionButton(
+        key: const Key('ra_ring_dismiss'),
+        label: 'Dismiss',
+        nextLabel: dismissNext,
+        semanticsLabel: dismissSemantics,
+        accent: RA_ColourStyles.softCoral,
+        glow: RA_ShapeStyles.softCoralGlow,
+        icon: Icons.alarm_off,
+        onPressed: widget.onDismiss,
+      );
+
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 300) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                snoozeButton,
+                const SizedBox(height: RA_ShapeStyles.space16),
+                dismissButton,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: snoozeButton),
+              const SizedBox(width: RA_ShapeStyles.space16),
+              Expanded(child: dismissButton),
+            ],
+          );
+        },
       );
     }
 
@@ -476,6 +548,7 @@ class _RingActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasNext = nextLabel != null && nextLabel!.isNotEmpty;
+    final readable = RA_ColourStyles.readableAccent(accent);
     return Semantics(
       button: true,
       label: semanticsLabel,
@@ -513,26 +586,29 @@ class _RingActionButton extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(icon, color: accent, size: 26),
+                      Icon(icon, color: readable, size: 26),
                       const SizedBox(width: RA_ShapeStyles.space8),
                       Flexible(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              label,
-                              style: RA_TextStyles.smallFont.copyWith(
-                                color: accent,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                label,
+                                style: RA_TextStyles.smallFont.copyWith(
+                                  color: readable,
+                                ),
+                                maxLines: 1,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                             if (hasNext)
                               Text(
                                 nextLabel!,
                                 style: RA_TextStyles.tinyFont.copyWith(
-                                  color: accent.withValues(alpha: 0.85),
+                                  color: readable.withValues(alpha: 0.85),
                                   fontSize: 12,
                                 ),
                                 maxLines: 2,
@@ -563,6 +639,10 @@ class _RingUrgencyGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
+    final borderAccent = isLight
+        ? RA_ColourStyles.readableAccent(RA_ColourStyles.softCoral)
+        : RA_ColourStyles.softCoral;
     return AnimatedBuilder(
       animation: Listenable.merge([pulse, escalation]),
       builder: (context, _) {
@@ -572,18 +652,27 @@ class _RingUrgencyGlow extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border.all(
-                color: RA_ColourStyles.softCoral.withValues(
-                  alpha: (0.35 + (0.55 * t) + (0.1 * e)).clamp(0.0, 1.0),
+                color: borderAccent.withValues(
+                  alpha: isLight
+                      ? (0.55 + (0.35 * t) + (0.1 * e)).clamp(0.0, 1.0)
+                      : (0.35 + (0.55 * t) + (0.1 * e)).clamp(0.0, 1.0),
                 ),
                 width: 3 + (3 * t) + (2 * e),
               ),
+              // Keep Light mode paper crisp so center title & pulse icon stay high contrast.
               boxShadow: [
                 BoxShadow(
                   color: RA_ColourStyles.softCoral.withValues(
-                    alpha: (0.18 + (0.55 * t) + (0.2 * e)).clamp(0.0, 1.0),
+                    alpha: isLight
+                        ? (0.06 + (0.10 * t) + (0.04 * e)).clamp(0.0, 1.0)
+                        : (0.18 + (0.55 * t) + (0.2 * e)).clamp(0.0, 1.0),
                   ),
-                  spreadRadius: 4.0 + (22.0 * t) + (10.0 * e),
-                  blurRadius: 16.0 + (40.0 * t) + (16.0 * e),
+                  spreadRadius: isLight
+                      ? 2.0 + (8.0 * t) + (4.0 * e)
+                      : 4.0 + (22.0 * t) + (10.0 * e),
+                  blurRadius: isLight
+                      ? 10.0 + (16.0 * t) + (6.0 * e)
+                      : 16.0 + (40.0 * t) + (16.0 * e),
                 ),
               ],
             ),
@@ -599,11 +688,20 @@ class _RingUrgencyGlow extends StatelessWidget {
 class _RingPulseIcon extends StatelessWidget {
   final Animation<double> pulse;
   final ValueNotifier<double> escalation;
+  final bool compact;
 
-  const _RingPulseIcon({required this.pulse, required this.escalation});
+  const _RingPulseIcon({
+    required this.pulse,
+    required this.escalation,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final padding = compact ? RA_ShapeStyles.space16 : RA_ShapeStyles.space32;
+    final iconSize = compact ? 52.0 : 80.0;
+    final isLight = RA_ColourStyles.mode == AppThemeModeEnum.Light;
+    final inkAccent = RA_ColourStyles.readableAccent(RA_ColourStyles.softCoral);
     return AnimatedBuilder(
       animation: Listenable.merge([pulse, escalation]),
       builder: (context, child) {
@@ -615,39 +713,58 @@ class _RingPulseIcon extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: RA_ColourStyles.softCoral.withValues(
-                alpha: 0.12 + 0.12 * t + 0.08 * e,
+                alpha: isLight
+                    ? 0.08 + 0.08 * t + 0.04 * e
+                    : 0.12 + 0.12 * t + 0.08 * e,
               ),
               border: Border.all(
-                color: RA_ColourStyles.softCoral.withValues(
+                color: inkAccent.withValues(
                   alpha: (0.65 + 0.35 * t).clamp(0.0, 1.0),
                 ),
                 width: 2.5 + (1.5 * t) + e,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: RA_ColourStyles.softCoral.withValues(
-                    alpha: (0.35 + (0.55 * t) + (0.15 * e)).clamp(0.0, 1.0),
-                  ),
-                  spreadRadius: 4 + (16 * t) + (8 * e),
-                  blurRadius: 16 + (32 * t) + (12 * e),
-                ),
-                BoxShadow(
-                  color: RA_ColourStyles.softCoral.withValues(
-                    alpha: (0.15 + (0.4 * t) + (0.2 * e)).clamp(0.0, 1.0),
-                  ),
-                  spreadRadius: 12 + (28 * t) + (16 * e),
-                  blurRadius: 40 + (48 * t) + (20 * e),
-                ),
-              ],
+              boxShadow: isLight
+                  ? [
+                      BoxShadow(
+                        color: RA_ColourStyles.softCoral.withValues(
+                          alpha: (0.14 + (0.18 * t) + (0.06 * e)).clamp(
+                            0.0,
+                            1.0,
+                          ),
+                        ),
+                        spreadRadius: 2 + (8 * t) + (4 * e),
+                        blurRadius: 12 + (16 * t) + (6 * e),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: RA_ColourStyles.softCoral.withValues(
+                          alpha: (0.35 + (0.55 * t) + (0.15 * e)).clamp(
+                            0.0,
+                            1.0,
+                          ),
+                        ),
+                        spreadRadius: 4 + (16 * t) + (8 * e),
+                        blurRadius: 16 + (32 * t) + (12 * e),
+                      ),
+                      BoxShadow(
+                        color: RA_ColourStyles.softCoral.withValues(
+                          alpha: (0.15 + (0.4 * t) + (0.2 * e)).clamp(0.0, 1.0),
+                        ),
+                        spreadRadius: 12 + (28 * t) + (16 * e),
+                        blurRadius: 40 + (48 * t) + (20 * e),
+                      ),
+                    ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(RA_ShapeStyles.space32),
-              child: child,
-            ),
+            child: Padding(padding: EdgeInsets.all(padding), child: child),
           ),
         );
       },
-      child: const Icon(Icons.alarm, size: 80, color: RA_ColourStyles.softCoral),
+      child: Icon(
+        Icons.alarm,
+        size: iconSize,
+        color: inkAccent,
+      ),
     );
   }
 }
@@ -817,7 +934,7 @@ class _SlideToActionState extends State<_SlideToAction>
                   ? Duration.zero
                   : RA_ShapeStyles.stateTransitionDuration,
               curve: Curves.easeOut,
-              height: trackHeight,
+              constraints: BoxConstraints(minHeight: trackHeight),
               decoration: BoxDecoration(
                 color: RA_ColourStyles.surface,
                 borderRadius: RA_ShapeStyles.largeBorderRadius,
@@ -839,30 +956,35 @@ class _SlideToActionState extends State<_SlideToAction>
                         // Keep center copy clear of the sliding thumb.
                         padding: const EdgeInsets.symmetric(
                           horizontal: _thumbSize + RA_ShapeStyles.space8,
+                          vertical: RA_ShapeStyles.space8,
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              widget.label,
-                              style: RA_TextStyles.smallFont.copyWith(
-                                color: RA_ColourStyles.mutedPrimary,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (hasNext)
-                              Text(
-                                widget.nextLabel!,
-                                style: RA_TextStyles.tinyFont.copyWith(
-                                  color: RA_ColourStyles.mutedPrimary
-                                      .withValues(alpha: 0.9),
-                                  fontSize: 12,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                widget.label,
+                                style: RA_TextStyles.smallFont.copyWith(
+                                  color: RA_ColourStyles.mutedPrimary,
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (hasNext)
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  widget.nextLabel!,
+                                  style: RA_TextStyles.tinyFont.copyWith(
+                                    color: RA_ColourStyles.mutedPrimary
+                                        .withValues(alpha: 0.9),
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                ),
                               ),
                           ],
                         ),

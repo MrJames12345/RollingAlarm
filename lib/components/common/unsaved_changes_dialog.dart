@@ -22,9 +22,11 @@ Future<RA_UnsavedChangesChoice?> RA_showUnsavedChangesDialog(
       shape: const RoundedRectangleBorder(
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
-      content: Text(
-        'You have unsaved changes to "$routineName".',
-        style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+      content: SingleChildScrollView(
+        child: Text(
+          'You have unsaved changes to "$routineName".',
+          style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+        ),
       ),
       actions: [
         RA_DialogButton(

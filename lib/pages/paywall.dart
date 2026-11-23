@@ -253,22 +253,26 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     return null;
   }
 
-  String _resolveAnnualSavingsBadge({
+  String? _resolveAnnualSavingsBadge({
     required StoreProduct? annualProduct,
     required StoreProduct? monthlyProduct,
   }) {
-    if (annualProduct != null &&
-        monthlyProduct != null &&
-        annualProduct.currencyCode == monthlyProduct.currencyCode &&
-        monthlyProduct.price > 0) {
-      final yearlyFromMonthly = monthlyProduct.price * 12.0;
-      if (yearlyFromMonthly > annualProduct.price) {
-        final pct = ((1.0 - (annualProduct.price / yearlyFromMonthly)) * 100)
-            .round();
-        if (pct >= 5) return 'SAVE $pct%';
+    if (annualProduct != null && monthlyProduct != null) {
+      if (annualProduct.currencyCode == monthlyProduct.currencyCode &&
+          monthlyProduct.price > 0) {
+        final yearlyFromMonthly = monthlyProduct.price * 12.0;
+        if (yearlyFromMonthly > annualProduct.price) {
+          final pct = ((1.0 - (annualProduct.price / yearlyFromMonthly)) * 100)
+              .round();
+          if (pct >= 5) return 'SAVE $pct%';
+        }
       }
+      return null;
     }
-    return 'SAVE 44%';
+    if (annualProduct == null && monthlyProduct == null) {
+      return 'SAVE 44%';
+    }
+    return null;
   }
 
   String _ctaLabel({
@@ -362,26 +366,33 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final trigger = widget.featureTrigger?.trim();
     final hasTrigger = trigger != null && trigger.isNotEmpty;
 
-    return RA_PageScaffold(
-      title: '',
-      automaticallyImplyLeading: false,
-      actions: [
-        RA_AppBarIconButton(
-          icon: Icons.close,
-          tooltip: 'Close',
-          onPressed: () => _popWithResult(false),
-        ),
-      ],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          RA_ShapeStyles.space16,
-          0,
-          RA_ShapeStyles.space16,
-          RA_ShapeStyles.space32,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+    return PopScope(
+      canPop: !_busy,
+      child: RA_PageScaffold(
+        title: '',
+        automaticallyImplyLeading: false,
+        actions: [
+          RA_AppBarIconButton(
+            icon: Icons.close,
+            tooltip: 'Close',
+            onPressed: () {
+              if (!_busy) _popWithResult(false);
+            },
+          ),
+        ],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            RA_ShapeStyles.space16,
+            0,
+            RA_ShapeStyles.space16,
+            RA_ShapeStyles.space32,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             if (hasTrigger) ...[
               Align(
                 alignment: Alignment.centerLeft,
@@ -499,10 +510,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   onTap: () =>
                       unawaited(_openUrl(RA_PurchaseService.privacyPolicyUrl)),
                 ),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
+      ),
       ),
     );
   }
@@ -531,17 +545,19 @@ class _TriggerPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.lock_open_rounded,
               size: 16,
-              color: RA_ColourStyles.secondary,
+              color: RA_ColourStyles.readableAccent(RA_ColourStyles.secondary),
             ),
             const SizedBox(width: RA_ShapeStyles.space8),
             Flexible(
               child: Text(
                 text,
                 style: RA_TextStyles.tinyFont.copyWith(
-                  color: RA_ColourStyles.secondary,
+                  color: RA_ColourStyles.readableAccent(
+                    RA_ColourStyles.secondary,
+                  ),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -689,7 +705,7 @@ class _TierCard extends StatelessWidget {
                         child: Text(
                           badgeText!,
                           style: RA_TextStyles.tinyFont.copyWith(
-                            color: badgeAccent,
+                            color: RA_ColourStyles.readableAccent(badgeAccent),
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -724,7 +740,9 @@ class _TierCard extends StatelessWidget {
                               style: RA_TextStyles.smallFont.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: selected
-                                    ? accentColor
+                                    ? RA_ColourStyles.readableAccent(
+                                        accentColor,
+                                      )
                                     : RA_ColourStyles.primary,
                               ),
                             ),
@@ -740,7 +758,9 @@ class _TierCard extends StatelessWidget {
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                     color: selected
-                                        ? accentColor
+                                        ? RA_ColourStyles.readableAccent(
+                                            accentColor,
+                                          )
                                         : RA_ColourStyles.primary,
                                   ),
                                 ),

@@ -37,25 +37,24 @@ class RA_QuickTemplatesStrip extends ConsumerWidget {
           child: RA_SectionLabel('Quick Templates'),
         ),
         const SizedBox(height: RA_ShapeStyles.space8),
-        SizedBox(
-          height: 100,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: horizontalPadding,
-            itemCount: templates.length,
-            separatorBuilder: (_, _) =>
-                const SizedBox(width: RA_ShapeStyles.space8),
-            itemBuilder: (context, index) {
-              final template = templates[index];
-              final selected = template.id == selectedTemplateId;
-              final showProPill = template.usesProDriftMode && !isPro;
-              return _TemplateCard(
-                template: template,
-                selected: selected,
-                showProPill: showProPill,
-                onTap: () => onSelect(template),
-              );
-            },
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: horizontalPadding,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < templates.length; index++) ...[
+                  if (index > 0) const SizedBox(width: RA_ShapeStyles.space8),
+                  _TemplateCard(
+                    template: templates[index],
+                    selected: templates[index].id == selectedTemplateId,
+                    showProPill: templates[index].usesProDriftMode && !isPro,
+                    onTap: () => onSelect(templates[index]),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ],

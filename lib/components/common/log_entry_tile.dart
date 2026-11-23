@@ -23,6 +23,7 @@ Widget RA_LogEntryTile({
 }) {
   final action = RA_logActionFromCode(entry.LogActionTypeCode);
   final actionColor = action?.color ?? RA_ColourStyles.primary;
+  final readableActionColor = RA_ColourStyles.readableAccent(actionColor);
   final resolvedName = routineName?.trim();
   final showRoutineName = resolvedName != null && resolvedName.isNotEmpty;
   final canRecover = showRecover && onRecover != null;
@@ -72,7 +73,7 @@ Widget RA_LogEntryTile({
                     Text(
                       action?.displayName ?? 'Unknown',
                       style: RA_TextStyles.smallFont.copyWith(
-                        color: actionColor,
+                        color: readableActionColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -82,7 +83,9 @@ Widget RA_LogEntryTile({
                       Text(
                         'Muted',
                         style: RA_TextStyles.tinyFont.copyWith(
-                          color: RA_ColourStyles.sleepIndigo,
+                          color: RA_ColourStyles.readableAccent(
+                            RA_ColourStyles.sleepIndigo,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -93,7 +96,9 @@ Widget RA_LogEntryTile({
                       Text(
                         resolvedName,
                         style: RA_TextStyles.tinyFont.copyWith(
-                          color: RA_ColourStyles.secondary,
+                          color: RA_ColourStyles.readableAccent(
+                            RA_ColourStyles.secondary,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -134,6 +139,9 @@ class _RecoverButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final recoverColor = RA_ColourStyles.readableAccent(
+      RA_ColourStyles.recoverSeafoam,
+    );
     return RA_PressScale(
       pressedScale: 0.94,
       child: TextButton(
@@ -142,7 +150,7 @@ class _RecoverButton extends StatelessWidget {
           onPressed();
         },
         style: TextButton.styleFrom(
-          foregroundColor: RA_ColourStyles.recoverSeafoam,
+          foregroundColor: recoverColor,
           minimumSize: const Size(
             RA_ShapeStyles.minTouchTarget,
             RA_ShapeStyles.minTouchTarget,
@@ -155,7 +163,7 @@ class _RecoverButton extends StatelessWidget {
         child: Text(
           'Recover',
           style: RA_TextStyles.smallFont.copyWith(
-            color: RA_ColourStyles.recoverSeafoam,
+            color: recoverColor,
             fontWeight: FontWeight.w600,
           ),
         ),

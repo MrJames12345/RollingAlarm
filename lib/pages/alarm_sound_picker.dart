@@ -542,7 +542,9 @@ class _SoundTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: RA_TextStyles.smallFont.copyWith(
                             color: selected
-                                ? RA_ColourStyles.secondary
+                                ? RA_ColourStyles.readableAccent(
+                                    RA_ColourStyles.secondary,
+                                  )
                                 : RA_ColourStyles.primary,
                             fontWeight: FontWeight.bold,
                           ),
@@ -554,7 +556,9 @@ class _SoundTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: RA_TextStyles.tinyFont.copyWith(
-                              color: RA_ColourStyles.secondary,
+                              color: RA_ColourStyles.readableAccent(
+                                RA_ColourStyles.secondary,
+                              ),
                               fontSize: 12,
                               height: 1.35,
                             ),

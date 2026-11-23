@@ -55,14 +55,19 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     _paywallChannel.setMethodCallHandler(_onPaywallPlatformCall);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_ensureRingPageVisible());
-      unawaited(_checkPendingPaywall());
+      unawaited(_syncOnActiveFrame());
       // Native UI setAlarmClock channel is only live after the engine attaches.
       unawaited(
         RA_AlarmService.syncAlarmUiSchedules(ref.read(RA_DatabaseProvider)),
       );
       _startForegroundWatchdogIfResumed();
     });
+  }
+
+  Future<void> _syncOnActiveFrame() async {
+    await _ensureRingPageVisible();
+    if (!mounted) return;
+    await _checkPendingPaywall();
   }
 
   @override
@@ -78,9 +83,8 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     switch (state) {
       case AppLifecycleState.resumed:
         _startForegroundWatchdogIfResumed();
-        unawaited(_ensureRingPageVisible());
+        unawaited(_syncOnActiveFrame());
         unawaited(_checkForegroundAlarms());
-        unawaited(_checkPendingPaywall());
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -102,7 +106,26 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     return true;
   }
 
+  Future<bool> _hasActiveRingSession() async {
+    if (_ringPushInFlight || _openRingRoutineId != null) return true;
+    final cached = ref.read(RingingRoutineStatesProvider).valueOrNull;
+    if (cached != null && cached.isNotEmpty) return true;
+    try {
+      final db = ref.read(RA_DatabaseProvider);
+      final live = await db.getRingingRoutineStates();
+      return live.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _checkPendingPaywall() async {
+    if (!mounted ||
+        _paywallPushInFlight ||
+        PaywallPage.isShowing ||
+        await _hasActiveRingSession()) {
+      return;
+    }
     try {
       final raw = await _paywallChannel.invokeMethod<Map<Object?, Object?>>(
         'consumePendingPaywall',
@@ -119,11 +142,10 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
     if (!mounted ||
         _paywallPushInFlight ||
         PaywallPage.isShowing ||
-        _ringPushInFlight ||
-        _openRingRoutineId != null) {
+        await _hasActiveRingSession()) {
       return;
     }
-    if (ref.read(IsProProvider)) return;
+    if (!mounted || ref.read(IsProProvider)) return;
     final navContext = RA_navigatorKey.currentContext;
     if (navContext == null || !navContext.mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -242,8 +264,9 @@ class _RA_AlarmRingPresenterState extends ConsumerState<RA_AlarmRingPresenter>
             !state.IsRinging &&
             state.NextTriggerTime != null) {
           if (!state.NextTriggerTime!.isAfter(now)) {
+            final wasMuted = state.MutedAt != null;
             await RA_AlarmService.triggerAlarm(routine.Id);
-            break;
+            if (!wasMuted) break;
           }
         }
       }

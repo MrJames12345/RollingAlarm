@@ -880,7 +880,7 @@ class _TodayRingCount extends ConsumerWidget {
     );
 
     final count = data.count;
-    final maxTimes = routine.MaxTimesPerDay + data.extra;
+    final maxTimes = (routine.MaxTimesPerDay + data.extra).clamp(0, 999);
 
     final label = routine.MaxTimesPerDayEnabled
         ? '$count/$maxTimes times today'

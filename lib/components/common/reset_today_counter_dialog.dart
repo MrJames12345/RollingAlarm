@@ -14,9 +14,11 @@ Future<bool?> RA_showResetTodayCounterDialog(BuildContext context) {
         borderRadius: RA_ShapeStyles.largeBorderRadius,
       ),
       title: Text("Reset today's counter?", style: RA_TextStyles.mediumFont),
-      content: Text(
-        'This sets today\'s count back to zero.',
-        style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+      content: SingleChildScrollView(
+        child: Text(
+          'This sets today\'s count back to zero.',
+          style: RA_TextStyles.smallFont.copyWith(height: 1.35),
+        ),
       ),
       actions: [
         RA_DialogButton('Cancel', () => Navigator.pop(ctx, false)),

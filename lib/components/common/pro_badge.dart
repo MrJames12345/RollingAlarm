@@ -15,6 +15,7 @@ class RA_ProBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = color ?? RA_ColourStyles.secondary;
+    final textColor = RA_ColourStyles.readableAccent(accent);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.16),
@@ -32,7 +33,7 @@ class RA_ProBadge extends StatelessWidget {
         child: Text(
           label,
           style: RA_TextStyles.tinyFont.copyWith(
-            color: accent,
+            color: textColor,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,

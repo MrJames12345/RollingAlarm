@@ -45,21 +45,26 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
         RA_ShapeStyles.space8,
         RA_ShapeStyles.space16,
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           _ActionTile(
             icon: isMuted
                 ? Icons.notifications_off_rounded
                 : Icons.notifications_off_outlined,
             label: isMuted ? 'Unmute' : 'Mute',
-            color: isMuted ? RA_ColourStyles.sleepIndigo : null,
+            color: isMuted
+                ? RA_ColourStyles.readableAccent(RA_ColourStyles.sleepIndigo)
+                : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.mute),
           ),
           _ActionTile(
             icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
             label: isPaused ? 'Resume' : 'Pause',
-            color: isPaused ? RA_ColourStyles.oliveMist : null,
+            color: isPaused
+                ? RA_ColourStyles.readableAccent(RA_ColourStyles.oliveMist)
+                : null,
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.pause),
           ),
           if (showResetInterval)
@@ -100,6 +105,7 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
             onTap: () => Navigator.pop(ctx, RA_RoutineCardMenuAction.delete),
           ),
         ],
+        ),
       ),
     ),
   );

@@ -394,23 +394,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           borderRadius: RA_ShapeStyles.largeBorderRadius,
         ),
         title: Text(button.label, style: RA_TextStyles.mediumFont),
-        content: RA_RadioGroup<AlarmSideButtonActionEnum>(
-          groupValue: settings.actionFor(button),
-          onChanged: (v) => Navigator.pop(ctx, v),
-          options: const [
-            RA_RadioOption(
-              value: AlarmSideButtonActionEnum.None,
-              title: 'None',
-            ),
-            RA_RadioOption(
-              value: AlarmSideButtonActionEnum.Snooze,
-              title: 'Snooze',
-            ),
-            RA_RadioOption(
-              value: AlarmSideButtonActionEnum.Dismiss,
-              title: 'Dismiss',
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: RA_RadioGroup<AlarmSideButtonActionEnum>(
+            groupValue: settings.actionFor(button),
+            onChanged: (v) => Navigator.pop(ctx, v),
+            options: const [
+              RA_RadioOption(
+                value: AlarmSideButtonActionEnum.None,
+                title: 'None',
+              ),
+              RA_RadioOption(
+                value: AlarmSideButtonActionEnum.Snooze,
+                title: 'Snooze',
+              ),
+              RA_RadioOption(
+                value: AlarmSideButtonActionEnum.Dismiss,
+                title: 'Dismiss',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -435,32 +437,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           borderRadius: RA_ShapeStyles.largeBorderRadius,
         ),
         title: Text(direction.label, style: RA_TextStyles.mediumFont),
-        content: RA_RadioGroup<RoutineSwipeActionEnum>(
-          groupValue: settings.actionFor(direction),
-          onChanged: (v) => Navigator.pop(ctx, v),
-          options: [
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Mute,
-              title: 'Mute',
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Pause,
-              title: 'Pause/Resume',
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.ResetInterval,
-              title: 'Dismiss Early',
-            ),
-            RA_RadioOption(
-              value: RoutineSwipeActionEnum.AddForToday,
-              title: 'Adjust Today\'s Max',
-              trailing: !isPro ? const RA_ProBadge() : null,
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Delete,
-              title: 'Delete',
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: RA_RadioGroup<RoutineSwipeActionEnum>(
+            groupValue: settings.actionFor(direction),
+            onChanged: (v) => Navigator.pop(ctx, v),
+            options: [
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Mute,
+                title: 'Mute',
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Pause,
+                title: 'Pause/Resume',
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.ResetInterval,
+                title: 'Dismiss Early',
+              ),
+              RA_RadioOption(
+                value: RoutineSwipeActionEnum.AddForToday,
+                title: 'Adjust Today\'s Max',
+                trailing: !isPro ? const RA_ProBadge() : null,
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Delete,
+                title: 'Delete',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -485,32 +489,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           borderRadius: RA_ShapeStyles.largeBorderRadius,
         ),
         title: Text(position.label, style: RA_TextStyles.mediumFont),
-        content: RA_RadioGroup<RoutineSwipeActionEnum>(
-          groupValue: settings.actionFor(position),
-          onChanged: (v) => Navigator.pop(ctx, v),
-          options: [
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Mute,
-              title: 'Mute',
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Pause,
-              title: 'Pause/Resume',
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.ResetInterval,
-              title: 'Dismiss Early',
-            ),
-            RA_RadioOption(
-              value: RoutineSwipeActionEnum.AddForToday,
-              title: 'Adjust Today\'s Max',
-              trailing: !isPro ? const RA_ProBadge() : null,
-            ),
-            const RA_RadioOption(
-              value: RoutineSwipeActionEnum.Delete,
-              title: 'Delete',
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: RA_RadioGroup<RoutineSwipeActionEnum>(
+            groupValue: settings.actionFor(position),
+            onChanged: (v) => Navigator.pop(ctx, v),
+            options: [
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Mute,
+                title: 'Mute',
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Pause,
+                title: 'Pause/Resume',
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.ResetInterval,
+                title: 'Dismiss Early',
+              ),
+              RA_RadioOption(
+                value: RoutineSwipeActionEnum.AddForToday,
+                title: 'Adjust Today\'s Max',
+                trailing: !isPro ? const RA_ProBadge() : null,
+              ),
+              const RA_RadioOption(
+                value: RoutineSwipeActionEnum.Delete,
+                title: 'Delete',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -763,7 +769,7 @@ class _SwipeActionTile extends StatelessWidget {
                     action.label,
                     alignment: Alignment.center,
                     style: RA_TextStyles.smallFont.copyWith(
-                      color: action.color(),
+                      color: RA_ColourStyles.readableAccent(action.color()),
                     ),
                   ),
                 ],
@@ -850,7 +856,9 @@ class _ReliabilityActionTile extends StatelessWidget {
                                 child: Text(
                                   isActive ? 'Active' : 'Recommended',
                                   style: RA_TextStyles.tinyFont.copyWith(
-                                    color: badgeColor,
+                                    color: RA_ColourStyles.readableAccent(
+                                      badgeColor,
+                                    ),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1206,7 +1214,7 @@ class _CardButtonTile extends StatelessWidget {
                     action.label,
                     alignment: Alignment.center,
                     style: RA_TextStyles.smallFont.copyWith(
-                      color: action.color(),
+                      color: RA_ColourStyles.readableAccent(action.color()),
                     ),
                   ),
                 ],

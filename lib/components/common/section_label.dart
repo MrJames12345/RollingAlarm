@@ -12,9 +12,9 @@ Widget RA_SectionLabel(String text, {String? errorText, Widget? trailing}) {
         child: Text(
           text,
           style: RA_TextStyles.smallFont.copyWith(
-            color: hasError
-                ? RA_ColourStyles.softCoral
-                : RA_ColourStyles.secondary,
+            color: RA_ColourStyles.readableAccent(
+              hasError ? RA_ColourStyles.softCoral : RA_ColourStyles.secondary,
+            ),
           ),
         ),
       ),
@@ -27,7 +27,7 @@ Widget RA_SectionLabel(String text, {String? errorText, Widget? trailing}) {
         Text(
           '— $errorText',
           style: RA_TextStyles.tinyFont.copyWith(
-            color: RA_ColourStyles.softCoral,
+            color: RA_ColourStyles.readableAccent(RA_ColourStyles.softCoral),
             fontWeight: FontWeight.w600,
           ),
         ),

@@ -66,9 +66,10 @@ class RA_TimeOfDayField extends StatelessWidget {
               RA_ShapeStyles.space16,
               RA_ShapeStyles.space8,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Row(
                   children: [
                     Expanded(
@@ -108,6 +109,7 @@ class RA_TimeOfDayField extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         );

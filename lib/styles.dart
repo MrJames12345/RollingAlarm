@@ -82,12 +82,25 @@ class RA_ColourStyles {
   /// Secondary copy / timestamps; never a washed Material grey.
   static Color get mutedPrimary => _mode == AppThemeModeEnum.Light
       ? onAccent.withValues(alpha: 0.72)
-      : primary.withValues(alpha: 0.5);
+      : primary.withValues(alpha: 0.62);
 
   /// Dimmer metadata on dense rows.
   static Color get faintPrimary => _mode == AppThemeModeEnum.Light
       ? onAccent.withValues(alpha: 0.48)
       : primary.withValues(alpha: 0.35);
+
+  /// Adjusts brand accent [color] for WCAG AA text/icon contrast against
+  /// surface/scaffold backgrounds in the active Light or Dark theme.
+  static Color readableAccent(Color color) {
+    if (_mode == AppThemeModeEnum.Light) {
+      return color.computeLuminance() > 0.16
+          ? Color.lerp(color, onAccent, 0.38)!
+          : color;
+    }
+    return color.computeLuminance() < 0.12
+        ? Color.lerp(color, _darkPrimary, 0.44)!
+        : color;
+  }
 }
 
 // -------- //
@@ -175,7 +188,7 @@ class RA_TextStyles {
 
   /// Interval / log timestamp digits: tabular, secondary, small-screen friendly.
   static TextStyle get intervalDigitsFont => tinyFont.copyWith(
-    color: RA_ColourStyles.secondary,
+    color: RA_ColourStyles.readableAccent(RA_ColourStyles.secondary),
     fontFeatures: tabularFeatures,
   );
 
