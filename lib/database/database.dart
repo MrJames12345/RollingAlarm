@@ -189,6 +189,10 @@ class RA_Database extends _$RA_Database {
     return (select(routines)..where((r) => r.Id.equals(id))).getSingle();
   }
 
+  Future<RoutineModel?> getRoutineByIdOrNull(int id) {
+    return (select(routines)..where((r) => r.Id.equals(id))).getSingleOrNull();
+  }
+
   /// Active, non-deleted routines used to re-arm AlarmManager after boot,
   /// force-stop, or any other loss of OS timers.
   Future<List<RoutineModel>> getActiveRoutines() {
@@ -312,8 +316,8 @@ class RA_Database extends _$RA_Database {
     required int id,
     required DateTime nextTriggerTime,
   }) async {
-    final routine = await getRoutineById(id);
-    if (!routine.Deleted) return false;
+    final routine = await getRoutineByIdOrNull(id);
+    if (routine == null || !routine.Deleted) return false;
 
     final now = DateTime.now();
     await transaction(() async {

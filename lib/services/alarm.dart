@@ -18,8 +18,19 @@ import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Top-level background isolate entrypoint for [AndroidAlarmManager.oneShotAt].
+@pragma('vm:entry-point')
+Future<void> raAlarmBackgroundCallback(int alarmId) =>
+    RA_AlarmService._alarmCallback(alarmId);
+
+/// Top-level watchdog isolate entrypoint for [AndroidAlarmManager.oneShotAt].
+@pragma('vm:entry-point')
+Future<void> raWatchdogBackgroundCallback(int alarmId) =>
+    RA_AlarmService._watchdogCallback(alarmId);
+
 /// Manages alarm scheduling, the background isolate callback, and
 /// snooze/dismiss/skip/auto-snooze state transitions.
+@pragma('vm:entry-point')
 class RA_AlarmService {
   RA_AlarmService._();
 
@@ -33,7 +44,7 @@ class RA_AlarmService {
   /// UI-isolate receive port for background pings. Kept so re-register
   /// (hot restart) can close the previous port instead of leaking it.
   static ReceivePort? _uiReceivePort;
-  static StreamSubscription<dynamic>? _uiPortSubscription;
+  static StreamSubscription<Object?>? _uiPortSubscription;
 
   /// Initialises the alarm manager plugin. Call once from main().
   static Future<void> init() async {
@@ -153,7 +164,7 @@ class RA_AlarmService {
       await AndroidAlarmManager.oneShotAt(
         fireAt,
         _alarmIdBase + routineId,
-        _alarmCallback,
+        raAlarmBackgroundCallback,
         alarmClock: false,
         exact: true,
         wakeup: true,
@@ -414,10 +425,11 @@ class RA_AlarmService {
     required int snoozeSeconds,
   }) async {
     try {
+      final safeSnoozeSeconds = snoozeSeconds < 1 ? 60 : snoozeSeconds;
       await AndroidAlarmManager.oneShotAt(
-        DateTime.now().add(Duration(seconds: snoozeSeconds)),
+        DateTime.now().add(Duration(seconds: safeSnoozeSeconds)),
         _watchdogIdBase + routineId,
-        _watchdogCallback,
+        raWatchdogBackgroundCallback,
         alarmClock: false,
         exact: true,
         wakeup: true,
@@ -474,6 +486,11 @@ class RA_AlarmService {
         // Soft-deleted or otherwise unavailable; do not revive via blind update.
         return;
       }
+      if (state.PausedAt != null) {
+        await cancel(routineId);
+        await RA_WidgetService.updateWidgetState(db: db);
+        return;
+      }
       final now = DateTime.now();
 
       // A re-ring after snooze must preserve InitialRingTime and CurrentSnoozeCount.
@@ -489,21 +506,24 @@ class RA_AlarmService {
             routine.EnabledWeekdays,
             dayStartSeconds: routine.DayStartSeconds,
           );
-          await db.updateRoutineState(
+          final rows = await db.updateRoutineState(
             routineId,
             RoutineStatesCompanion(
               NextTriggerTime: Value(deferred),
               IsRinging: const Value(false),
             ),
             requireIsRinging: false,
+            matchNextTriggerTime: true,
+            nextTriggerTimeToMatch: state.NextTriggerTime,
           );
+          if (rows == 0) return;
           await scheduleNext(
             routineId: routineId,
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
             routine: routine,
-            state: state,
+            state: state.copyWith(NextTriggerTime: Value(deferred)),
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
@@ -514,6 +534,7 @@ class RA_AlarmService {
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
               ? routine.MaxTimesPerDay
               : 0,
+          extraMaxTimesToday: state.ExtraMaxTimesToday,
           timesRingToday: state.TimesRingToday,
           timesRingDay: state.TimesRingDay,
           now: now,
@@ -528,21 +549,24 @@ class RA_AlarmService {
             routine.EnabledWeekdays,
             dayStartSeconds: routine.DayStartSeconds,
           );
-          await db.updateRoutineState(
+          final rows = await db.updateRoutineState(
             routineId,
             RoutineStatesCompanion(
               NextTriggerTime: Value(deferred),
               IsRinging: const Value(false),
             ),
             requireIsRinging: false,
+            matchNextTriggerTime: true,
+            nextTriggerTimeToMatch: state.NextTriggerTime,
           );
+          if (rows == 0) return;
           await scheduleNext(
             routineId: routineId,
             triggerTime: deferred,
             dbPath: dbPath,
             routineName: routine.Name,
             routine: routine,
-            state: state,
+            state: state.copyWith(NextTriggerTime: Value(deferred)),
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
@@ -719,6 +743,15 @@ class RA_AlarmService {
       timesRingDay = period;
     }
 
+    final isSamePeriod =
+        state.TimesRingDay != null &&
+        RA_DailyRingLimit.isSamePeriod(
+          state.TimesRingDay!,
+          now,
+          routine.DayStartSeconds,
+        );
+    final effectiveExtra = isSamePeriod ? state.ExtraMaxTimesToday : 0;
+
     // Daily cap only defers the next interval cycle, never an in-cycle snooze.
     // Weekday filter applies to dismiss/skip the same way.
     return RA_WeekdaySchedule.deferToEnabledDay(
@@ -727,7 +760,7 @@ class RA_AlarmService {
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
             ? routine.MaxTimesPerDay
             : 0,
-        extraMaxTimesToday: state.ExtraMaxTimesToday,
+        extraMaxTimesToday: effectiveExtra,
         timesRingToday: timesRingToday,
         timesRingDay: timesRingDay,
         now: now,
@@ -802,7 +835,14 @@ class RA_AlarmService {
         timesRingToday = priorCount + 1;
         timesRingDay = period;
 
-        if (fresh.TimesRingDay != period) {
+        final isSamePeriod =
+            fresh.TimesRingDay != null &&
+            RA_DailyRingLimit.isSamePeriod(
+              fresh.TimesRingDay!,
+              now,
+              routine.DayStartSeconds,
+            );
+        if (!isSamePeriod) {
           extraMaxTimesToday = 0;
         }
       }
@@ -1233,8 +1273,8 @@ class RA_AlarmService {
     required RA_Database db,
     required String dbPath,
   }) async {
-    final routine = await db.getRoutineById(routineId);
-    if (!routine.Deleted) return false;
+    final routine = await db.getRoutineByIdOrNull(routineId);
+    if (routine == null || !routine.Deleted) return false;
 
     final next = RA_DailyRingLimit.initialTriggerTime(
       now: DateTime.now(),
@@ -1279,6 +1319,14 @@ class RA_AlarmService {
     final now = DateTime.now();
     final state = await db.getRoutineState(routineId);
     final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    final samePeriod =
+        state?.TimesRingDay != null &&
+        RA_DailyRingLimit.isSamePeriod(
+          state!.TimesRingDay!,
+          now,
+          routine.DayStartSeconds,
+        );
+    final effectiveExtra = samePeriod ? state.ExtraMaxTimesToday : 0;
     final previousNext = state?.NextTriggerTime;
 
     DateTime? next = RA_DailyRingLimit.retargetNextAfterCounterReset(
@@ -1287,6 +1335,7 @@ class RA_AlarmService {
       timesRingDay: state?.TimesRingDay,
       maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
       maxTimesPerDay: routine.MaxTimesPerDay,
+      extraMaxTimesToday: effectiveExtra,
       now: now,
       intervalSeconds: routine.IntervalSeconds,
       dayStartSeconds: routine.DayStartSeconds,
@@ -1301,12 +1350,16 @@ class RA_AlarmService {
         (previousNext == null ||
             next.millisecondsSinceEpoch != previousNext.millisecondsSinceEpoch);
     if (nextChanged && pausedAt != null) {
+      final safeIntervalSeconds = routine.IntervalSeconds < 1
+          ? 60
+          : routine.IntervalSeconds;
       next = RA_WeekdaySchedule.deferToEnabledDay(
         RA_DailyRingLimit.deferIfDailyLimitReached(
-          proposed: pausedAt.add(Duration(seconds: routine.IntervalSeconds)),
+          proposed: pausedAt.add(Duration(seconds: safeIntervalSeconds)),
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
               ? routine.MaxTimesPerDay
               : 0,
+          extraMaxTimesToday: effectiveExtra,
           timesRingToday: 0,
           timesRingDay: period,
           now: now,
@@ -1322,6 +1375,7 @@ class RA_AlarmService {
       RoutineStatesCompanion(
         TimesRingToday: const Value(0),
         TimesRingDay: Value(period),
+        ExtraMaxTimesToday: samePeriod ? const Value.absent() : const Value(0),
         NextTriggerTime: nextChanged ? Value(next) : const Value.absent(),
       ),
     );
@@ -1332,14 +1386,19 @@ class RA_AlarmService {
       timestamp: now,
     );
 
-    if (nextChanged && next != null && routine.IsActive) {
+    if (nextChanged && next != null && routine.IsActive && pausedAt == null) {
       await scheduleNext(
         routineId: routineId,
         triggerTime: next,
         dbPath: dbPath,
         routineName: routine.Name,
         routine: routine,
-        state: state,
+        state: state?.copyWith(
+          TimesRingToday: 0,
+          TimesRingDay: Value(period),
+          ExtraMaxTimesToday: samePeriod ? state.ExtraMaxTimesToday : 0,
+          NextTriggerTime: Value(next),
+        ),
         refreshWidget: false,
       );
     }
@@ -1398,10 +1457,15 @@ class RA_AlarmService {
 
     DateTime? next = state.NextTriggerTime;
     bool nextChanged = false;
+    final pausedAt = state.PausedAt;
 
     if (!isAtCap && wasAtCap && next != null) {
+      final anchor = pausedAt ?? now;
+      final safeIntervalSeconds = routine.IntervalSeconds < 1
+          ? 60
+          : routine.IntervalSeconds;
       final candidate = RA_DailyRingLimit.deferIfDailyLimitReached(
-        proposed: now.add(Duration(seconds: routine.IntervalSeconds)),
+        proposed: anchor.add(Duration(seconds: safeIntervalSeconds)),
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
             ? routine.MaxTimesPerDay
             : 0,
@@ -1417,12 +1481,20 @@ class RA_AlarmService {
         dayStartSeconds: routine.DayStartSeconds,
       );
       nextChanged = true;
+    } else if (isAtCap && !wasAtCap && next != null) {
+      next = RA_WeekdaySchedule.deferToEnabledDay(
+        RA_DailyRingLimit.nextCalendarDayStart(now, routine.DayStartSeconds),
+        routine.EnabledWeekdays,
+        dayStartSeconds: routine.DayStartSeconds,
+      );
+      nextChanged = true;
     }
 
     await db.updateRoutineState(
       routineId,
       RoutineStatesCompanion(
         ExtraMaxTimesToday: Value(newExtra),
+        TimesRingToday: Value(priorCount),
         TimesRingDay: Value(period),
         NextTriggerTime: nextChanged ? Value(next) : const Value.absent(),
       ),
@@ -1434,14 +1506,19 @@ class RA_AlarmService {
       timestamp: now,
     );
 
-    if (nextChanged && next != null && routine.IsActive) {
+    if (nextChanged && next != null && routine.IsActive && pausedAt == null) {
       await scheduleNext(
         routineId: routineId,
         triggerTime: next,
         dbPath: dbPath,
         routineName: routine.Name,
         routine: routine,
-        state: state,
+        state: state.copyWith(
+          ExtraMaxTimesToday: newExtra,
+          TimesRingToday: priorCount,
+          TimesRingDay: Value(period),
+          NextTriggerTime: Value(next),
+        ),
         refreshWidget: false,
       );
     }
@@ -1464,6 +1541,14 @@ class RA_AlarmService {
     final compensation =
         DriftCompensationTypeCodeEnum.values[routine.DriftCompensationTypeCode];
     final period = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
+    final isSameDay =
+        state.TimesRingDay != null &&
+        RA_DailyRingLimit.isSamePeriod(
+          state.TimesRingDay!,
+          now,
+          routine.DayStartSeconds,
+        );
+    final effectiveExtra = isSameDay ? state.ExtraMaxTimesToday : 0;
     final priorCount = RA_DailyRingLimit.countForDay(
       timesRingToday: state.TimesRingToday,
       timesRingDay: state.TimesRingDay,
@@ -1493,7 +1578,7 @@ class RA_AlarmService {
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
             ? routine.MaxTimesPerDay
             : 0,
-        extraMaxTimesToday: state.ExtraMaxTimesToday,
+        extraMaxTimesToday: effectiveExtra,
         timesRingToday: timesRingToday,
         timesRingDay: timesRingDay,
         now: now,
@@ -1524,6 +1609,9 @@ class RA_AlarmService {
             ? Value(timesRingToday)
             : const Value.absent(),
         TimesRingDay: shouldCount ? Value(timesRingDay) : const Value.absent(),
+        ExtraMaxTimesToday: (shouldCount && !isSameDay)
+            ? const Value(0)
+            : const Value.absent(),
       ),
       requireIsRinging: false,
       matchNextTriggerTime: true,
@@ -1581,7 +1669,7 @@ class RA_AlarmService {
 
   /// Registers a receive port in the UI isolate to listen for pings.
   /// Closes any previous port/subscription first so hot restart does not leak.
-  static void registerUiPort(void Function(dynamic) callback) {
+  static void registerUiPort(void Function(Object?) callback) {
     IsolateNameServer.removePortNameMapping(_portName);
     final previousSub = _uiPortSubscription;
     final previousPort = _uiReceivePort;

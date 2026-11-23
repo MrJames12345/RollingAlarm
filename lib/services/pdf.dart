@@ -28,7 +28,7 @@ class RA_PdfService {
     final rows = <List<String>>[
       for (final log in capped)
         <String>[
-          RA_Utils.formatDateTime(log.Timestamp),
+          RA_Utils.formatDateTime(log.Timestamp.toLocal()),
           _resolveRoutineName(log.RoutineId, routineNamesById),
           RA_logActionFromCode(log.LogActionTypeCode)?.displayName ?? 'Unknown',
           log.TimeSinceLastDismissalSeconds != null

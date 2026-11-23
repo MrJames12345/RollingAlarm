@@ -27,7 +27,7 @@ class RA_WeekdaySchedule {
 
   /// Whether the calendar day of [dateTime] is enabled in [mask].
   static bool isDateEnabled(int mask, DateTime dateTime) =>
-      isEnabled(mask, dateTime.weekday);
+      isEnabled(mask, dateTime.toLocal().weekday);
 
   /// Mask with [weekday] (Dart 1..7) toggled. Returns [mask] unchanged when
   /// turning off the last remaining day.

@@ -14,21 +14,29 @@ class RA_DailyRingLimit {
       dayStartSeconds.clamp(0, secondsPerDay - 1);
 
   static DateTime periodStart(DateTime now, int dayStartSeconds) {
+    final local = now.toLocal();
     final offset = normalizeDayStartSeconds(dayStartSeconds);
     final hour = offset ~/ 3600;
     final minute = (offset % 3600) ~/ 60;
     final second = offset % 60;
 
     final todayStart = DateTime(
-      now.year,
-      now.month,
-      now.day,
+      local.year,
+      local.month,
+      local.day,
       hour,
       minute,
       second,
     );
-    if (now.isBefore(todayStart)) {
-      return DateTime(now.year, now.month, now.day - 1, hour, minute, second);
+    if (local.isBefore(todayStart)) {
+      return DateTime(
+        local.year,
+        local.month,
+        local.day - 1,
+        hour,
+        minute,
+        second,
+      );
     }
     return todayStart;
   }
@@ -133,11 +141,12 @@ class RA_DailyRingLimit {
   /// Used when the daily cap is exhausted so the next fire is never scheduled
   /// for an upcoming day-start later on the same calendar day.
   static DateTime nextCalendarDayStart(DateTime now, int dayStartSeconds) {
+    final local = now.toLocal();
     final offset = normalizeDayStartSeconds(dayStartSeconds);
     final hour = offset ~/ 3600;
     final minute = (offset % 3600) ~/ 60;
     final second = offset % 60;
-    return DateTime(now.year, now.month, now.day + 1, hour, minute, second);
+    return DateTime(local.year, local.month, local.day + 1, hour, minute, second);
   }
 
   /// First trigger when creating or importing a routine.
@@ -152,9 +161,12 @@ class RA_DailyRingLimit {
     int dayStartSeconds = 0,
     int enabledWeekdays = 0x7F,
   }) {
+    final safeInterval = interval.inSeconds < 1
+        ? const Duration(seconds: 60)
+        : interval;
     final proposed = maxTimesPerDayEnabled
         ? nextPeriodStartAfter(now, dayStartSeconds)
-        : now.add(interval);
+        : now.add(safeInterval);
     return RA_WeekdaySchedule.deferToEnabledDay(
       proposed,
       enabledWeekdays,
@@ -250,12 +262,13 @@ class RA_DailyRingLimit {
       extraMaxTimesToday: newEffectiveExtra,
     );
 
+    final safeIntervalSeconds = intervalSeconds < 1 ? 60 : intervalSeconds;
     late final DateTime candidate;
     if (capChanged && isAtCap && !wasAtCap) {
       candidate = nextCalendarDayStart(now, newStart);
     } else if (capChanged && !isAtCap && wasAtCap) {
       candidate = deferIfDailyLimitReached(
-        proposed: now.add(Duration(seconds: intervalSeconds)),
+        proposed: now.add(Duration(seconds: safeIntervalSeconds)),
         maxTimesPerDay: newMaxTimesPerDayEnabled ? newMaxTimesPerDay : 0,
         extraMaxTimesToday: newEffectiveExtra,
         timesRingToday: timesRingToday,
@@ -268,7 +281,9 @@ class RA_DailyRingLimit {
           trigger: previousNext,
           dayStartSeconds: oldStart,
         )) {
-      candidate = nextPeriodStartAfter(now, newStart);
+      candidate = isAtCap
+          ? nextCalendarDayStart(now, newStart)
+          : nextPeriodStartAfter(now, newStart);
     } else {
       candidate = previousNext;
     }
@@ -314,7 +329,8 @@ class RA_DailyRingLimit {
     required int intervalSeconds,
     required int dayStartSeconds,
   }) {
-    final afterInterval = now.add(Duration(seconds: intervalSeconds));
+    final safeIntervalSeconds = intervalSeconds < 1 ? 60 : intervalSeconds;
+    final afterInterval = now.add(Duration(seconds: safeIntervalSeconds));
     final dayStart = nextPeriodStartAfter(now, dayStartSeconds);
     return afterInterval.isBefore(dayStart) ? afterInterval : dayStart;
   }
@@ -366,9 +382,11 @@ class RA_DailyRingLimit {
     }
 
     final period = periodStart(now, dayStart);
+    final safeIntervalSeconds = intervalSeconds < 1 ? 60 : intervalSeconds;
     final candidate = deferIfDailyLimitReached(
-      proposed: now.add(Duration(seconds: intervalSeconds)),
+      proposed: now.add(Duration(seconds: safeIntervalSeconds)),
       maxTimesPerDay: maxTimesPerDayEnabled ? maxTimesPerDay : 0,
+      extraMaxTimesToday: effectiveExtra,
       timesRingToday: 0,
       timesRingDay: period,
       now: now,

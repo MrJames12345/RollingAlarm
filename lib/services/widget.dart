@@ -66,7 +66,7 @@ class RA_WidgetService {
         );
         final next = state?.NextTriggerTime;
         final nextAlarmTime = next != null
-            ? _alarmClockFormat.format(next)
+            ? _alarmClockFormat.format(next.toLocal())
             : '--:--';
 
         await HomeWidget.saveWidgetData<String>(
