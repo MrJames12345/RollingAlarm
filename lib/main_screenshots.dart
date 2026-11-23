@@ -10,8 +10,8 @@
 ///   --es route "/dashboard"
 /// ```
 ///
-/// Scenes: dashboard, ringing, editor, summary, logs, settings. Every scene
-/// renders in the dark theme.
+/// Scenes: dashboard, ringing, editor, summary, logs, settings, paywall. Every
+/// scene renders in the dark theme.
 ///
 /// Once the scene has settled, `RA_SCREENSHOT_READY <route>` is printed to
 /// logcat so the host script knows when to capture.
@@ -33,17 +33,27 @@ import 'package:rolling_alarm/main.dart';
 import 'package:rolling_alarm/models/alarm_sound.dart';
 import 'package:rolling_alarm/navigation/routes.dart';
 import 'package:rolling_alarm/pages/logs.dart';
+import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/pages/settings.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/settings.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum RA_ScreenshotScene { dashboard, ringing, editor, summary, logs, settings }
+enum RA_ScreenshotScene {
+  dashboard,
+  ringing,
+  editor,
+  summary,
+  logs,
+  settings,
+  paywall,
+}
 
 /// Time allowed after the scene opens for page fades and runtime font loading
 /// to finish before capture.
@@ -73,6 +83,16 @@ Future<void> main() async {
   await prefs.clear();
   await RA_AlarmService.persistDatabasePath(dbPath);
   await RA_SettingsService.setThemeMode(themeMode);
+  if (scene == RA_ScreenshotScene.paywall) {
+    // Seed a deterministic active Day-1 Founding Lifetime countdown window
+    // (~23h 45m remaining) so the paywall screenshot showcases the live offer.
+    await prefs.setInt(
+      RA_PurchaseService.firstSeenEpochMsKey,
+      DateTime.now()
+          .subtract(const Duration(minutes: 15))
+          .millisecondsSinceEpoch,
+    );
+  }
 
   final database = RA_Database();
   final demo = await _seedDemoData(
@@ -94,7 +114,9 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         RA_DatabaseProvider.overrideWithValue(database),
-        IsProProvider.overrideWithValue(true),
+        IsProProvider.overrideWithValue(scene != RA_ScreenshotScene.paywall),
+        if (scene == RA_ScreenshotScene.paywall)
+          OfferingsProvider.overrideWith((ref) async => null),
       ],
       child: RollingAlarmApp(dbPath: dbPath),
     ),
@@ -132,6 +154,7 @@ Future<void> _openScene(
     ),
     RA_ScreenshotScene.logs => LogsPage(dbPath: dbPath),
     RA_ScreenshotScene.settings => SettingsPage(dbPath: dbPath),
+    RA_ScreenshotScene.paywall => const PaywallPage(),
   };
   if (page != null) {
     unawaited(navigator.push(RA_Routes.fade(page)));
@@ -142,6 +165,21 @@ Future<void> _openScene(
     final section = _findText(_editorTopSection);
     if (section != null) {
       await Scrollable.ensureVisible(section);
+    }
+  }
+  if (scene == RA_ScreenshotScene.paywall) {
+    // On compact phone displays, scroll the paywall just far enough to reveal
+    // all three pricing tiers (Day-1 Lifetime, Annual, Monthly) plus the CTA.
+    final monthly = _findText('Monthly Pro');
+    if (monthly != null) {
+      final scrollable = Scrollable.maybeOf(monthly);
+      if (scrollable != null && scrollable.position.maxScrollExtent > 0) {
+        final target = (scrollable.position.maxScrollExtent - 32.0).clamp(
+          0.0,
+          scrollable.position.maxScrollExtent,
+        );
+        scrollable.position.jumpTo(target);
+      }
     }
   }
   if (scene == RA_ScreenshotScene.ringing) {

@@ -18,6 +18,7 @@
 #   04_routine_summary  Routine summary tiles
 #   05_alarm_logs       Alarm log history with mixed event types
 #   06_settings         Settings
+#   07_paywall          Rolling Alarm Pro paywall with Day-1 Offer, Annual and Monthly tiers
 #
 # Every scene is captured in the dark theme only, at least 1,080 px wide.
 #
@@ -64,7 +65,7 @@ cd "$(dirname "$0")/.."
 APP_PACKAGE="com.casellaweb.rolling_alarm"
 APP_ACTIVITY=".MainActivity"
 PROFILES="${PROFILES:-phone tablet_7in tablet_10in}"
-SCENES="${SCENES:-01_dashboard 02_alarm_ringing 03_routine_editor 04_routine_summary 05_alarm_logs 06_settings}"
+SCENES="${SCENES:-01_dashboard 02_alarm_ringing 03_routine_editor 04_routine_summary 05_alarm_logs 06_settings 07_paywall}"
 MIN_WIDTH=1080
 SKIP_BUILD="${SKIP_BUILD:-0}"
 SETTLE_WAIT="${SETTLE_WAIT:-1}"
@@ -95,6 +96,7 @@ scene_route() {
     04_routine_summary) echo "/summary" ;;
     05_alarm_logs)      echo "/logs" ;;
     06_settings)        echo "/settings" ;;
+    07_paywall)         echo "/paywall" ;;
     *) echo "Error: unknown scene '$1'." >&2; exit 1 ;;
   esac
 }
@@ -144,7 +146,9 @@ demo() {
 }
 
 apply_clean_status_bar() {
+  adb shell settings put global sysui_demo_allowed 1 >/dev/null 2>&1 || true
   demo enter
+  sleep 0.2
   demo notifications -e visible false
   demo battery -e level 100 -e plugged false -e powersave false
   # Full strength Wi-Fi and cellular with no data type badge, as on a phone
@@ -157,6 +161,9 @@ apply_clean_status_bar() {
     -e zen hide -e mute hide -e speakerphone hide -e cast hide -e hotspot hide \
     -e sync hide -e tty hide -e eri hide
   demo clock -e hhmm 0700
+  # Re-assert notification hiding after clock/status updates so Android 14+
+  # SystemUI drops any freshly posted system or foreground-service icons.
+  demo notifications -e visible false
 }
 
 reset_display() {
@@ -285,10 +292,14 @@ capture_scene() {
   wait_for_scene_ready "$route" || return 1
   sleep "$SETTLE_WAIT"
   # System notifications posted after demo mode was entered (such as the
-  # emulator's "Serial console enabled") show their icons again until the
-  # demo commands are resent, so they go out immediately before every capture.
+  # emulator's "Serial console enabled" or alarm service alerts) show their
+  # icons again until demo mode is refreshed, so force notifications hidden
+  # cleanly immediately before every capture.
+  demo notifications -e visible false || return 1
   apply_clean_status_bar || return 1
-  sleep 0.5
+  sleep 0.6
+  demo notifications -e visible false || return 1
+  sleep 0.2
 
   adb shell screencap -p "$DEVICE_TMP" || return 1
   adb pull "$DEVICE_TMP" "$output_file" >/dev/null || return 1
