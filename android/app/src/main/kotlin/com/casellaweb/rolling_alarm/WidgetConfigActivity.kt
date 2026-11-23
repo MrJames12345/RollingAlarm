@@ -11,6 +11,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -238,15 +239,27 @@ class WidgetConfigActivity : Activity() {
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // Keep fitsSystemWindows on the outer wrapper so Android's system-bar
+        // inset padding does not overwrite the inner container's content padding.
+        val container = FrameLayout(this).apply {
+            fitsSystemWindows = true
             setBackgroundColor(COLOR_OFF_BLACK)
-            setPaddingRelative(dp(20), dp(28), dp(20), dp(20))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
         }
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(COLOR_OFF_BLACK)
+            setPaddingRelative(dp(20), dp(28), dp(20), dp(20))
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+        container.addView(root)
 
         root.addView(
             TextView(this).apply {
@@ -279,7 +292,7 @@ class WidgetConfigActivity : Activity() {
                     gravity = Gravity.START
                 },
             )
-            return root
+            return container
         }
 
         val list = LinearLayout(this).apply {
@@ -319,7 +332,7 @@ class WidgetConfigActivity : Activity() {
             addView(list)
         }
         root.addView(scroll)
-        return root
+        return container
     }
 
     private fun confirmRoutine(routineId: Int) {

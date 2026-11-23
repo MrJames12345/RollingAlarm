@@ -11,6 +11,10 @@
     <string name="widget_config_title">एक रूटीन चुनें</string>
     <string name="widget_config_subtitle">यह होम स्क्रीन विजेट चुनी गई रूटीन दिखाएगा।</string>
     <string name="widget_config_empty">अभी कोई सक्रिय रूटीन नहीं है. रोलिंग अलार्म में एक बनाएँ, फिर फिर से कोशिश करें.</string>
+    <string name="widget_pro_title">रोलिंग अलार्म Pro</string>
+    <string name="widget_pro_message">1 होम विजेट मुफ़्त शामिल है। रोलिंग अलार्म Pro के साथ असीमित रूटीन विजेट अनलॉक करें।</string>
+    <string name="widget_pro_unlock">Pro अनलॉक करें</string>
+    <string name="widget_pro_cancel">रद्द करें</string>
 
     <string name="interval_hours">%1$dघं</string>
     <string name="interval_minutes">%1$dमि</string>

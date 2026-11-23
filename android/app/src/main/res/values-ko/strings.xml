@@ -11,6 +11,10 @@
     <string name="widget_config_title">루틴 선택</string>
     <string name="widget_config_subtitle">이 홈 화면 위젯은 선택한 루틴을 표시합니다.</string>
     <string name="widget_config_empty">활성 루틴이 아직 없습니다. 롤링 알람에서 만든 다음 다시 시도하세요.</string>
+    <string name="widget_pro_title">롤링 알람 Pro</string>
+    <string name="widget_pro_message">홈 위젯 1개는 무료로 제공됩니다. 롤링 알람 Pro로 무제한 루틴 위젯을 잠금 해제하세요.</string>
+    <string name="widget_pro_unlock">Pro 잠금 해제</string>
+    <string name="widget_pro_cancel">취소</string>
 
     <string name="interval_hours">%1$d시간</string>
     <string name="interval_minutes">%1$d분</string>

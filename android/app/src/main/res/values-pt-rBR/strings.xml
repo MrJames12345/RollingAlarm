@@ -11,6 +11,10 @@
     <string name="widget_config_title">Escolha uma rotina</string>
     <string name="widget_config_subtitle">Este widget da tela inicial mostrará a rotina selecionada.</string>
     <string name="widget_config_empty">Ainda não há rotinas ativas. Crie uma no Alarme Rolante e tente novamente.</string>
+    <string name="widget_pro_title">Alarme Rolante Pro</string>
+    <string name="widget_pro_message">1 widget de tela inicial está incluído gratuitamente. Desbloqueie widgets de rotina ilimitados com o Alarme Rolante Pro.</string>
+    <string name="widget_pro_unlock">Desbloquear Pro</string>
+    <string name="widget_pro_cancel">Cancelar</string>
 
     <string name="interval_hours">%1$dh</string>
     <string name="interval_minutes">%1$dmin</string>

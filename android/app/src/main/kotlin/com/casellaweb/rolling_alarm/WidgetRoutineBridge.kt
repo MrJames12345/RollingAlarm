@@ -3,6 +3,7 @@
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import es.antonborri.home_widget.HomeWidgetPlugin
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -15,8 +16,6 @@ import java.util.Locale
 object WidgetRoutineBridge {
     const val PREFS_ROUTINE_ID_KEY = "routine_id"
     private const val DISMISS_ACTION = 0 // LogActionTypeCodeEnum.Dismiss
-
-    private val alarmClockFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
 
     data class RoutineChoice(val id: Int, val name: String)
 
@@ -134,7 +133,8 @@ object WidgetRoutineBridge {
         }
 
         val nextAlarm = nextRaw?.let {
-            alarmClockFormat.format(Date(fromDriftTimestamp(it)))
+            SimpleDateFormat("hh:mm a", Locale.getDefault())
+                .format(Date(fromDriftTimestamp(it)))
         } ?: "--:--"
 
         return RoutineDisplay(
@@ -161,14 +161,15 @@ object WidgetRoutineBridge {
         return parts.joinToString(" ")
     }
 
-    /** Drift DateTime columns are stored as microseconds since epoch. */
+    /** Drift DateTime columns are stored as Unix seconds (defensively decode ms/us too). */
     private fun fromDriftTimestamp(raw: Long): Long = when {
         raw > 100_000_000_000_000L -> raw / 1000L
         raw > 100_000_000_000L -> raw
         else -> raw * 1000L
     }
 
-    private fun toDriftTimestamp(epochMillis: Long): Long = epochMillis * 1000L
+    /** Drift stores DateTime columns as Unix epoch seconds. */
+    private fun toDriftTimestamp(epochMillis: Long): Long = epochMillis / 1000L
 
     private fun periodStartMillis(nowMillis: Long, dayStartSeconds: Int): Long {
         val offsetSec = dayStartSeconds.coerceIn(0, 24 * 3600 - 1)
@@ -198,12 +199,21 @@ object WidgetRoutineBridge {
             "FlutterSharedPreferences",
             Context.MODE_PRIVATE,
         )
-        return prefs.getString("flutter.ra_db_path", null)
+        val fromPrefs = prefs.getString("flutter.ra_db_path", null)
             ?: prefs.getString("ra_db_path", null)
+        if (!fromPrefs.isNullOrBlank()) return fromPrefs
+
+        val fallback = File(context.dataDir, "app_flutter/rolling_alarm.db")
+        return if (fallback.exists()) fallback.absolutePath else null
     }
 
     private fun openDb(path: String): SQLiteDatabase? = try {
-        SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
+        SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY).also { db ->
+            try {
+                db.rawQuery("PRAGMA busy_timeout = 5000", null).use { it.moveToFirst() }
+            } catch (_: Exception) {
+            }
+        }
     } catch (_: Exception) {
         null
     }

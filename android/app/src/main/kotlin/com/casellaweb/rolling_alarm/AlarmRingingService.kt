@@ -60,12 +60,15 @@ class AlarmRingingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val routineId = intent?.getIntExtra(EXTRA_ROUTINE_ID, -1) ?: -1
+        ensureChannel(this)
         if (routineId < 0) {
-            stopSelf()
+            // Still satisfy Android 8+ startForegroundService() contract before stopping.
+            val quietFallback = buildServiceNotification(this, 0, useFsi = false)
+            startForegroundWithType(notificationId(0), quietFallback)
+            cancelNotificationAndStop(0)
             return START_NOT_STICKY
         }
 
-        ensureChannel(this)
         // Satisfy Android's 5-second FGS contract first with a quiet notification
         // (no FSI / screen wake) before querying SQLite.
         val quietNotification = buildServiceNotification(this, routineId, useFsi = false)
@@ -565,6 +568,7 @@ class AlarmRingingService : Service() {
         }
 
         fun start(context: Context, intent: Intent) {
+            if (intent.getIntExtra(EXTRA_ROUTINE_ID, -1) < 0) return
             val serviceIntent = Intent(context, AlarmRingingService::class.java).apply {
                 putExtras(intent)
             }

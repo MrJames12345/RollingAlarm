@@ -11,6 +11,10 @@
     <string name="widget_config_title">Routine auswählen</string>
     <string name="widget_config_subtitle">Dieses Startbildschirm-Widget zeigt die ausgewählte Routine an.</string>
     <string name="widget_config_empty">Noch keine aktiven Routinen. Erstelle eine in Rollender Alarm und versuche es erneut.</string>
+    <string name="widget_pro_title">Rollender Alarm Pro</string>
+    <string name="widget_pro_message">1 Startbildschirm-Widget ist kostenlos enthalten. Schalte mit Rollender Alarm Pro unbegrenzte Routine-Widgets frei.</string>
+    <string name="widget_pro_unlock">Pro freischalten</string>
+    <string name="widget_pro_cancel">Abbrechen</string>
 
     <string name="interval_hours">%1$d Std.</string>
     <string name="interval_minutes">%1$d Min.</string>

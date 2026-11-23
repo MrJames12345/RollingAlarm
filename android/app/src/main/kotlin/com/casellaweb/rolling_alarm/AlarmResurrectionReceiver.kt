@@ -53,7 +53,7 @@ class AlarmResurrectionReceiver : BroadcastReceiver() {
                 }
 
                 // Do not re-arm deleted, paused, or muted routines natively.
-                if (AlarmSqliteGate.shouldSuppressRing(context, routineId)) {
+                if (AlarmSqliteGate.shouldSuppressResurrection(context, routineId)) {
                     editor.remove(key)
                     continue
                 }

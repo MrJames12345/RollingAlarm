@@ -11,6 +11,10 @@
     <string name="widget_config_title">Выберите режим</string>
     <string name="widget_config_subtitle">Этот виджет на домашнем экране покажет выбранный режим.</string>
     <string name="widget_config_empty">Пока нет активных режимов. Создайте один в Скользящем Будильнике и повторите попытку.</string>
+    <string name="widget_pro_title">Скользящий Будильник Pro</string>
+    <string name="widget_pro_message">1 виджет на главном экране включён бесплатно. Откройте неограниченное число виджетов режимов со Скользящим Будильником Pro.</string>
+    <string name="widget_pro_unlock">Открыть Pro</string>
+    <string name="widget_pro_cancel">Отмена</string>
 
     <string name="interval_hours">%1$d ч</string>
     <string name="interval_minutes">%1$d мин</string>

@@ -11,6 +11,10 @@
     <string name="widget_config_title">Elige una rutina</string>
     <string name="widget_config_subtitle">Este widget de la pantalla de inicio mostrará la rutina seleccionada.</string>
     <string name="widget_config_empty">Aún no hay rutinas activas. Crea una en Alarma Rodante y vuelve a intentarlo.</string>
+    <string name="widget_pro_title">Alarma Rodante Pro</string>
+    <string name="widget_pro_message">Se incluye 1 widget de inicio gratis. Desbloquea widgets de rutina ilimitados con Alarma Rodante Pro.</string>
+    <string name="widget_pro_unlock">Desbloquear Pro</string>
+    <string name="widget_pro_cancel">Cancelar</string>
 
     <string name="interval_hours">%1$dh</string>
     <string name="interval_minutes">%1$dmin</string>

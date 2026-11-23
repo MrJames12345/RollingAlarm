@@ -11,6 +11,10 @@
     <string name="widget_config_title">ルーティンを選択</string>
     <string name="widget_config_subtitle">このホーム画面ウィジェットには、選択したルーティンが表示されます。</string>
     <string name="widget_config_empty">有効なルーティンがまだありません。ローリングアラームで作成してから、もう一度お試しください。</string>
+    <string name="widget_pro_title">ローリングアラーム Pro</string>
+    <string name="widget_pro_message">ホームウィジェットは1つまで無料で利用できます。ローリングアラーム Pro でルーティンウィジェットを無制限に解除しましょう。</string>
+    <string name="widget_pro_unlock">Proを解除</string>
+    <string name="widget_pro_cancel">キャンセル</string>
 
     <string name="interval_hours">%1$d時間</string>
     <string name="interval_minutes">%1$d分</string>

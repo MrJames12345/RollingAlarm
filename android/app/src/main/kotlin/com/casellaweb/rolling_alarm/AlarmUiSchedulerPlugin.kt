@@ -177,7 +177,8 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 flags
             )
 
-            // Show PI: system status-bar / lock clock tap opens the app.
+            // Show PI: system status-bar / lock clock tap opens the app normally
+            // without forcing ringing flags before the alarm actually fires.
             val showLaunch = Intent(context, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -185,7 +186,6 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or
                         Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 )
-                putExtra(MainActivity.EXTRA_ALARM_RINGING, true)
                 putExtra(AlarmReceiver.EXTRA_ROUTINE_ID, routineId)
             }
             val creatorOptions = creatorBalOptionsBundle()

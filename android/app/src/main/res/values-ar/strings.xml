@@ -11,6 +11,10 @@
     <string name="widget_config_title">اختر روتينًا</string>
     <string name="widget_config_subtitle">ستعرض هذه الأداة على الشاشة الرئيسية الروتين المحدد.</string>
     <string name="widget_config_empty">لا توجد روتينات نشطة بعد. أنشئ واحدًا في المنبه المتدحرج ثم حاول مرة أخرى.</string>
+    <string name="widget_pro_title">المنبه المتدحرج Pro</string>
+    <string name="widget_pro_message">تتوفر أداة شاشة رئيسية واحدة مجانًا. افتح عددًا غير محدود من أدوات الروتين مع المنبه المتدحرج Pro.</string>
+    <string name="widget_pro_unlock">فتح Pro</string>
+    <string name="widget_pro_cancel">إلغاء</string>
 
     <string name="interval_hours">%1$d س</string>
     <string name="interval_minutes">%1$d د</string>
