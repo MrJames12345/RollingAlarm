@@ -12,6 +12,7 @@ import 'package:rolling_alarm/enums/alarm_action_type_code.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
 import 'package:rolling_alarm/enums/log_action_type_code.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/notification.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -2136,6 +2137,196 @@ void main() {
 
         await db.close();
         await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'stale ExtraMaxTimesToday does not resurrect on day rollover in nextTriggerForAction or handleTransition',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_extra_roll_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        final now = DateTime.now();
+        final todayPeriod = RA_DailyRingLimit.periodStart(now, 0);
+        final yesterdayPeriod = DateTime(
+          todayPeriod.year,
+          todayPeriod.month,
+          todayPeriod.day - 1,
+        );
+        final tomorrowDayStart = RA_DailyRingLimit.nextCalendarDayStart(now, 0);
+
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Extra Rollover'),
+            IntervalSeconds: const Value(3600),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(1),
+            DayStartSeconds: const Value(0),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(now),
+            InitialRingTime: Value(now),
+            IsRinging: const Value(true),
+            TimesRingToday: const Value(4),
+            ExtraMaxTimesToday: const Value(5),
+            TimesRingDay: Value(yesterdayPeriod),
+          ),
+        );
+        final routine = await db.getRoutineById(routineId);
+        final state = (await db.getRoutineState(routineId))!;
+
+        // Preview math: on a new day, count resets to 0 -> +1 = 1 == MaxTimesPerDay(1),
+        // and yesterday's ExtraMaxTimesToday=5 must NOT apply -> parks at tomorrow day-start.
+        final previewNext = RA_AlarmService.nextTriggerForAction(
+          action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          routine: routine,
+          state: state,
+          now: now,
+        );
+        expect(previewNext, equals(tomorrowDayStart));
+
+        await RA_AlarmService.handleTransition(
+          action: RA_AlarmActionTypeCodeEnum.Dismiss,
+          routineId: routineId,
+          db: db,
+          routine: routine,
+          state: state,
+        );
+
+        final after = await db.getRoutineState(routineId);
+        expect(after!.TimesRingToday, equals(1));
+        expect(after.ExtraMaxTimesToday, equals(0));
+        expect(after.NextTriggerTime, equals(tomorrowDayStart));
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'resetTodayCounter does not arm a paused routine and recoverRoutine returns false on missing ID',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_paused_rst_');
+        final dbPath = p.join(tempDir.path, 'test.db');
+        SharedPreferences.setMockInitialValues({'ra_db_path': dbPath});
+
+        final db = RA_Database.openForIsolate(dbPath);
+        const dayStartSeconds = 6 * 3600;
+        final now = DateTime.now();
+        final dayStart = RA_DailyRingLimit.nextPeriodStartAfter(
+          now,
+          dayStartSeconds,
+        );
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Paused Reset'),
+            IntervalSeconds: const Value(3600),
+            SnoozeSeconds: const Value(300),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+            MaxTimesPerDayEnabled: const Value(true),
+            MaxTimesPerDay: const Value(2),
+            DayStartSeconds: const Value(dayStartSeconds),
+            IsActive: const Value(true),
+          ),
+        );
+        await db.insertRoutineState(
+          RoutineStatesCompanion(
+            RoutineId: Value(routineId),
+            NextTriggerTime: Value(dayStart),
+            PausedAt: Value(now.subtract(const Duration(minutes: 10))),
+            TimesRingToday: const Value(2),
+            TimesRingDay: Value(
+              RA_DailyRingLimit.periodStart(now, dayStartSeconds),
+            ),
+          ),
+        );
+        final staleActiveRoutine = await db.getRoutineById(routineId);
+
+        alarmChannelCalls.clear();
+        uiSchedulerChannelCalls.clear();
+        await RA_AlarmService.resetTodayCounter(
+          routineId: routineId,
+          db: db,
+          routine: staleActiveRoutine,
+          dbPath: dbPath,
+        );
+
+        expect(
+          alarmChannelCalls.where((c) => c.method == 'Alarm.oneShotAt'),
+          isEmpty,
+        );
+        expect(
+          uiSchedulerChannelCalls.where((c) => c.method == 'schedule'),
+          isEmpty,
+        );
+
+        // recoverRoutine returns false rather than throwing StateError for unknown ID.
+        expect(
+          await RA_AlarmService.recoverRoutine(
+            routineId: 999999,
+            db: db,
+            dbPath: dbPath,
+          ),
+          isFalse,
+        );
+
+        await db.close();
+        await tempDir.delete(recursive: true);
+      },
+    );
+
+    test(
+      'cancelNotification still stops native ringing and clears prefs if plugin cancel throws, and audio start/stop race is safe',
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(RA_NotificationService.ringingPrefKey, true);
+        await prefs.setInt(RA_NotificationService.alarmWakeAtPrefKey, 12345);
+
+        const notifChannel = MethodChannel(
+          'dexterous.com/flutter/local_notifications',
+        );
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(notifChannel, (MethodCall call) async {
+              if (call.method == 'cancel') {
+                throw MissingPluginException('simulated missing plugin');
+              }
+              return true;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(notifChannel, (MethodCall call) async {
+                notifChannelCalls.add(call);
+                if (call.method == 'canUseFullScreenIntent') return true;
+                return true;
+              });
+        });
+
+        uiSchedulerChannelCalls.clear();
+        await RA_NotificationService.cancelNotification(77);
+
+        expect(
+          uiSchedulerChannelCalls.any((c) => c.method == 'stopRinging'),
+          isTrue,
+        );
+        expect(prefs.getBool(RA_NotificationService.ringingPrefKey), isFalse);
+        expect(prefs.getInt(RA_NotificationService.alarmWakeAtPrefKey), isNull);
+
+        await Future.wait([
+          RA_AudioService.startAlarm(volume: 80, fadeIn: true),
+          RA_AudioService.stopAlarm(),
+        ]);
       },
     );
   });

@@ -12,6 +12,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:rolling_alarm/components/common/app_theme_scope.dart';
 import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/routine/quick_templates_strip.dart';
+import 'package:rolling_alarm/components/routine/routine_history_list.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/enums/drift_compensation_type_code.dart';
@@ -607,6 +608,100 @@ void main() {
 
           expect(find.text('Recent Dose'), findsOneWidget);
           expect(find.text('Old Archive Dose'), findsOneWidget);
+          expect(find.text('Showing last 7 days'), findsNothing);
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'RA_RoutineHistoryList enforces Free 7-day cap with upgrade card opening PaywallPage and Pro sees older history',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        final now = DateTime.now();
+        final routineId = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Medication History'),
+            IntervalSeconds: const Value(3600),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+        );
+        await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(routineId),
+            Timestamp: Value(now.subtract(const Duration(hours: 3))),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Dismiss.index),
+          ),
+        );
+        await db.insertLogEntry(
+          LogEntriesCompanion(
+            RoutineId: Value(routineId),
+            Timestamp: Value(now.subtract(const Duration(days: 20))),
+            LogActionTypeCode: Value(LogActionTypeCodeEnum.Skip.index),
+          ),
+        );
+
+        try {
+          // 1. Free user sees recent Dismiss, NOT 20-day-old Skip, plus upgrade card.
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: Scaffold(
+                body: RA_RoutineHistoryList(
+                  routineId: routineId,
+                  dbPath: ':memory:',
+                  routineName: 'Medication History',
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(find.text('Dismiss'), findsOneWidget);
+          expect(find.text('Skip'), findsNothing);
+          expect(find.text('Showing last 7 days'), findsOneWidget);
+
+          await tester.tap(find.text('Showing last 7 days'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(PaywallPage), findsOneWidget);
+          expect(
+            find.text('Unlock full 365-day adherence log history with Pro'),
+            findsOneWidget,
+          );
+
+          // 2. Pro user sees both recent and 20-day-old history with no 7-day cap card.
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump(Duration.zero);
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(true),
+              ],
+              home: Scaffold(
+                body: RA_RoutineHistoryList(
+                  routineId: routineId,
+                  dbPath: ':memory:',
+                  routineName: 'Medication History',
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(find.text('Dismiss'), findsOneWidget);
+          expect(find.text('Skip'), findsOneWidget);
           expect(find.text('Showing last 7 days'), findsNothing);
         } finally {
           await _disposeWidgetTree(tester, db);

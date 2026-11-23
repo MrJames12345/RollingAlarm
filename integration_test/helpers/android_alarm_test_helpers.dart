@@ -5,6 +5,7 @@ import 'package:patrol/patrol.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/database/database.dart';
 import 'package:rolling_alarm/services/alarm.dart';
+import 'package:rolling_alarm/services/permissions.dart';
 
 /// Android package under test (must match pubspec patrol.android.package_name).
 const String kRollingAlarmPackage = 'com.casellaweb.rolling_alarm';
@@ -49,10 +50,24 @@ Future<void> grantRuntimePermissions(PatrolIntegrationTester $) async {
 Future<void> attemptNativeExactAlarmSettingsFlow(
   PatrolIntegrationTester $,
 ) async {
+  // Android 13+/14+ alarm apps declaring USE_EXACT_ALARM (and pre-granted
+  // test environments) already satisfy scheduleExactAlarm without leaving the
+  // app. Calling native pressBack() while still on HomePage closes MainActivity
+  // and aborts the Patrol instrumentation run.
   try {
-    await Permission.scheduleExactAlarm
+    if (await RA_PermissionService.canScheduleExactAlarms() ||
+        (await Permission.scheduleExactAlarm.status).isGranted) {
+      return;
+    }
+  } catch (_) {}
+
+  try {
+    final result = await Permission.scheduleExactAlarm
         .request()
         .timeout(const Duration(seconds: 6));
+    if (result.isGranted || await RA_PermissionService.canScheduleExactAlarms()) {
+      return;
+    }
   } catch (_) {}
 
   try {

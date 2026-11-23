@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -509,6 +510,49 @@ void main() {
         expect(homeWidgetCalls.length, equals(2));
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getBool(RA_PurchaseService.isProEffectiveKey), isTrue);
+      },
+    );
+
+    test(
+      'syncEffectiveProStatusIfChanged preserves rapid true -> false -> true transition while queued',
+      () async {
+        await RA_PurchaseService.syncEffectiveProStatusIfChanged(true);
+        expect(homeWidgetCalls.length, equals(1));
+
+        final holdFalseWrite = Completer<bool>();
+        const homeWidgetChannel = MethodChannel('home_widget');
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(homeWidgetChannel, (MethodCall call) async {
+              homeWidgetCalls.add(call);
+              final args = call.arguments as Map<Object?, Object?>?;
+              if (args?['data'] == false && !holdFalseWrite.isCompleted) {
+                return holdFalseWrite.future;
+              }
+              return true;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(homeWidgetChannel, (MethodCall call) async {
+                homeWidgetCalls.add(call);
+                return true;
+              });
+        });
+
+        final falseSync = RA_PurchaseService.syncEffectiveProStatusIfChanged(
+          false,
+        );
+        // Flip back to true BEFORE the false write finishes.
+        final trueSync = RA_PurchaseService.syncEffectiveProStatusIfChanged(
+          true,
+        );
+        holdFalseWrite.complete(true);
+        await Future.wait([falseSync, trueSync]);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(RA_PurchaseService.isProEffectiveKey), isTrue);
+        final lastArgs =
+            homeWidgetCalls.last.arguments as Map<Object?, Object?>?;
+        expect(lastArgs?['data'], isTrue);
       },
     );
 

@@ -102,7 +102,7 @@ Existing concept on disk: `assets/branding/logo_concept_orbital.svg` (indigo tra
 ## Name and copy anchors
 
 - Product name: **Rolling Alarm**
-- Package / id: `rolling_alarm` / `com.example.rolling_alarm`
+- Package / id: `rolling_alarm` / `com.casellaweb.rolling_alarm`
 - Useful strings: `ALARM RINGING`, `Next: …`, `Interval`, `Dismissed`, `Slide to snooze`, `Classic Interval`, `Actual Dismissal`
 
 Default example routine vibe: **Morning Medication**, automated care or habit cadence, not “Wake Up.”

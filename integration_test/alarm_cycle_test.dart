@@ -49,6 +49,11 @@ void main() {
 
       await $(TextField).first.enterText('Cycle Test Routine');
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('Cycle Test Routine'),

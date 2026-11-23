@@ -13,6 +13,7 @@ import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/alarm_calculator.dart';
 import 'package:rolling_alarm/services/notification.dart';
+import 'package:rolling_alarm/services/permissions.dart';
 
 import 'helpers/android_alarm_test_helpers.dart';
 import 'helpers/e2e_pump_helpers.dart';
@@ -102,21 +103,29 @@ void main() {
 
       expect($('Rolling Alarm'), findsOneWidget);
 
+      final exactAllowed = await RA_PermissionService.canScheduleExactAlarms();
       final status = await Permission.scheduleExactAlarm.status;
       final appOps = await readExactAlarmAppOps();
       expect(
-        status.isGranted ||
+        exactAllowed ||
+            status.isGranted ||
             (appOps != null && appOps.toLowerCase().contains('allow')),
         isTrue,
         reason:
-            'SCHEDULE_EXACT_ALARM must be allowed via permission_handler '
-            'or the adb appops fallback (got status=$status, appops=$appOps)',
+            'Exact alarm scheduling must be allowed via USE_EXACT_ALARM / '
+            'permission_handler / adb appops (got exactAllowed=$exactAllowed, '
+            'status=$status, appops=$appOps)',
       );
 
       await $(FloatingActionButton).tap();
       await pumpFrames($.tester);
       await $(TextField).first.enterText('Exact Alarm Permission Routine');
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('Exact Alarm Permission Routine'),
@@ -147,6 +156,11 @@ void main() {
       await pumpFrames($.tester);
       await $(TextField).first.enterText('FSI Ring Routine');
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('FSI Ring Routine'),
@@ -184,7 +198,15 @@ void main() {
       await $(FloatingActionButton).tap();
       await pumpFrames($.tester);
       await $(TextField).first.enterText('InitialRing Lifecycle');
+      await $('Classic Interval').scrollTo();
+      await $('Classic Interval').tap();
+      await pumpFrames($.tester);
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('InitialRing Lifecycle'),
@@ -333,6 +355,11 @@ void main() {
       await $('Actual Dismissal').scrollTo();
       await $('Actual Dismissal').tap();
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('ActualDismissal Lifecycle'),

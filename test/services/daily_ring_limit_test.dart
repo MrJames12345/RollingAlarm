@@ -610,5 +610,85 @@ void main() {
         );
       },
     );
+
+    test(
+      'clamps non-positive intervalSeconds to 60s across initial, edit, resume, and reset helpers',
+      () {
+        expect(
+          RA_DailyRingLimit.initialTriggerTime(
+            now: now,
+            interval: Duration.zero,
+            maxTimesPerDayEnabled: false,
+          ),
+          now.add(const Duration(seconds: 60)),
+        );
+        expect(
+          RA_DailyRingLimit.earliestResumeAfterMissedDayStart(
+            now: now,
+            intervalSeconds: 0,
+            dayStartSeconds: sixAm,
+          ),
+          now.add(const Duration(seconds: 60)),
+        );
+        final period = RA_DailyRingLimit.periodStart(now, sixAm);
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: DateTime(2026, 7, 27, 6),
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sixAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 2,
+            newMaxTimesPerDay: 5,
+            timesRingToday: 2,
+            timesRingDay: period,
+            now: now,
+            intervalSeconds: -10,
+            enabledWeekdays: 0x7F,
+          ),
+          now.add(const Duration(seconds: 60)),
+        );
+        expect(
+          RA_DailyRingLimit.retargetNextAfterCounterReset(
+            previousNext: DateTime(2026, 7, 27, 6),
+            priorTimesRingToday: 3,
+            timesRingDay: period,
+            maxTimesPerDayEnabled: true,
+            maxTimesPerDay: 3,
+            now: now,
+            intervalSeconds: 0,
+            dayStartSeconds: sixAm,
+            enabledWeekdays: 0x7F,
+          ),
+          now.add(const Duration(seconds: 60)),
+        );
+      },
+    );
+
+    test(
+      'retargetNextAfterEdit keeps capped routine on tomorrow when day-start changes before today day-start',
+      () {
+        final early = DateTime(2026, 7, 26, 5, 0);
+        final period = RA_DailyRingLimit.periodStart(early, sixAm);
+        const sevenAm = 7 * 3600;
+        expect(
+          RA_DailyRingLimit.retargetNextAfterEdit(
+            previousNext: DateTime(2026, 7, 27, 6),
+            oldDayStartSeconds: sixAm,
+            newDayStartSeconds: sevenAm,
+            oldMaxTimesPerDayEnabled: true,
+            newMaxTimesPerDayEnabled: true,
+            oldMaxTimesPerDay: 2,
+            newMaxTimesPerDay: 2,
+            timesRingToday: 2,
+            timesRingDay: period,
+            now: early,
+            intervalSeconds: 3600,
+            enabledWeekdays: 0x7F,
+          ),
+          DateTime(2026, 7, 27, 7),
+        );
+      },
+    );
   });
 }

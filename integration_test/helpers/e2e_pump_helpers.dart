@@ -61,24 +61,14 @@ Future<bool> pumpUntilCondition(
   return condition();
 }
 
-/// Ignores known non-fatal UI assertions during E2E.
+/// Strict FlutterError forwarding for E2E suites.
 ///
-/// Routine chrome can trip a ListTile nesting assert. AlarmRingPage can
-/// overflow slightly on short emulator viewports; that is a layout warning
-/// for store polish, not an alarm lifecycle failure.
+/// Layout overflows (`RenderFlex`), Material/ListTile nesting errors, and
+/// deactivated-ancestor assertions are intentionally NOT suppressed so any UI
+/// regression fails integration tests loudly.
 void installKnownUiErrorFilter() {
   final previousOnError = FlutterError.onError;
   FlutterError.onError = (details) {
-    final message = details.exceptionAsString();
-    if (message.contains('ListTile background color')) {
-      return;
-    }
-    if (message.contains('A RenderFlex overflowed')) {
-      return;
-    }
-    if (message.contains("Looking up a deactivated widget's ancestor")) {
-      return;
-    }
     previousOnError?.call(details);
   };
 }

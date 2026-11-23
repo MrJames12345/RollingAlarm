@@ -52,6 +52,11 @@ void main() {
 
       // 6. Save routine
       await $('Save').tap();
+      await pumpUntilGone(
+        $.tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
       await pumpUntilFound(
         $.tester,
         find.text('E2E Test Routine'),

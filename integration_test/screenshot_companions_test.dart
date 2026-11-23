@@ -142,6 +142,16 @@ void main() {
         'Restart Interval Routine',
       );
       await tester.tap(find.text('Save'));
+      final editGone = await pumpUntilGone(
+        tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
+      expect(
+        editGone,
+        isTrue,
+        reason: 'New Routine route must pop after Save commits to DB',
+      );
       await pumpUntilFound(
         tester,
         find.text('Restart Interval Routine'),
@@ -239,6 +249,16 @@ void main() {
         'FSI Lockscreen Routine',
       );
       await tester.tap(find.text('Save'));
+      final editGone = await pumpUntilGone(
+        tester,
+        find.text('New Routine'),
+        timeout: const Duration(seconds: 15),
+      );
+      expect(
+        editGone,
+        isTrue,
+        reason: 'New Routine route must pop after Save commits to DB',
+      );
       await pumpUntilFound(
         tester,
         find.text('FSI Lockscreen Routine'),
