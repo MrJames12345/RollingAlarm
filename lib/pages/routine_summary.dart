@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:rolling_alarm/components/common/adjust_today_max_dialog.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/fitted_text.dart';
@@ -24,6 +25,8 @@ import 'package:rolling_alarm/pages/routine_edit.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/export.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
@@ -79,6 +82,24 @@ class RoutineSummaryPage extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          RA_AppBarIconButton(
+            icon: Icons.share_outlined,
+            tooltip: 'Share Routine Preset',
+            onPressed: () {
+              RA_Haptics.heavyUnawaited();
+              Rect? origin;
+              final box = context.findRenderObject();
+              if (box is RenderBox && box.hasSize) {
+                origin = box.localToGlobal(Offset.zero) & box.size;
+              }
+              unawaited(
+                RA_ExportService.shareRoutinePreset(
+                  routine,
+                  sharePositionOrigin: origin,
+                ),
+              );
+            },
+          ),
           RA_AppBarIconButton(
             icon: Icons.edit,
             tooltip: 'Edit routine',
@@ -260,6 +281,45 @@ class _SummaryTab extends ConsumerWidget {
       RA_ShapeStyles.space64,
       stretch,
     )!;
+    final swingStatus = RA_SwingRosterSchedule.statusAt(
+      now: DateTime.now(),
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
+      dayStartSeconds: routine.DayStartSeconds,
+      enabledWeekdays: routine.EnabledWeekdays,
+    );
+    final swingTiles = <Widget>[
+      _SummaryTile(
+        label: 'Cycle',
+        value: RA_SwingRosterSchedule.summaryLabel(
+          cycleOnDays: routine.CycleOnDays,
+          cycleOffDays: routine.CycleOffDays,
+          cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
+        ),
+        onTap: () => _openEdit(context, RoutineEditFieldEnum.swingRoster),
+      ),
+      if (swingStatus != null) ...[
+        _SummaryTile(
+          label: 'Status',
+          value: swingStatus.isOnSwing
+              ? 'Day ${swingStatus.dayNumber} of ${swingStatus.cycleOnDays} ON'
+              : 'R&R Off-Swing',
+          onTap: () => _openEdit(context, RoutineEditFieldEnum.swingRoster),
+        ),
+        if (routine.CycleAnchorEpochDay != null)
+          _SummaryTile(
+            label: 'Day 1 Anchor',
+            value: DateFormat.yMMMd().format(
+              RA_SwingRosterSchedule.dateFromEpochDay(
+                routine.CycleAnchorEpochDay!,
+              ),
+            ),
+            onTap: () => _openEdit(context, RoutineEditFieldEnum.swingRoster),
+          ),
+      ],
+    ];
+
     return ListView(
       padding: RA_ShapeStyles.bodyPadding,
       children: [
@@ -324,6 +384,11 @@ class _SummaryTab extends ConsumerWidget {
           ),
         ),
         RA_FormSection(
+          label: 'Swing roster',
+          bottomSpacing: sectionSpacing,
+          child: _SummaryTileRow(children: swingTiles),
+        ),
+        RA_FormSection(
           label: 'Daily limit',
           bottomSpacing: RA_ShapeStyles.space48,
           child: Column(
@@ -346,6 +411,24 @@ class _SummaryTab extends ConsumerWidget {
                 text: "Reset Today's Counter",
                 isPrimary: false,
                 onClick: () => unawaited(_resetTodayCounter(context, ref)),
+              ),
+              const SizedBox(height: RA_ShapeStyles.space8),
+              RA_Button(
+                text: 'Share Routine Preset',
+                isPrimary: false,
+                onClick: () {
+                  Rect? origin;
+                  final box = context.findRenderObject();
+                  if (box is RenderBox && box.hasSize) {
+                    origin = box.localToGlobal(Offset.zero) & box.size;
+                  }
+                  unawaited(
+                    RA_ExportService.shareRoutinePreset(
+                      routine,
+                      sharePositionOrigin: origin,
+                    ),
+                  );
+                },
               ),
             ],
           ),

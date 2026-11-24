@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:rolling_alarm/components/common/button.dart';
 import 'package:rolling_alarm/components/common/delete_routine_dialog.dart';
 import 'package:rolling_alarm/components/common/form_section.dart';
 import 'package:rolling_alarm/components/common/haptics.dart';
 import 'package:rolling_alarm/components/common/page_scaffold.dart';
+import 'package:rolling_alarm/components/common/press_scale.dart';
 import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/common/section_label.dart';
 import 'package:rolling_alarm/components/common/unsaved_changes_dialog.dart';
@@ -37,6 +39,7 @@ import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/permissions.dart';
 import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/routine_duplicate.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -73,6 +76,10 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   int _maxTimesPerDay = 1;
   TimeOfDay _dayStart = const TimeOfDay(hour: 0, minute: 0);
   int _enabledWeekdays = RA_WeekdaySchedule.allDaysMask;
+  bool _swingCycleEnabled = false;
+  int _cycleOnDays = 8;
+  int _cycleOffDays = 6;
+  late DateTime _cycleAnchorDate;
   DriftCompensationTypeCodeEnum _compensation =
       DriftCompensationTypeCodeEnum.ActualDismissal;
   RA_AlarmSound _sound = RA_AlarmSound.deviceDefault;
@@ -93,6 +100,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   final GlobalKey _dayStartFieldKey = GlobalKey();
   final GlobalKey _driftCompensationFieldKey = GlobalKey();
   final GlobalKey _daysFieldKey = GlobalKey();
+  final GlobalKey _swingRosterFieldKey = GlobalKey();
 
   RoutineEditFieldEnum? _highlightedField;
   String? _selectedTemplateId;
@@ -114,11 +122,25 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       ? 'Needs value'
       : null;
 
+  bool get _hasSwingWeekdayConflict =>
+      _swingCycleEnabled &&
+      !RA_SwingRosterSchedule.hasIntersectingActiveDay(
+        cycleOnDays: _cycleOnDays,
+        cycleOffDays: _cycleOffDays,
+        cycleAnchorEpochDay: _effectiveCycleAnchorEpochDay,
+        enabledWeekdays: _enabledWeekdays,
+      );
+
+  String? get _swingConflictError => _hasSwingWeekdayConflict
+      ? 'No calendar day matches both this swing cycle and the enabled weekdays.'
+      : null;
+
   /// First invalid required field key, in form order.
   GlobalKey? get _firstInvalidFieldKey {
     if (_nameError != null) return _nameFieldKey;
     if (_intervalError != null) return _intervalFieldKey;
     if (_snoozeError != null) return _snoozeFieldKey;
+    if (_swingConflictError != null) return _swingRosterFieldKey;
     return null;
   }
 
@@ -134,7 +156,21 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     RoutineEditFieldEnum.dayStart => _dayStartFieldKey,
     RoutineEditFieldEnum.driftCompensation => _driftCompensationFieldKey,
     RoutineEditFieldEnum.days => _daysFieldKey,
+    RoutineEditFieldEnum.swingRoster => _swingRosterFieldKey,
   };
+
+  DateTime _todayLocalDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  int get _effectiveCycleOnDays => _swingCycleEnabled ? _cycleOnDays : 0;
+
+  int get _effectiveCycleOffDays => _swingCycleEnabled ? _cycleOffDays : 0;
+
+  int? get _effectiveCycleAnchorEpochDay => _swingCycleEnabled
+      ? RA_SwingRosterSchedule.localEpochDay(_cycleAnchorDate)
+      : null;
 
   /// Keeps edit state on [allDaysMask], never raw `0`, so Day Start enablement
   /// does not flicker between 0 and 127 when meaning "every day."
@@ -144,7 +180,8 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   bool get _hasDisabledWeekday =>
       !RA_WeekdaySchedule.isEveryDay(_enabledWeekdays);
 
-  bool get _dayStartEnabled => _maxTimesPerDayEnabled || _hasDisabledWeekday;
+  bool get _dayStartEnabled =>
+      _maxTimesPerDayEnabled || _hasDisabledWeekday || _swingCycleEnabled;
 
   /// True when editing and the form differs from the persisted routine.
   bool get _hasUnsavedChanges {
@@ -160,6 +197,11 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     final existingMaxTimes = r.MaxTimesPerDay < 1 ? 1 : r.MaxTimesPerDay;
     final existingVolume = r.Volume.clamp(5, 100);
     final existingSoundEncode = RA_AlarmSound.decode(r.AudioUri).encode();
+    final existingSwingEnabled = RA_SwingRosterSchedule.isActive(
+      cycleOnDays: r.CycleOnDays,
+      cycleOffDays: r.CycleOffDays,
+      cycleAnchorEpochDay: r.CycleAnchorEpochDay,
+    );
 
     return _nameController.text.trim() != r.Name ||
         _interval.inSeconds != r.IntervalSeconds ||
@@ -168,6 +210,11 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         _maxTimesPerDay != existingMaxTimes ||
         dayStartSeconds != existingDayStart ||
         _enabledWeekdays != _normalizeEnabledWeekdays(r.EnabledWeekdays) ||
+        _swingCycleEnabled != existingSwingEnabled ||
+        (_swingCycleEnabled &&
+            (_cycleOnDays != r.CycleOnDays ||
+                _cycleOffDays != r.CycleOffDays ||
+                _effectiveCycleAnchorEpochDay != r.CycleAnchorEpochDay)) ||
         _compensation.index != r.DriftCompensationTypeCode ||
         _vibrate != r.Vibrate ||
         _volume.clamp(5, 100) != existingVolume ||
@@ -178,6 +225,7 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
   @override
   void initState() {
     super.initState();
+    _cycleAnchorDate = _todayLocalDate();
     final r = widget.existingRoutine;
     _nameController = TextEditingController(text: r?.Name ?? '');
     if (r != null) {
@@ -193,6 +241,25 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         minute: (dayStart % 3600) ~/ 60,
       );
       _enabledWeekdays = _normalizeEnabledWeekdays(r.EnabledWeekdays);
+      final hasSwing = RA_SwingRosterSchedule.isActive(
+        cycleOnDays: r.CycleOnDays,
+        cycleOffDays: r.CycleOffDays,
+        cycleAnchorEpochDay: r.CycleAnchorEpochDay,
+      );
+      _swingCycleEnabled = hasSwing;
+      if (hasSwing) {
+        _cycleOnDays = r.CycleOnDays.clamp(
+          RA_SwingRosterSchedule.minCycleDays,
+          RA_SwingRosterSchedule.maxCycleDays,
+        );
+        _cycleOffDays = r.CycleOffDays.clamp(
+          RA_SwingRosterSchedule.minCycleDays,
+          RA_SwingRosterSchedule.maxCycleDays,
+        );
+        _cycleAnchorDate = RA_SwingRosterSchedule.dateFromEpochDay(
+          r.CycleAnchorEpochDay!,
+        );
+      }
       _compensation =
           DriftCompensationTypeCodeEnum.values[r.DriftCompensationTypeCode];
       _sound = RA_AlarmSound.decode(r.AudioUri);
@@ -209,6 +276,11 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _showTemplateProDriftSnackBar();
+          });
+        } else if (initialTemplate.usesProSwingCycle && !isPro) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _showTemplateProSwingSnackBar(initialTemplate);
           });
         }
       } else {
@@ -236,6 +308,15 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     _maxTimesPerDay = template.maxTimesPerDay;
     _dayStart = template.dayStart;
     _enabledWeekdays = _normalizeEnabledWeekdays(template.enabledWeekdays);
+    if (template.hasSwingCycle) {
+      final cycle = template.effectiveSwingCycle(isPro: isPro);
+      _swingCycleEnabled = true;
+      _cycleOnDays = cycle.onDays;
+      _cycleOffDays = cycle.offDays;
+      _cycleAnchorDate = _todayLocalDate();
+    } else {
+      _swingCycleEnabled = false;
+    }
     _compensation = template.effectiveCompensation(isPro: isPro);
     _showValidationErrors = false;
   }
@@ -248,6 +329,126 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
     });
     if (template.usesProDriftMode && !isPro && mounted) {
       _showTemplateProDriftSnackBar();
+    } else if (template.usesProSwingCycle && !isPro && mounted) {
+      _showTemplateProSwingSnackBar(template);
+    }
+  }
+
+  void _showTemplateProSwingSnackBar(RA_RoutineTemplate template) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: RA_ColourStyles.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          side: BorderSide(color: RA_ShapeStyles.idleSurfaceBorder),
+        ),
+        content: Text(
+          'Applied with free 8/6 Swing. Unlock Pro for ${template.cycleOnDays}/${template.cycleOffDays} & custom rosters.',
+          style: RA_TextStyles.tinyFont,
+        ),
+        action: SnackBarAction(
+          label: 'Unlock',
+          textColor: RA_ColourStyles.secondary,
+          onPressed: () => unawaited(
+            _unlockCustomSwingCycle(
+              targetOnDays: template.cycleOnDays,
+              targetOffDays: template.cycleOffDays,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unlockCustomSwingCycle({
+    required int targetOnDays,
+    required int targetOffDays,
+  }) async {
+    final unlocked = await PaywallPage.show(
+      context,
+      featureTrigger:
+          'Customize swing roster cycles (2/1, 2/2 & custom N/M) with Pro',
+    );
+    if (unlocked && mounted) {
+      setState(() {
+        _swingCycleEnabled = true;
+        _cycleOnDays = targetOnDays.clamp(
+          RA_SwingRosterSchedule.minCycleDays,
+          RA_SwingRosterSchedule.maxCycleDays,
+        );
+        _cycleOffDays = targetOffDays.clamp(
+          RA_SwingRosterSchedule.minCycleDays,
+          RA_SwingRosterSchedule.maxCycleDays,
+        );
+      });
+    }
+  }
+
+  Future<void> _selectSwingPreset(RA_SwingRosterPreset preset) async {
+    if (preset.requiresPro && !ref.read(IsProProvider)) {
+      await _unlockCustomSwingCycle(
+        targetOnDays: preset.onDays,
+        targetOffDays: preset.offDays,
+      );
+      return;
+    }
+    setState(() {
+      _swingCycleEnabled = true;
+      _cycleOnDays = preset.onDays;
+      _cycleOffDays = preset.offDays;
+    });
+  }
+
+  Future<void> _changeCustomSwingDays({int? onDays, int? offDays}) async {
+    final nextOn = (onDays ?? _cycleOnDays).clamp(
+      RA_SwingRosterSchedule.minCycleDays,
+      RA_SwingRosterSchedule.maxCycleDays,
+    );
+    final nextOff = (offDays ?? _cycleOffDays).clamp(
+      RA_SwingRosterSchedule.minCycleDays,
+      RA_SwingRosterSchedule.maxCycleDays,
+    );
+    if (!ref.read(IsProProvider) &&
+        !RA_SwingRosterSchedule.isFreeCyclePair(
+          cycleOnDays: nextOn,
+          cycleOffDays: nextOff,
+        )) {
+      await _unlockCustomSwingCycle(
+        targetOnDays: nextOn,
+        targetOffDays: nextOff,
+      );
+      return;
+    }
+    setState(() {
+      _cycleOnDays = nextOn;
+      _cycleOffDays = nextOff;
+    });
+  }
+
+  Future<void> _pickSwingAnchorDate() async {
+    RA_Haptics.heavyUnawaited();
+    final now = _todayLocalDate();
+    final minDate = DateTime(now.year - 2, 1, 1);
+    final maxDate = DateTime(now.year + 5, 12, 31);
+    final firstDate = _cycleAnchorDate.isBefore(minDate)
+        ? _cycleAnchorDate
+        : minDate;
+    final lastDate = _cycleAnchorDate.isAfter(maxDate)
+        ? _cycleAnchorDate
+        : maxDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _cycleAnchorDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Day 1 of ON Swing',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _cycleAnchorDate = DateTime(picked.year, picked.month, picked.day);
+      });
     }
   }
 
@@ -339,6 +540,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         ),
       ),
       EnabledWeekdays: Value(_enabledWeekdays),
+      CycleOnDays: Value(_effectiveCycleOnDays),
+      CycleOffDays: Value(_effectiveCycleOffDays),
+      CycleAnchorEpochDay: Value(_effectiveCycleAnchorEpochDay),
       DriftCompensationTypeCode: Value(_compensation.index),
       ShowPreview: const Value(true),
       Vibrate: Value(_vibrate),
@@ -460,6 +664,12 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
         now: now,
         intervalSeconds: _interval.inSeconds,
         enabledWeekdays: _enabledWeekdays,
+        oldCycleOnDays: existing.CycleOnDays,
+        newCycleOnDays: _effectiveCycleOnDays,
+        oldCycleOffDays: existing.CycleOffDays,
+        newCycleOffDays: _effectiveCycleOffDays,
+        oldCycleAnchorEpochDay: existing.CycleAnchorEpochDay,
+        newCycleAnchorEpochDay: _effectiveCycleAnchorEpochDay,
       );
       final savedRoutine = await db.getRoutineById(id);
       if (next != null) {
@@ -508,6 +718,9 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
       maxTimesPerDayEnabled: _maxTimesPerDayEnabled,
       dayStartSeconds: dayStartSeconds,
       enabledWeekdays: _enabledWeekdays,
+      cycleOnDays: _effectiveCycleOnDays,
+      cycleOffDays: _effectiveCycleOffDays,
+      cycleAnchorEpochDay: _effectiveCycleAnchorEpochDay,
     );
     final routineId = await db.insertRoutineWithInitialState(
       routine: _companion(),
@@ -781,6 +994,31 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                   ),
                   const SizedBox(height: RA_ShapeStyles.space16),
                   _highlightTarget(
+                    field: RoutineEditFieldEnum.swingRoster,
+                    key: _swingRosterFieldKey,
+                    child: _SwingRosterEditorBlock(
+                      enabled: _swingCycleEnabled,
+                      isPro: isPro,
+                      cycleOnDays: _cycleOnDays,
+                      cycleOffDays: _cycleOffDays,
+                      anchorDate: _cycleAnchorDate,
+                      dayStartSeconds: RA_DailyRingLimit.normalizeDayStartSeconds(
+                        _dayStart.hour * 3600 + _dayStart.minute * 60,
+                      ),
+                      enabledWeekdays: _enabledWeekdays,
+                      conflictError: _swingConflictError,
+                      onToggle: (v) => setState(() => _swingCycleEnabled = v),
+                      onSelectPreset: (preset) =>
+                          unawaited(_selectSwingPreset(preset)),
+                      onChangeOnDays: (v) =>
+                          unawaited(_changeCustomSwingDays(onDays: v)),
+                      onChangeOffDays: (v) =>
+                          unawaited(_changeCustomSwingDays(offDays: v)),
+                      onPickAnchorDate: () => unawaited(_pickSwingAnchorDate()),
+                    ),
+                  ),
+                  const SizedBox(height: RA_ShapeStyles.space16),
+                  _highlightTarget(
                     field: RoutineEditFieldEnum.dayStart,
                     key: _dayStartFieldKey,
                     child: Column(
@@ -807,6 +1045,15 @@ class _RoutineEditPageState extends ConsumerState<RoutineEditPage> {
                           const SizedBox(height: RA_ShapeStyles.space8),
                           Text(
                             'When the next alarm would naturally fall on a disabled day, we need to know what time to set the next alarm on the upcoming enabled day.',
+                            style: RA_TextStyles.smallFont.copyWith(
+                              color: RA_ColourStyles.mutedPrimary,
+                            ),
+                          ),
+                        ],
+                        if (_swingCycleEnabled) ...[
+                          const SizedBox(height: RA_ShapeStyles.space8),
+                          Text(
+                            'When returning from R&R off-swing days, alarms resume cleanly at this Day Start Time.',
                             style: RA_TextStyles.smallFont.copyWith(
                               color: RA_ColourStyles.mutedPrimary,
                             ),
@@ -975,6 +1222,246 @@ class _FieldFocusHighlight extends StatelessWidget {
         boxShadow: active ? RA_ShapeStyles.tealGlow : null,
       ),
       child: child,
+    );
+  }
+}
+
+/// Swing roster cycle toggle, 1-tap FIFO/nursing preset chips, custom N/M
+/// steppers, and "Day 1 of Swing" anchor picker.
+class _SwingRosterEditorBlock extends StatelessWidget {
+  final bool enabled;
+  final bool isPro;
+  final int cycleOnDays;
+  final int cycleOffDays;
+  final DateTime anchorDate;
+  final int dayStartSeconds;
+  final int enabledWeekdays;
+  final String? conflictError;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<RA_SwingRosterPreset> onSelectPreset;
+  final ValueChanged<int> onChangeOnDays;
+  final ValueChanged<int> onChangeOffDays;
+  final VoidCallback onPickAnchorDate;
+
+  const _SwingRosterEditorBlock({
+    required this.enabled,
+    required this.isPro,
+    required this.cycleOnDays,
+    required this.cycleOffDays,
+    required this.anchorDate,
+    required this.dayStartSeconds,
+    required this.enabledWeekdays,
+    this.conflictError,
+    required this.onToggle,
+    required this.onSelectPreset,
+    required this.onChangeOnDays,
+    required this.onChangeOffDays,
+    required this.onPickAnchorDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isTodayAnchor =
+        anchorDate.year == now.year &&
+        anchorDate.month == now.month &&
+        anchorDate.day == now.day;
+    final anchorLabel = isTodayAnchor
+        ? 'Today · ${DateFormat.yMMMd().format(anchorDate)}'
+        : DateFormat.yMMMd().format(anchorDate);
+    final previewStatus = enabled
+        ? RA_SwingRosterSchedule.statusAt(
+            now: now,
+            cycleOnDays: cycleOnDays,
+            cycleOffDays: cycleOffDays,
+            cycleAnchorEpochDay: RA_SwingRosterSchedule.localEpochDay(
+              anchorDate,
+            ),
+            dayStartSeconds: dayStartSeconds,
+            enabledWeekdays: enabledWeekdays,
+          )
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RA_Toggle(
+          label: 'Swing Roster Cycle (FIFO / Shift Work)',
+          value: enabled,
+          onChanged: onToggle,
+        ),
+        if (enabled) ...[
+          const SizedBox(height: RA_ShapeStyles.space16),
+          Wrap(
+            spacing: RA_ShapeStyles.space8,
+            runSpacing: RA_ShapeStyles.space8,
+            children: [
+              for (final preset in RA_SwingRosterSchedule.presets)
+                _SwingPresetChip(
+                  preset: preset,
+                  selected:
+                      cycleOnDays == preset.onDays &&
+                      cycleOffDays == preset.offDays,
+                  showProBadge: preset.requiresPro && !isPro,
+                  onTap: () => onSelectPreset(preset),
+                ),
+            ],
+          ),
+          const SizedBox(height: RA_ShapeStyles.space16),
+          RA_SectionLabel(
+            'Custom Cycle Days',
+            trailing: !isPro ? const RA_ProBadge() : null,
+          ),
+          const SizedBox(height: RA_ShapeStyles.space8),
+          RA_NumberFieldRow(
+            left: RA_NumberField(
+              label: 'Days On',
+              value: cycleOnDays,
+              min: RA_SwingRosterSchedule.minCycleDays,
+              max: RA_SwingRosterSchedule.maxCycleDays,
+              onChanged: onChangeOnDays,
+            ),
+            right: RA_NumberField(
+              label: 'Days Off',
+              value: cycleOffDays,
+              min: RA_SwingRosterSchedule.minCycleDays,
+              max: RA_SwingRosterSchedule.maxCycleDays,
+              onChanged: onChangeOffDays,
+            ),
+          ),
+          const SizedBox(height: RA_ShapeStyles.space16),
+          RA_SectionLabel('Day 1 of Swing'),
+          const SizedBox(height: RA_ShapeStyles.space8),
+          RA_PressScale(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPickAnchorDate,
+                borderRadius: RA_ShapeStyles.largeBorderRadius,
+                splashColor: RA_ColourStyles.secondary.withValues(alpha: 0.16),
+                highlightColor: RA_ColourStyles.secondary.withValues(
+                  alpha: 0.08,
+                ),
+                child: Ink(
+                  decoration: RA_ShapeStyles.elevatedSurface(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(RA_ShapeStyles.space16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            anchorLabel,
+                            style: RA_TextStyles.smallFont.copyWith(
+                              color: RA_ColourStyles.valueText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 20,
+                          color: RA_ColourStyles.mutedPrimary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (conflictError != null) ...[
+            const SizedBox(height: RA_ShapeStyles.space8),
+            Text(
+              conflictError!,
+              style: RA_TextStyles.tinyFont.copyWith(
+                color: RA_ColourStyles.readableAccent(
+                  RA_ColourStyles.softCoral,
+                ),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ] else if (previewStatus != null) ...[
+            const SizedBox(height: RA_ShapeStyles.space8),
+            Text(
+              previewStatus.badgeLabel,
+              style: RA_TextStyles.tinyFont.copyWith(
+                color: RA_ColourStyles.readableAccent(
+                  previewStatus.isOnSwing
+                      ? RA_ColourStyles.secondary
+                      : RA_ColourStyles.pauseOchre,
+                ),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _SwingPresetChip extends StatelessWidget {
+  final RA_SwingRosterPreset preset;
+  final bool selected;
+  final bool showProBadge;
+  final VoidCallback onTap;
+
+  const _SwingPresetChip({
+    required this.preset,
+    required this.selected,
+    required this.showProBadge,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = RA_ColourStyles.secondary;
+    return RA_PressScale(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            RA_Haptics.heavyUnawaited();
+            onTap();
+          },
+          borderRadius: RA_ShapeStyles.largeBorderRadius,
+          splashColor: accent.withValues(alpha: 0.16),
+          highlightColor: accent.withValues(alpha: 0.08),
+          child: Ink(
+            decoration: RA_ShapeStyles.elevatedSurface(
+              fill: selected
+                  ? Color.alphaBlend(
+                      accent.withValues(alpha: 0.14),
+                      RA_ColourStyles.surface,
+                    )
+                  : null,
+              borderColor: selected ? accent.withValues(alpha: 0.65) : null,
+              borderWidth: selected ? 1.5 : 1,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    preset.label,
+                    style: RA_TextStyles.tinyFont.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? RA_ColourStyles.readableAccent(accent)
+                          : RA_ColourStyles.primary,
+                    ),
+                  ),
+                  if (showProBadge) ...[
+                    const SizedBox(width: 6),
+                    const RA_ProBadge(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

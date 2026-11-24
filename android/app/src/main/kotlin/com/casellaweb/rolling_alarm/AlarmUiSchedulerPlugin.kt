@@ -109,6 +109,11 @@ class AlarmUiSchedulerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "getAndroidSdkInt" -> {
                 result.success(Build.VERSION.SDK_INT)
             }
+            "getDeviceManufacturer" -> {
+                result.success(
+                    (Build.MANUFACTURER ?: "").trim().lowercase(java.util.Locale.ROOT),
+                )
+            }
             "startVibration" -> {
                 try {
                     AlarmVibrator.start(context)

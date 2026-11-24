@@ -1,6 +1,7 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -15,6 +16,13 @@ class RA_PdfService {
 
   /// Maximum number of newest log entries included in a PDF export.
   static const int maxExportRows = 1000;
+
+  /// Clickable footer destination included on exported PDF verification reports.
+  static const String footerVerificationUrl =
+      'https://casellaweb.com.au/rolling-alarm?utm_source=pdf_report';
+
+  static const String _regularFontAsset = 'assets/fonts/Inter-Regular.ttf';
+  static const String _boldFontAsset = 'assets/fonts/Inter-Bold.ttf';
 
   /// Generates and shares a PDF of the newest log entries (capped at [maxExportRows]).
   static Future<void> shareLogsPdf(
@@ -40,8 +48,14 @@ class RA_PdfService {
     ];
 
     try {
+      final regularFontBytes = await _loadAssetBytes(_regularFontAsset);
+      final boldFontBytes = await _loadAssetBytes(_boldFontAsset);
       final bytes = await Isolate.run<Uint8List>(
-        () => _buildLogsPdfBytes(rows),
+        () => buildLogsPdfBytes(
+          rows,
+          regularFontBytes: regularFontBytes,
+          boldFontBytes: boldFontBytes,
+        ),
       );
       await Printing.sharePdf(
         bytes: bytes,
@@ -50,6 +64,15 @@ class RA_PdfService {
       );
     } catch (_) {
       // Ignore PDF share failures in headless test environments
+    }
+  }
+
+  static Future<Uint8List?> _loadAssetBytes(String assetPath) async {
+    try {
+      final data = await rootBundle.load(assetPath);
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -62,12 +85,67 @@ class RA_PdfService {
     return 'Routine #$routineId';
   }
 
-  static Future<Uint8List> _buildLogsPdfBytes(List<List<String>> rows) async {
+  /// Builds the PDF document bytes (invoked inside [Isolate.run]).
+  @visibleForTesting
+  static Future<Uint8List> buildLogsPdfBytes(
+    List<List<String>> rows, {
+    Uint8List? regularFontBytes,
+    Uint8List? boldFontBytes,
+  }) async {
     final pdf = pw.Document();
+    final baseFont = regularFontBytes != null
+        ? pw.Font.ttf(ByteData.sublistView(regularFontBytes))
+        : null;
+    final boldFont = boldFontBytes != null
+        ? pw.Font.ttf(ByteData.sublistView(boldFontBytes))
+        : baseFont;
+    final pageTheme = baseFont != null
+        ? pw.ThemeData.withFont(base: baseFont, bold: boldFont)
+        : null;
+
+    final sep = baseFont != null ? '·' : '-';
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        theme: pageTheme,
+        footer: (pw.Context context) {
+          return pw.Container(
+            margin: const pw.EdgeInsets.only(top: 12),
+            padding: const pw.EdgeInsets.only(top: 8),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+              ),
+            ),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Expanded(
+                  child: pw.Text(
+                    'Generated offline by Rolling Alarm $sep 100% Local On-Device Privacy',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+                pw.UrlLink(
+                  destination: footerVerificationUrl,
+                  child: pw.Text(
+                    'casellaweb.com.au/rolling-alarm $sep Page ${context.pageNumber} of ${context.pagesCount}',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.teal700,
+                      decoration: pw.TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
         build: (context) {
           return [
             pw.Header(

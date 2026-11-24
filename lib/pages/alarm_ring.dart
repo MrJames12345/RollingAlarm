@@ -15,6 +15,7 @@ import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/notification.dart';
+import 'package:rolling_alarm/services/review.dart';
 import 'package:rolling_alarm/services/settings.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
@@ -182,6 +183,17 @@ class _AlarmRingPageState extends ConsumerState<AlarmRingPage>
       );
 
       await RA_NotificationService.cancelNotification(widget.routineId);
+
+      // Milestone in-app review check: strictly foreground manual dismissal,
+      // non-blocking, and suppressed when another alarm is still ringing.
+      if (action == RA_AlarmActionTypeCodeEnum.Dismiss) {
+        final remainingRinging = await db.getRingingRoutineStates();
+        unawaited(
+          RA_ReviewService.recordForegroundDismissalAndMaybePrompt(
+            hasOtherRingingAlarms: remainingRinging.isNotEmpty,
+          ),
+        );
+      }
     } catch (_) {
       // Transition failures still dismiss the ring page.
     } finally {

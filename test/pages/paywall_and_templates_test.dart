@@ -10,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:rolling_alarm/components/common/app_theme_scope.dart';
+import 'package:rolling_alarm/components/common/import_export_dialogs.dart';
+import 'package:rolling_alarm/components/common/oem_battery_guide_sheet.dart';
 import 'package:rolling_alarm/components/common/pro_badge.dart';
 import 'package:rolling_alarm/components/routine/quick_templates_strip.dart';
 import 'package:rolling_alarm/components/routine/routine_history_list.dart';
@@ -22,8 +24,13 @@ import 'package:rolling_alarm/pages/home.dart';
 import 'package:rolling_alarm/pages/logs.dart';
 import 'package:rolling_alarm/pages/paywall.dart';
 import 'package:rolling_alarm/pages/routine_edit.dart';
+import 'package:rolling_alarm/pages/routine_summary.dart';
+import 'package:rolling_alarm/pages/settings.dart';
 import 'package:rolling_alarm/providers/providers.dart';
+import 'package:rolling_alarm/services/export.dart';
 import 'package:rolling_alarm/services/purchase.dart';
+import 'package:rolling_alarm/services/review.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -130,9 +137,11 @@ void main() {
             findsOneWidget,
           );
           expect(find.textContaining('DAY-1 OFFER'), findsOneWidget);
-          expect(find.text(r'$19.99 AUD'), findsOneWidget);
-          expect(find.text(r'$29.99 AUD'), findsOneWidget);
-          expect(find.text(r'Unlock Lifetime · $19.99 AUD'), findsOneWidget);
+          expect(find.text(r'$39.99 AUD'), findsOneWidget);
+          expect(find.text(r'$49.99 AUD'), findsOneWidget);
+          expect(find.text(r'Unlock Lifetime · $39.99 AUD'), findsOneWidget);
+          expect(find.text('SAVE 58%'), findsOneWidget);
+          expect(find.text(r'Equivalent to ~$2.08 AUD/mo'), findsOneWidget);
           expect(
             find.textContaining('No recurring charges or auto-renewal.'),
             findsOneWidget,
@@ -143,7 +152,7 @@ void main() {
           await tester.tap(find.text('Annual Pro'));
           await tester.pump();
 
-          expect(find.text(r'Subscribe · $19.99 AUD/year'), findsOneWidget);
+          expect(find.text(r'Subscribe · $24.99 AUD/year'), findsOneWidget);
           expect(
             find.textContaining('Auto-renewing subscription billed at'),
             findsOneWidget,
@@ -190,8 +199,8 @@ void main() {
             find.text('ONE-TIME UNLOCK · NO SUBSCRIPTION'),
             findsOneWidget,
           );
-          expect(find.text(r'$29.99 AUD'), findsOneWidget);
-          expect(find.text(r'Subscribe · $19.99 AUD/year'), findsOneWidget);
+          expect(find.text(r'$49.99 AUD'), findsOneWidget);
+          expect(find.text(r'Subscribe · $24.99 AUD/year'), findsOneWidget);
         } finally {
           await _disposeWidgetTree(tester, db);
         }
@@ -366,7 +375,7 @@ void main() {
 
           // Async hydration discovered the expired timestamp and switched off Day-1.
           expect(find.textContaining('DAY-1 OFFER'), findsNothing);
-          expect(find.text(r'Subscribe · $19.99 AUD/year'), findsOneWidget);
+          expect(find.text(r'Subscribe · $24.99 AUD/year'), findsOneWidget);
 
           // Simulate RevenueCat entitlement activating -> PaywallPage auto-pops true.
           rcController.add(true);
@@ -422,8 +431,11 @@ void main() {
 
           expect(find.byType(RA_QuickTemplatesStrip), findsOneWidget);
           expect(find.text('Medication Cadence'), findsOneWidget);
-          expect(find.text('Focus / Hydration Grid'), findsOneWidget);
-          expect(find.byType(RA_ProBadge), findsOneWidget);
+          expect(find.text('WA FIFO 8/6 Day Swing'), findsOneWidget);
+          expect(find.text('Nursing 4-On / 4-Off Shift'), findsOneWidget);
+          expect(find.text('WA FIFO 2/1 Night Swing'), findsOneWidget);
+          expect(find.text('ADHD Focus / Hydration Grid'), findsOneWidget);
+          expect(find.byType(RA_ProBadge), findsNWidgets(2));
 
           await tester.tap(find.text('Medication Cadence'));
           await tester.pump();
@@ -450,7 +462,7 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.text('Focus / Hydration Grid'), findsOneWidget);
+        expect(find.text('ADHD Focus / Hydration Grid'), findsOneWidget);
         expect(find.byType(RA_ProBadge), findsNothing);
       },
     );
@@ -473,7 +485,10 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
 
-          await tester.tap(find.text('Focus / Hydration Grid'));
+          final focusFinder = find.text('ADHD Focus / Hydration Grid');
+          await tester.ensureVisible(focusFinder);
+          await tester.pump();
+          await tester.tap(focusFinder);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
 
@@ -703,6 +718,562 @@ void main() {
           expect(find.text('Dismiss'), findsOneWidget);
           expect(find.text('Skip'), findsOneWidget);
           expect(find.text('Showing last 7 days'), findsNothing);
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+  });
+
+  group('Day-1 Founding Banner & Free Preset Share Widget Tests', () {
+    testWidgets(
+      'HomePage shows dismissible Day-1 Founding Offer banner for Free users with routines, opens PaywallPage on tap, and persists dismissal',
+      (tester) async {
+        final now = DateTime.now();
+        SharedPreferences.setMockInitialValues({
+          RA_PurchaseService.firstSeenEpochMsKey: now
+              .subtract(const Duration(hours: 1))
+              .millisecondsSinceEpoch,
+        });
+        await RA_PurchaseService.init();
+
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('FIFO 8/6 Day Swing'),
+            IntervalSeconds: const Value(43200),
+            DayStartSeconds: const Value(5 * 3600),
+            CycleOnDays: const Value(8),
+            CycleOffDays: const Value(6),
+            CycleAnchorEpochDay: Value(
+              RA_SwingRosterSchedule.logicalEpochDay(
+                now,
+                dayStartSeconds: 5 * 3600,
+              ),
+            ),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: now.add(const Duration(hours: 2)),
+        );
+
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                WallClockSecondProvider.overrideWith((ref) => Stream.value(now)),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: const HomePage(dbPath: ':memory:'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(find.textContaining('Day-1 Founding Offer'), findsOneWidget);
+          expect(find.textContaining('8/6 Swing · Day 1 of 8 ON'), findsOneWidget);
+
+          // Tapping banner opens PaywallPage with the Day-1 trigger copy.
+          await tester.tap(find.textContaining('Day-1 Founding Offer'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(PaywallPage), findsOneWidget);
+          expect(
+            find.text('Claim your 24-hour Day-1 Founding Lifetime unlock'),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          // Tapping close X hides banner and persists dismissal.
+          await tester.tap(find.byTooltip('Dismiss offer banner'));
+          await tester.pump();
+          expect(find.textContaining('Day-1 Founding Offer'), findsNothing);
+
+          final prefs = await SharedPreferences.getInstance();
+          expect(
+            prefs.getBool(RA_PurchaseService.foundingBannerDismissedKey),
+            isTrue,
+          );
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'RoutineSummaryPage displays Swing Roster info and triggers free Share Routine Preset without Pro',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        final now = DateTime.now();
+        final id = await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('WA FIFO 8/6'),
+            IntervalSeconds: const Value(43200),
+            DayStartSeconds: const Value(5 * 3600),
+            CycleOnDays: const Value(8),
+            CycleOffDays: const Value(6),
+            CycleAnchorEpochDay: Value(
+              RA_SwingRosterSchedule.logicalEpochDay(
+                now,
+                dayStartSeconds: 5 * 3600,
+              ),
+            ),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: now.add(const Duration(hours: 3)),
+        );
+
+        String? sharedText;
+        RA_ExportService.debugShareOverride = (params) async {
+          sharedText = params.text;
+        };
+        addTearDown(RA_ExportService.resetForTesting);
+
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: RoutineSummaryPage(routineId: id, dbPath: ':memory:'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(find.text('8d On / 6d Off'), findsOneWidget);
+          expect(find.text('Day 1 of 8 ON'), findsOneWidget);
+
+          final shareButton = find.text('Share Routine Preset');
+          final verticalScrollable = find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          );
+          await tester.scrollUntilVisible(
+            shareButton,
+            250,
+            scrollable: verticalScrollable.first,
+          );
+          await tester.pump();
+          await tester.ensureVisible(shareButton);
+          await tester.pump();
+          await tester.tap(shareButton);
+          await tester.pump();
+
+          expect(sharedText, isNotNull);
+          expect(sharedText, contains('WA FIFO 8/6'));
+          expect(
+            sharedText,
+            contains('https://casellaweb.com.au/rolling-alarm?preset=RA1:'),
+          );
+          expect(find.byType(PaywallPage), findsNothing);
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'RoutineEditPage Swing Roster toggle allows free 8/6 & 4/4, gates 2/1 (14/7) to PaywallPage, and saves swing columns',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: const RoutineEditPage(dbPath: ':memory:'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+
+          await tester.enterText(find.byType(TextField).first, 'Site Swing');
+          await tester.pump();
+
+          final swingToggle = find.text('Swing Roster Cycle (FIFO / Shift Work)');
+          await tester.ensureVisible(swingToggle);
+          await tester.pump();
+          await tester.tap(swingToggle);
+          await tester.pump();
+
+          expect(find.text('8/6'), findsOneWidget);
+          expect(find.text('4 On / 4 Off'), findsOneWidget);
+          expect(find.text('2/1 (14/7)'), findsOneWidget);
+          expect(find.text('2/2 (14/14)'), findsOneWidget);
+
+          // Free 4 On / 4 Off chip works without paywall.
+          await tester.ensureVisible(find.text('4 On / 4 Off'));
+          await tester.pump();
+          await tester.tap(find.text('4 On / 4 Off'));
+          await tester.pump();
+          expect(find.byType(PaywallPage), findsNothing);
+          expect(find.textContaining('4/4 Swing · Day 1 of 4 ON'), findsOneWidget);
+
+          // Pro 2/1 (14/7) chip opens PaywallPage for Free users.
+          await tester.ensureVisible(find.text('2/1 (14/7)'));
+          await tester.pump();
+          await tester.tap(find.text('2/1 (14/7)'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(PaywallPage), findsOneWidget);
+
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          // Save persists 4/4 cycle + anchor epoch day into Drift.
+          await tester.tap(find.text('Save'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          final saved = await db.getActiveRoutines();
+          expect(saved, hasLength(1));
+          expect(saved.single.Name, equals('Site Swing'));
+          expect(saved.single.CycleOnDays, equals(4));
+          expect(saved.single.CycleOffDays, equals(4));
+          expect(saved.single.CycleAnchorEpochDay, isNotNull);
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'RA_showImportDialog auto-detects and prefills valid RA1 preset URL from clipboard',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        final now = DateTime.now();
+        final id = await db.insertRoutine(
+          RoutinesCompanion(
+            Name: const Value('Clipboard Preset'),
+            IntervalSeconds: const Value(14400),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+        );
+        final routine = await db.getRoutineById(id);
+        final url = RA_ExportService.buildShareablePresetUrl(
+          routine,
+          exportedAt: now,
+        );
+        final expectedCode = RA_ExportService.extractRa1Token(url)!;
+
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+              if (call.method == 'Clipboard.getData') {
+                return <String, Object?>{'text': 'Try this preset: $url'};
+              }
+              return null;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null);
+        });
+
+        String? submitted;
+        try {
+          late BuildContext hostCtx;
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [RA_DatabaseProvider.overrideWithValue(db)],
+              home: Scaffold(
+                body: Builder(
+                  builder: (ctx) {
+                    hostCtx = ctx;
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          unawaited(
+            RA_showImportDialog(
+              hostCtx,
+              onImport: (text) async {
+                submitted = text;
+                return true;
+              },
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+
+          expect(
+            find.textContaining('Preset detected from clipboard'),
+            findsOneWidget,
+          );
+          await tester.tap(find.text('Import'));
+          await tester.pumpAndSettle();
+
+          expect(submitted, equals(expectedCode));
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'SettingsPage exposes Manufacturer Battery Guide and Rate Rolling Alarm actions',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        var storeListingCalls = 0;
+        RA_ReviewService.debugOpenStoreListingOverride = () async {
+          storeListingCalls++;
+        };
+        addTearDown(RA_ReviewService.resetForTesting);
+
+        const uiSchedulerChannel = MethodChannel(
+          'com.casellaweb.rolling_alarm/alarm_ui_scheduler',
+        );
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(uiSchedulerChannel, (call) async {
+              if (call.method == 'getDeviceManufacturer') return 'samsung';
+              return false;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(uiSchedulerChannel, null);
+        });
+
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: const SettingsPage(dbPath: ':memory:'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          final verticalScrollable = find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          );
+
+          final guideFinder = find.text(
+            'Manufacturer Battery Guide (Samsung / Xiaomi / Oppo)',
+          );
+          await tester.scrollUntilVisible(
+            guideFinder,
+            250,
+            scrollable: verticalScrollable.first,
+          );
+          await tester.ensureVisible(guideFinder);
+          await tester.pump();
+          await tester.tap(guideFinder);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(RA_OemBatteryGuideSheet), findsOneWidget);
+          expect(find.text('Keep Samsung Alarms Reliable'), findsOneWidget);
+
+          await tester.tap(find.text('Later'));
+          await tester.pumpAndSettle();
+          expect(find.byType(RA_OemBatteryGuideSheet), findsNothing);
+
+          final rateFinder = find.text('Rate Rolling Alarm');
+          await tester.scrollUntilVisible(
+            rateFinder,
+            250,
+            scrollable: verticalScrollable.first,
+          );
+          await tester.ensureVisible(rateFinder);
+          await tester.pump();
+          await tester.tap(rateFinder);
+          await tester.pump();
+
+          expect(storeListingCalls, equals(1));
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'RoutineEditPage blocks impossible swing+weekday intersection and safely opens anchor picker for old 2020 anchor',
+      (tester) async {
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        final oldAnchor = RA_SwingRosterSchedule.localEpochDay(
+          DateTime(2020, 6, 1), // Monday
+        );
+        // 3 On / 4 Off anchored Mon -> Mon-Wed ON; Thu-Fri only -> impossible!
+        final id = await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('Conflicting Shift'),
+            IntervalSeconds: const Value(43200),
+            DayStartSeconds: const Value(6 * 3600),
+            EnabledWeekdays: const Value((1 << 3) | (1 << 4)),
+            CycleOnDays: const Value(3),
+            CycleOffDays: const Value(4),
+            CycleAnchorEpochDay: Value(oldAnchor),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: DateTime.now().add(const Duration(hours: 2)),
+        );
+        final existing = await db.getRoutineById(id);
+
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(true),
+              ],
+              home: RoutineEditPage(dbPath: ':memory:', existingRoutine: existing),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+
+          // Inline conflict error is displayed and Save refuses to pop/persist.
+          expect(
+            find.textContaining('No calendar day matches both this swing cycle'),
+            findsOneWidget,
+          );
+          await tester.tap(find.text('Save'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.byType(RoutineEditPage), findsOneWidget);
+
+          // Tapping the 2020 anchor date opens DatePicker cleanly without assertion error.
+          final anchorTile = find.textContaining('2020');
+          await tester.ensureVisible(anchorTile);
+          await tester.pump();
+          await tester.tap(anchorTile);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(find.byType(DatePickerDialog), findsOneWidget);
+        } finally {
+          await _disposeWidgetTree(tester, db);
+        }
+      },
+    );
+
+    testWidgets(
+      'narrow 320dp viewport renders Day-1 banner, swing badge, and OEM battery sheet cleanly with double-tap guard',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final now = DateTime.now();
+        SharedPreferences.setMockInitialValues({
+          RA_PurchaseService.firstSeenEpochMsKey: now
+              .subtract(const Duration(hours: 1))
+              .millisecondsSinceEpoch,
+        });
+        await RA_PurchaseService.init();
+
+        final db = RA_Database.forTesting(NativeDatabase.memory());
+        await db.insertRoutineWithInitialState(
+          routine: RoutinesCompanion(
+            Name: const Value('WA FIFO 8/6 Day Swing Turnaround'),
+            IntervalSeconds: const Value(43200),
+            DayStartSeconds: const Value(5 * 3600),
+            CycleOnDays: const Value(8),
+            CycleOffDays: const Value(6),
+            CycleAnchorEpochDay: Value(
+              RA_SwingRosterSchedule.logicalEpochDay(
+                now,
+                dayStartSeconds: 5 * 3600,
+              ),
+            ),
+            DriftCompensationTypeCode: Value(
+              DriftCompensationTypeCodeEnum.ActualDismissal.index,
+            ),
+          ),
+          nextTriggerTime: now.add(const Duration(hours: 2)),
+        );
+
+        try {
+          await tester.pumpWidget(
+            _wrapApp(
+              overrides: [
+                RA_DatabaseProvider.overrideWithValue(db),
+                WallClockSecondProvider.overrideWith((ref) => Stream.value(now)),
+                OfferingsProvider.overrideWith((ref) async => null),
+                IsProProvider.overrideWithValue(false),
+              ],
+              home: const HomePage(dbPath: ':memory:'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(tester.takeException(), isNull);
+          expect(find.textContaining('Day-1 Founding Offer'), findsOneWidget);
+
+          // Render OEM battery sheet at 320dp + 1.4x text scale & verify double-tap guard.
+          var allowCalls = 0;
+          final allowCompleter = Completer<void>();
+          await tester.pumpWidget(
+            MediaQuery(
+              data: const MediaQueryData(
+                size: Size(320, 640),
+                textScaler: TextScaler.linear(1.4),
+              ),
+              child: _wrapApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (ctx) => Center(
+                      child: ElevatedButton(
+                        onPressed: () => unawaited(
+                          RA_OemBatteryGuideSheet.show(
+                            ctx,
+                            manufacturer: 'oneplus',
+                            onAllowUnrestricted: () {
+                              allowCalls++;
+                              return allowCompleter.future;
+                            },
+                          ),
+                        ),
+                        child: const Text('Open Guide'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.tap(find.text('Open Guide'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+
+          final allowBtn = find.text('Allow Unrestricted Battery');
+          await tester.tap(allowBtn);
+          await tester.pump();
+          // Rapid second tap while in-flight must be ignored (no double pop!).
+          await tester.tap(allowBtn, warnIfMissed: false);
+          await tester.pump();
+          expect(allowCalls, equals(1));
+
+          allowCompleter.complete();
+          await tester.pumpAndSettle();
+          expect(find.byType(RA_OemBatteryGuideSheet), findsNothing);
+          expect(find.text('Open Guide'), findsOneWidget);
         } finally {
           await _disposeWidgetTree(tester, db);
         }

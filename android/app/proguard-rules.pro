@@ -36,6 +36,7 @@
 -keep class com.casellaweb.rolling_alarm.AlarmResurrectionReceiver { *; }
 -keep class com.casellaweb.rolling_alarm.AlarmUiSchedulerPlugin { *; }
 -keep class com.casellaweb.rolling_alarm.AlarmSqliteGate { *; }
+-keep class com.casellaweb.rolling_alarm.PlayReviewBridge { *; }
 -keep class com.casellaweb.rolling_alarm.AlarmRingDisplayGate { *; }
 -keep class com.casellaweb.rolling_alarm.AlarmRingtonePlayer { *; }
 -keep class com.casellaweb.rolling_alarm.AlarmVibrator { *; }

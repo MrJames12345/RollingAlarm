@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/components/common/button.dart';
+import 'package:rolling_alarm/components/common/oem_battery_guide_sheet.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/notification.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -38,6 +41,12 @@ class RA_PermissionService {
 
   static const String _notifPromptedKey = 'ra_perm_notif_prompted';
   static const String _fsiPromptedKey = 'ra_perm_fsi_prompted';
+  static const String oemBatteryPromptedKey = 'ra_perm_oem_battery_prompted';
+
+  /// Test-only override to exercise the post-first-save OEM battery sheet inside
+  /// `flutter test` where `FLUTTER_TEST` is normally set in the environment.
+  @visibleForTesting
+  static bool? debugAllowOemSheetInTests;
 
   /// Requests only the core permissions required for alarms to fire and wake
   /// the lock screen, called contextually when the user saves, imports,
@@ -84,8 +93,54 @@ class RA_PermissionService {
           }
         }
       }
+
+      // 4. Post-first-save OEM battery reliability guide: shown once when not
+      //    yet exempt from battery optimizations (skipped in widget/integration
+      //    tests or when the native channel is absent).
+      final allowOemSheet =
+          debugAllowOemSheetInTests ??
+          !Platform.environment.containsKey('FLUTTER_TEST');
+      if (allowOemSheet && prefs.getBool(oemBatteryPromptedKey) != true) {
+        final batteryExempt = await isIgnoringBatteryOptimizations();
+        if (!batteryExempt) {
+          final manufacturer = await _getDeviceManufacturerRaw();
+          if (manufacturer != null && context.mounted) {
+            await prefs.setBool(oemBatteryPromptedKey, true);
+            if (!context.mounted) return;
+            await RA_OemBatteryGuideSheet.show(
+              context,
+              manufacturer: manufacturer,
+            );
+          }
+        }
+      }
     } catch (_) {
       // Missing plugins / headless test environments fail soft.
+    }
+  }
+
+  /// Opens the manufacturer-tailored battery guide bottom sheet on demand
+  /// (used from Settings -> Alarm Reliability).
+  static Future<void> showOemBatteryGuide(BuildContext context) async {
+    final manufacturer = await getDeviceManufacturer();
+    if (!context.mounted) return;
+    await RA_OemBatteryGuideSheet.show(context, manufacturer: manufacturer);
+  }
+
+  /// Reads lowercased `android.os.Build.MANUFACTURER` via native channel
+  /// (`''` when absent).
+  static Future<String> getDeviceManufacturer() async {
+    return (await _getDeviceManufacturerRaw()) ?? '';
+  }
+
+  static Future<String?> _getDeviceManufacturerRaw() async {
+    try {
+      final result = await _uiSchedulerChannel.invokeMethod<String>(
+        'getDeviceManufacturer',
+      );
+      return result?.trim().toLowerCase();
+    } catch (_) {
+      return null;
     }
   }
 

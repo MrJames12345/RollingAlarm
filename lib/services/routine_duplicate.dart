@@ -28,6 +28,9 @@ class RA_RoutineDuplicateService {
       MaxTimesPerDay: Value(source.MaxTimesPerDay),
       DayStartSeconds: Value(source.DayStartSeconds),
       EnabledWeekdays: Value(source.EnabledWeekdays),
+      CycleOnDays: Value(source.CycleOnDays),
+      CycleOffDays: Value(source.CycleOffDays),
+      CycleAnchorEpochDay: Value(source.CycleAnchorEpochDay),
       DriftCompensationTypeCode: Value(source.DriftCompensationTypeCode),
       ShowPreview: Value(source.ShowPreview),
       Vibrate: Value(source.Vibrate),
@@ -50,6 +53,9 @@ class RA_RoutineDuplicateService {
       maxTimesPerDayEnabled: source.MaxTimesPerDayEnabled,
       dayStartSeconds: source.DayStartSeconds,
       enabledWeekdays: source.EnabledWeekdays,
+      cycleOnDays: source.CycleOnDays,
+      cycleOffDays: source.CycleOffDays,
+      cycleAnchorEpochDay: source.CycleAnchorEpochDay,
     );
     final routineId = await db.insertRoutineWithInitialState(
       routine: companion,

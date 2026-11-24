@@ -109,6 +109,40 @@ class $RoutinesTable extends Routines
     requiredDuringInsert: false,
     defaultValue: const Constant(127),
   );
+  static const VerificationMeta _CycleOnDaysMeta = const VerificationMeta(
+    'CycleOnDays',
+  );
+  @override
+  late final GeneratedColumn<int> CycleOnDays = GeneratedColumn<int>(
+    'cycle_on_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _CycleOffDaysMeta = const VerificationMeta(
+    'CycleOffDays',
+  );
+  @override
+  late final GeneratedColumn<int> CycleOffDays = GeneratedColumn<int>(
+    'cycle_off_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _CycleAnchorEpochDayMeta =
+      const VerificationMeta('CycleAnchorEpochDay');
+  @override
+  late final GeneratedColumn<int> CycleAnchorEpochDay = GeneratedColumn<int>(
+    'cycle_anchor_epoch_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _DriftCompensationTypeCodeMeta =
       const VerificationMeta('DriftCompensationTypeCode');
   @override
@@ -247,6 +281,9 @@ class $RoutinesTable extends Routines
     DayStartSeconds,
     MaxTimesPerDayEnabled,
     EnabledWeekdays,
+    CycleOnDays,
+    CycleOffDays,
+    CycleAnchorEpochDay,
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
@@ -334,6 +371,33 @@ class $RoutinesTable extends Routines
         EnabledWeekdays.isAcceptableOrUnknown(
           data['enabled_weekdays']!,
           _EnabledWeekdaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cycle_on_days')) {
+      context.handle(
+        _CycleOnDaysMeta,
+        CycleOnDays.isAcceptableOrUnknown(
+          data['cycle_on_days']!,
+          _CycleOnDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cycle_off_days')) {
+      context.handle(
+        _CycleOffDaysMeta,
+        CycleOffDays.isAcceptableOrUnknown(
+          data['cycle_off_days']!,
+          _CycleOffDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cycle_anchor_epoch_day')) {
+      context.handle(
+        _CycleAnchorEpochDayMeta,
+        CycleAnchorEpochDay.isAcceptableOrUnknown(
+          data['cycle_anchor_epoch_day']!,
+          _CycleAnchorEpochDayMeta,
         ),
       );
     }
@@ -446,6 +510,18 @@ class $RoutinesTable extends Routines
         DriftSqlType.int,
         data['${effectivePrefix}enabled_weekdays'],
       )!,
+      CycleOnDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_on_days'],
+      )!,
+      CycleOffDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_off_days'],
+      )!,
+      CycleAnchorEpochDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_anchor_epoch_day'],
+      ),
       DriftCompensationTypeCode: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}drift_compensation_type_code'],
@@ -516,6 +592,15 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
 
   /// Monday-first weekday bitmask (bit 0 = Mon … bit 6 = Sun). Default all days.
   final int EnabledWeekdays;
+
+  /// Active days in a swing roster cycle (`0` means swing cycle disabled).
+  final int CycleOnDays;
+
+  /// Off-duty / R&R days in a swing roster cycle when [CycleOnDays] > 0.
+  final int CycleOffDays;
+
+  /// Local calendar epoch day representing Day 1 of the ON swing.
+  final int? CycleAnchorEpochDay;
   final int DriftCompensationTypeCode;
   final bool ShowPreview;
 
@@ -541,6 +626,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     required this.DayStartSeconds,
     required this.MaxTimesPerDayEnabled,
     required this.EnabledWeekdays,
+    required this.CycleOnDays,
+    required this.CycleOffDays,
+    this.CycleAnchorEpochDay,
     required this.DriftCompensationTypeCode,
     required this.ShowPreview,
     required this.Vibrate,
@@ -563,6 +651,11 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     map['day_start_seconds'] = Variable<int>(DayStartSeconds);
     map['max_times_per_day_enabled'] = Variable<bool>(MaxTimesPerDayEnabled);
     map['enabled_weekdays'] = Variable<int>(EnabledWeekdays);
+    map['cycle_on_days'] = Variable<int>(CycleOnDays);
+    map['cycle_off_days'] = Variable<int>(CycleOffDays);
+    if (!nullToAbsent || CycleAnchorEpochDay != null) {
+      map['cycle_anchor_epoch_day'] = Variable<int>(CycleAnchorEpochDay);
+    }
     map['drift_compensation_type_code'] = Variable<int>(
       DriftCompensationTypeCode,
     );
@@ -592,6 +685,11 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       DayStartSeconds: Value(DayStartSeconds),
       MaxTimesPerDayEnabled: Value(MaxTimesPerDayEnabled),
       EnabledWeekdays: Value(EnabledWeekdays),
+      CycleOnDays: Value(CycleOnDays),
+      CycleOffDays: Value(CycleOffDays),
+      CycleAnchorEpochDay: CycleAnchorEpochDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(CycleAnchorEpochDay),
       DriftCompensationTypeCode: Value(DriftCompensationTypeCode),
       ShowPreview: Value(ShowPreview),
       Vibrate: Value(Vibrate),
@@ -625,6 +723,11 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
         json['MaxTimesPerDayEnabled'],
       ),
       EnabledWeekdays: serializer.fromJson<int>(json['EnabledWeekdays']),
+      CycleOnDays: serializer.fromJson<int>(json['CycleOnDays']),
+      CycleOffDays: serializer.fromJson<int>(json['CycleOffDays']),
+      CycleAnchorEpochDay: serializer.fromJson<int?>(
+        json['CycleAnchorEpochDay'],
+      ),
       DriftCompensationTypeCode: serializer.fromJson<int>(
         json['DriftCompensationTypeCode'],
       ),
@@ -651,6 +754,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       'DayStartSeconds': serializer.toJson<int>(DayStartSeconds),
       'MaxTimesPerDayEnabled': serializer.toJson<bool>(MaxTimesPerDayEnabled),
       'EnabledWeekdays': serializer.toJson<int>(EnabledWeekdays),
+      'CycleOnDays': serializer.toJson<int>(CycleOnDays),
+      'CycleOffDays': serializer.toJson<int>(CycleOffDays),
+      'CycleAnchorEpochDay': serializer.toJson<int?>(CycleAnchorEpochDay),
       'DriftCompensationTypeCode': serializer.toJson<int>(
         DriftCompensationTypeCode,
       ),
@@ -675,6 +781,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     int? DayStartSeconds,
     bool? MaxTimesPerDayEnabled,
     int? EnabledWeekdays,
+    int? CycleOnDays,
+    int? CycleOffDays,
+    Value<int?> CycleAnchorEpochDay = const Value.absent(),
     int? DriftCompensationTypeCode,
     bool? ShowPreview,
     bool? Vibrate,
@@ -694,6 +803,11 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     DayStartSeconds: DayStartSeconds ?? this.DayStartSeconds,
     MaxTimesPerDayEnabled: MaxTimesPerDayEnabled ?? this.MaxTimesPerDayEnabled,
     EnabledWeekdays: EnabledWeekdays ?? this.EnabledWeekdays,
+    CycleOnDays: CycleOnDays ?? this.CycleOnDays,
+    CycleOffDays: CycleOffDays ?? this.CycleOffDays,
+    CycleAnchorEpochDay: CycleAnchorEpochDay.present
+        ? CycleAnchorEpochDay.value
+        : this.CycleAnchorEpochDay,
     DriftCompensationTypeCode:
         DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
     ShowPreview: ShowPreview ?? this.ShowPreview,
@@ -728,6 +842,15 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
       EnabledWeekdays: data.EnabledWeekdays.present
           ? data.EnabledWeekdays.value
           : this.EnabledWeekdays,
+      CycleOnDays: data.CycleOnDays.present
+          ? data.CycleOnDays.value
+          : this.CycleOnDays,
+      CycleOffDays: data.CycleOffDays.present
+          ? data.CycleOffDays.value
+          : this.CycleOffDays,
+      CycleAnchorEpochDay: data.CycleAnchorEpochDay.present
+          ? data.CycleAnchorEpochDay.value
+          : this.CycleAnchorEpochDay,
       DriftCompensationTypeCode: data.DriftCompensationTypeCode.present
           ? data.DriftCompensationTypeCode.value
           : this.DriftCompensationTypeCode,
@@ -758,6 +881,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           ..write('DayStartSeconds: $DayStartSeconds, ')
           ..write('MaxTimesPerDayEnabled: $MaxTimesPerDayEnabled, ')
           ..write('EnabledWeekdays: $EnabledWeekdays, ')
+          ..write('CycleOnDays: $CycleOnDays, ')
+          ..write('CycleOffDays: $CycleOffDays, ')
+          ..write('CycleAnchorEpochDay: $CycleAnchorEpochDay, ')
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
@@ -773,7 +899,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     Id,
     Name,
     SnoozeSeconds,
@@ -782,6 +908,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     DayStartSeconds,
     MaxTimesPerDayEnabled,
     EnabledWeekdays,
+    CycleOnDays,
+    CycleOffDays,
+    CycleAnchorEpochDay,
     DriftCompensationTypeCode,
     ShowPreview,
     Vibrate,
@@ -792,7 +921,7 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
     CreatedAt,
     ModifiedAt,
     Deleted,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -805,6 +934,9 @@ class RoutineModel extends DataClass implements Insertable<RoutineModel> {
           other.DayStartSeconds == this.DayStartSeconds &&
           other.MaxTimesPerDayEnabled == this.MaxTimesPerDayEnabled &&
           other.EnabledWeekdays == this.EnabledWeekdays &&
+          other.CycleOnDays == this.CycleOnDays &&
+          other.CycleOffDays == this.CycleOffDays &&
+          other.CycleAnchorEpochDay == this.CycleAnchorEpochDay &&
           other.DriftCompensationTypeCode == this.DriftCompensationTypeCode &&
           other.ShowPreview == this.ShowPreview &&
           other.Vibrate == this.Vibrate &&
@@ -826,6 +958,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
   final Value<int> DayStartSeconds;
   final Value<bool> MaxTimesPerDayEnabled;
   final Value<int> EnabledWeekdays;
+  final Value<int> CycleOnDays;
+  final Value<int> CycleOffDays;
+  final Value<int?> CycleAnchorEpochDay;
   final Value<int> DriftCompensationTypeCode;
   final Value<bool> ShowPreview;
   final Value<bool> Vibrate;
@@ -845,6 +980,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.DayStartSeconds = const Value.absent(),
     this.MaxTimesPerDayEnabled = const Value.absent(),
     this.EnabledWeekdays = const Value.absent(),
+    this.CycleOnDays = const Value.absent(),
+    this.CycleOffDays = const Value.absent(),
+    this.CycleAnchorEpochDay = const Value.absent(),
     this.DriftCompensationTypeCode = const Value.absent(),
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
@@ -865,6 +1003,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     this.DayStartSeconds = const Value.absent(),
     this.MaxTimesPerDayEnabled = const Value.absent(),
     this.EnabledWeekdays = const Value.absent(),
+    this.CycleOnDays = const Value.absent(),
+    this.CycleOffDays = const Value.absent(),
+    this.CycleAnchorEpochDay = const Value.absent(),
     required int DriftCompensationTypeCode,
     this.ShowPreview = const Value.absent(),
     this.Vibrate = const Value.absent(),
@@ -887,6 +1028,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Expression<int>? DayStartSeconds,
     Expression<bool>? MaxTimesPerDayEnabled,
     Expression<int>? EnabledWeekdays,
+    Expression<int>? CycleOnDays,
+    Expression<int>? CycleOffDays,
+    Expression<int>? CycleAnchorEpochDay,
     Expression<int>? DriftCompensationTypeCode,
     Expression<bool>? ShowPreview,
     Expression<bool>? Vibrate,
@@ -908,6 +1052,10 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       if (MaxTimesPerDayEnabled != null)
         'max_times_per_day_enabled': MaxTimesPerDayEnabled,
       if (EnabledWeekdays != null) 'enabled_weekdays': EnabledWeekdays,
+      if (CycleOnDays != null) 'cycle_on_days': CycleOnDays,
+      if (CycleOffDays != null) 'cycle_off_days': CycleOffDays,
+      if (CycleAnchorEpochDay != null)
+        'cycle_anchor_epoch_day': CycleAnchorEpochDay,
       if (DriftCompensationTypeCode != null)
         'drift_compensation_type_code': DriftCompensationTypeCode,
       if (ShowPreview != null) 'show_preview': ShowPreview,
@@ -931,6 +1079,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     Value<int>? DayStartSeconds,
     Value<bool>? MaxTimesPerDayEnabled,
     Value<int>? EnabledWeekdays,
+    Value<int>? CycleOnDays,
+    Value<int>? CycleOffDays,
+    Value<int?>? CycleAnchorEpochDay,
     Value<int>? DriftCompensationTypeCode,
     Value<bool>? ShowPreview,
     Value<bool>? Vibrate,
@@ -952,6 +1103,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
       MaxTimesPerDayEnabled:
           MaxTimesPerDayEnabled ?? this.MaxTimesPerDayEnabled,
       EnabledWeekdays: EnabledWeekdays ?? this.EnabledWeekdays,
+      CycleOnDays: CycleOnDays ?? this.CycleOnDays,
+      CycleOffDays: CycleOffDays ?? this.CycleOffDays,
+      CycleAnchorEpochDay: CycleAnchorEpochDay ?? this.CycleAnchorEpochDay,
       DriftCompensationTypeCode:
           DriftCompensationTypeCode ?? this.DriftCompensationTypeCode,
       ShowPreview: ShowPreview ?? this.ShowPreview,
@@ -994,6 +1148,15 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
     }
     if (EnabledWeekdays.present) {
       map['enabled_weekdays'] = Variable<int>(EnabledWeekdays.value);
+    }
+    if (CycleOnDays.present) {
+      map['cycle_on_days'] = Variable<int>(CycleOnDays.value);
+    }
+    if (CycleOffDays.present) {
+      map['cycle_off_days'] = Variable<int>(CycleOffDays.value);
+    }
+    if (CycleAnchorEpochDay.present) {
+      map['cycle_anchor_epoch_day'] = Variable<int>(CycleAnchorEpochDay.value);
     }
     if (DriftCompensationTypeCode.present) {
       map['drift_compensation_type_code'] = Variable<int>(
@@ -1041,6 +1204,9 @@ class RoutinesCompanion extends UpdateCompanion<RoutineModel> {
           ..write('DayStartSeconds: $DayStartSeconds, ')
           ..write('MaxTimesPerDayEnabled: $MaxTimesPerDayEnabled, ')
           ..write('EnabledWeekdays: $EnabledWeekdays, ')
+          ..write('CycleOnDays: $CycleOnDays, ')
+          ..write('CycleOffDays: $CycleOffDays, ')
+          ..write('CycleAnchorEpochDay: $CycleAnchorEpochDay, ')
           ..write('DriftCompensationTypeCode: $DriftCompensationTypeCode, ')
           ..write('ShowPreview: $ShowPreview, ')
           ..write('Vibrate: $Vibrate, ')
@@ -2838,6 +3004,9 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       Value<int> DayStartSeconds,
       Value<bool> MaxTimesPerDayEnabled,
       Value<int> EnabledWeekdays,
+      Value<int> CycleOnDays,
+      Value<int> CycleOffDays,
+      Value<int?> CycleAnchorEpochDay,
       required int DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
@@ -2859,6 +3028,9 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<int> DayStartSeconds,
       Value<bool> MaxTimesPerDayEnabled,
       Value<int> EnabledWeekdays,
+      Value<int> CycleOnDays,
+      Value<int> CycleOffDays,
+      Value<int?> CycleAnchorEpochDay,
       Value<int> DriftCompensationTypeCode,
       Value<bool> ShowPreview,
       Value<bool> Vibrate,
@@ -2917,6 +3089,21 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<int> get EnabledWeekdays => $composableBuilder(
     column: $table.EnabledWeekdays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get CycleOnDays => $composableBuilder(
+    column: $table.CycleOnDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get CycleOffDays => $composableBuilder(
+    column: $table.CycleOffDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get CycleAnchorEpochDay => $composableBuilder(
+    column: $table.CycleAnchorEpochDay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3020,6 +3207,21 @@ class $$RoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get CycleOnDays => $composableBuilder(
+    column: $table.CycleOnDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get CycleOffDays => $composableBuilder(
+    column: $table.CycleOffDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get CycleAnchorEpochDay => $composableBuilder(
+    column: $table.CycleAnchorEpochDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get DriftCompensationTypeCode => $composableBuilder(
     column: $table.DriftCompensationTypeCode,
     builder: (column) => ColumnOrderings(column),
@@ -3116,6 +3318,21 @@ class $$RoutinesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get CycleOnDays => $composableBuilder(
+    column: $table.CycleOnDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get CycleOffDays => $composableBuilder(
+    column: $table.CycleOffDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get CycleAnchorEpochDay => $composableBuilder(
+    column: $table.CycleAnchorEpochDay,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get DriftCompensationTypeCode => $composableBuilder(
     column: $table.DriftCompensationTypeCode,
     builder: (column) => column,
@@ -3192,6 +3409,9 @@ class $$RoutinesTableTableManager
                 Value<int> DayStartSeconds = const Value.absent(),
                 Value<bool> MaxTimesPerDayEnabled = const Value.absent(),
                 Value<int> EnabledWeekdays = const Value.absent(),
+                Value<int> CycleOnDays = const Value.absent(),
+                Value<int> CycleOffDays = const Value.absent(),
+                Value<int?> CycleAnchorEpochDay = const Value.absent(),
                 Value<int> DriftCompensationTypeCode = const Value.absent(),
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
@@ -3211,6 +3431,9 @@ class $$RoutinesTableTableManager
                 DayStartSeconds: DayStartSeconds,
                 MaxTimesPerDayEnabled: MaxTimesPerDayEnabled,
                 EnabledWeekdays: EnabledWeekdays,
+                CycleOnDays: CycleOnDays,
+                CycleOffDays: CycleOffDays,
+                CycleAnchorEpochDay: CycleAnchorEpochDay,
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,
@@ -3232,6 +3455,9 @@ class $$RoutinesTableTableManager
                 Value<int> DayStartSeconds = const Value.absent(),
                 Value<bool> MaxTimesPerDayEnabled = const Value.absent(),
                 Value<int> EnabledWeekdays = const Value.absent(),
+                Value<int> CycleOnDays = const Value.absent(),
+                Value<int> CycleOffDays = const Value.absent(),
+                Value<int?> CycleAnchorEpochDay = const Value.absent(),
                 required int DriftCompensationTypeCode,
                 Value<bool> ShowPreview = const Value.absent(),
                 Value<bool> Vibrate = const Value.absent(),
@@ -3251,6 +3477,9 @@ class $$RoutinesTableTableManager
                 DayStartSeconds: DayStartSeconds,
                 MaxTimesPerDayEnabled: MaxTimesPerDayEnabled,
                 EnabledWeekdays: EnabledWeekdays,
+                CycleOnDays: CycleOnDays,
+                CycleOffDays: CycleOffDays,
+                CycleAnchorEpochDay: CycleAnchorEpochDay,
                 DriftCompensationTypeCode: DriftCompensationTypeCode,
                 ShowPreview: ShowPreview,
                 Vibrate: Vibrate,

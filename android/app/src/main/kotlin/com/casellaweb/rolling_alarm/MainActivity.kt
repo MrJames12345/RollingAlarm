@@ -34,6 +34,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var lockOverlayFromAlarmIntent: Boolean = false
     private var alarmSoundMethodChannel: MethodChannel? = null
     private var paywallMethodChannel: MethodChannel? = null
+    private var playReviewBridge: PlayReviewBridge? = null
     private var pendingOpenPaywall: Boolean = false
     private var pendingPaywallTrigger: String? = null
     /** Cached side-button actions while ringing: none / snooze / dismiss. */
@@ -75,6 +76,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        playReviewBridge?.detach()
+        playReviewBridge = null
         unregisterUserLockReceiver()
         super.onDestroy()
     }
@@ -317,6 +320,12 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(AlarmUiSchedulerPlugin())
+        playReviewBridge = PlayReviewBridge(
+            activityProvider = { this@MainActivity },
+            isForegroundUnlocked = { isAppInForeground && !isDeviceKeyguardLocked() },
+        ).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+        }
         val paywallBridge = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, paywallChannel)
         paywallMethodChannel = paywallBridge
         paywallBridge.setMethodCallHandler { call, result ->

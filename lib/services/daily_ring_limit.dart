@@ -1,4 +1,4 @@
-import 'package:rolling_alarm/services/weekday_schedule.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 
 /// Pure helpers for the per-day ring cap.
 ///
@@ -153,13 +153,16 @@ class RA_DailyRingLimit {
   ///
   /// When the daily cap is enabled, schedule the next "Start at time of day"
   /// so the first ring opens the daily cycle. Otherwise use [now] plus
-  /// [interval]. Then defer to the next enabled weekday when needed.
+  /// [interval]. Then defer to the next active swing day & enabled weekday.
   static DateTime initialTriggerTime({
     required DateTime now,
     required Duration interval,
     required bool maxTimesPerDayEnabled,
     int dayStartSeconds = 0,
     int enabledWeekdays = 0x7F,
+    int cycleOnDays = 0,
+    int cycleOffDays = 0,
+    int? cycleAnchorEpochDay,
   }) {
     final safeInterval = interval.inSeconds < 1
         ? const Duration(seconds: 60)
@@ -167,10 +170,13 @@ class RA_DailyRingLimit {
     final proposed = maxTimesPerDayEnabled
         ? nextPeriodStartAfter(now, dayStartSeconds)
         : now.add(safeInterval);
-    return RA_WeekdaySchedule.deferToEnabledDay(
+    return RA_SwingRosterSchedule.deferToActiveDay(
       proposed,
-      enabledWeekdays,
+      enabledWeekdays: enabledWeekdays,
       dayStartSeconds: dayStartSeconds,
+      cycleOnDays: cycleOnDays,
+      cycleOffDays: cycleOffDays,
+      cycleAnchorEpochDay: cycleAnchorEpochDay,
     );
   }
 
@@ -226,6 +232,12 @@ class RA_DailyRingLimit {
     required int enabledWeekdays,
     int oldExtraMaxTimesToday = 0,
     int newExtraMaxTimesToday = 0,
+    int oldCycleOnDays = 0,
+    int newCycleOnDays = 0,
+    int oldCycleOffDays = 0,
+    int newCycleOffDays = 0,
+    int? oldCycleAnchorEpochDay,
+    int? newCycleAnchorEpochDay,
   }) {
     if (previousNext == null) return null;
 
@@ -243,6 +255,11 @@ class RA_DailyRingLimit {
         (oldMaxTimesPerDayEnabled &&
             newMaxTimesPerDayEnabled &&
             (oldMaxTimesPerDay != newMaxTimesPerDay || oldExtraMaxTimesToday != newExtraMaxTimesToday));
+
+    final swingChanged =
+        oldCycleOnDays != newCycleOnDays ||
+        oldCycleOffDays != newCycleOffDays ||
+        oldCycleAnchorEpochDay != newCycleAnchorEpochDay;
 
     final oldSameDay = timesRingDay != null && isSamePeriod(timesRingDay, now, oldStart);
     final oldEffectiveExtra = oldSameDay ? oldExtraMaxTimesToday : 0;
@@ -276,6 +293,14 @@ class RA_DailyRingLimit {
         now: now,
         dayStartSeconds: newStart,
       );
+    } else if (swingChanged &&
+        !isAtCap &&
+        isPeriodStartTrigger(trigger: previousNext, dayStartSeconds: oldStart)) {
+      // If swing settings changed while parked on a day-start (e.g. R&R off-swing),
+      // recompute cleanly from today before applying the new swing + weekday rules.
+      candidate = newMaxTimesPerDayEnabled
+          ? nextPeriodStartAfter(now, newStart)
+          : now.add(Duration(seconds: safeIntervalSeconds));
     } else if (oldStart != newStart &&
         isPeriodStartTrigger(
           trigger: previousNext,
@@ -288,10 +313,13 @@ class RA_DailyRingLimit {
       candidate = previousNext;
     }
 
-    return RA_WeekdaySchedule.deferToEnabledDay(
+    return RA_SwingRosterSchedule.deferToActiveDay(
       candidate,
-      enabledWeekdays,
+      enabledWeekdays: enabledWeekdays,
       dayStartSeconds: newStart,
+      cycleOnDays: newCycleOnDays,
+      cycleOffDays: newCycleOffDays,
+      cycleAnchorEpochDay: newCycleAnchorEpochDay,
     );
   }
 
@@ -355,6 +383,9 @@ class RA_DailyRingLimit {
     required int dayStartSeconds,
     required int enabledWeekdays,
     int extraMaxTimesToday = 0,
+    int cycleOnDays = 0,
+    int cycleOffDays = 0,
+    int? cycleAnchorEpochDay,
   }) {
     if (previousNext == null) return null;
 
@@ -392,10 +423,13 @@ class RA_DailyRingLimit {
       now: now,
       dayStartSeconds: dayStart,
     );
-    return RA_WeekdaySchedule.deferToEnabledDay(
+    return RA_SwingRosterSchedule.deferToActiveDay(
       candidate,
-      enabledWeekdays,
+      enabledWeekdays: enabledWeekdays,
       dayStartSeconds: dayStart,
+      cycleOnDays: cycleOnDays,
+      cycleOffDays: cycleOffDays,
+      cycleAnchorEpochDay: cycleAnchorEpochDay,
     );
   }
 }

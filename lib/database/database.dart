@@ -22,7 +22,7 @@ class RA_Database extends _$RA_Database {
   RA_Database.forTesting(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -155,6 +155,11 @@ class RA_Database extends _$RA_Database {
             [legacyProGrandfatheredKey],
           );
         }
+      }
+      if (from < 19) {
+        await m.addColumn(routines, routines.CycleOnDays);
+        await m.addColumn(routines, routines.CycleOffDays);
+        await m.addColumn(routines, routines.CycleAnchorEpochDay);
       }
     },
   );

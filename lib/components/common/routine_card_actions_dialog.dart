@@ -9,6 +9,7 @@ enum RA_RoutineCardMenuAction {
   resetInterval,
   addTodayCount,
   resetTodayCounter,
+  sharePreset,
   edit,
   duplicate,
   delete,
@@ -86,6 +87,13 @@ Future<RA_RoutineCardMenuAction?> RA_showRoutineCardActionsDialog(
             label: "Reset Today's Counter",
             onTap: () =>
                 Navigator.pop(ctx, RA_RoutineCardMenuAction.resetTodayCounter),
+          ),
+          _ActionTile(
+            icon: Icons.share_outlined,
+            label: 'Share Routine Preset',
+            color: RA_ColourStyles.readableAccent(RA_ColourStyles.secondary),
+            onTap: () =>
+                Navigator.pop(ctx, RA_RoutineCardMenuAction.sharePreset),
           ),
           _ActionTile(
             icon: Icons.edit_outlined,

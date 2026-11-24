@@ -1,201 +1,252 @@
 Locale,Title,Short Description,Full Description
-en-US,Rolling Alarm: Interval Alarm,Auto-repeat interval alarm & pill reminder. Next alarm rolls from dismissal!,"Rolling Alarm is a calm, reliable, and completely ad-free interval alarm clock for Android built for dynamic routines. Unlike standard clock apps tied to fixed wall-clock times, Rolling Alarm runs on a true continuous loop: the exact moment you dismiss an alarm, the app automatically calculates and schedules the next one from your chosen interval.
+en-US,Rolling Alarm: Interval Alarm,Auto-repeat interval alarm & pill reminder. Next alarm rolls from dismissal!,"Quick Specs & Capabilities:
+• Core Function: True post-dismissal interval alarm clock (Next Alarm = Dismiss Time + Interval) with full-screen lock-screen wake.
+• Built For: Medication dose spacing, WA FIFO (8/6, 2/1) & nursing (4-on-4-off) swing rosters, caregiving checks, and ADHD routines.
+• Offline & Privacy: 100% offline on-device SQLite storage. Zero accounts, zero cloud sync, zero ads, and zero tracking.
+• Free vs. Pro: Free forever for up to 2 live routines, swing-roster presets (8/6 & 4-on-4-off), 1 home widget, and 7-day logs; optional Rolling Alarm Pro (Annual, Monthly, or one-time Lifetime unlock) adds unlimited routines/widgets, Classic Interval drift grid, custom audio/fade-in, 365-day logs, and printable PDF reports.
+
+Rolling Alarm is a calm, reliable, and completely ad-free interval alarm clock for Android built for dynamic routines. Unlike standard clock apps tied to fixed wall-clock times, Rolling Alarm runs on a true continuous loop: the exact moment you dismiss an alarm, the app automatically calculates and schedules the next one from your chosen interval.
 
 Built for real-world schedules where timing shifts:
 • Medication Dose Intervals: Space pills every 4, 6, or 8 hours from when you actually took your last dose—never accidentally overlap doses after sleeping in.
-• Rotating & FIFO Shift Rosters: Keep turnaround intervals, night-shift wake cycles, and staggered break loops locked to your real sleep window.
+• WA FIFO & Nursing Swing Rosters: Automate 8/6, 2/1, 2/2, and 4-on-4-off swing cycles with automatic R&R off-swing parking and clean Day-Start resets.
 • ADHD Routine Loops: Anchor hydration, focus sprints, posture resets, and task transitions with persistent, full-screen alarm cues.
 • Caregiving & Patient Checks: Stay on top of feeds, comfort turns, and recurring check-ins with a clear timestamped record.
 
 Key Features:
 • True Rolling Interval Schedule: Dismiss an alarm and your next trigger rolls forward automatically. Skip early, pause with frozen remaining time, or silently mute without losing your cycle count.
-• 1-Tap Quick-Start Templates: Launch presets for Medication Cadence, Focus & Hydration, Night Shift / FIFO turnarounds, and Caregiver Checks in seconds.
+• Automatic Swing-Roster Cycles: Set N-days-ON / M-days-OFF cycles (8/6, 2/1, 2/2, 4-on-4-off, or custom) that park silently during R&R and resume at your chosen Day Start Time.
+• 1-Tap Quick-Start Templates & Routine Sharing: Launch Medication, FIFO 8/6, Nursing 4/4, ADHD Focus, or Caregiver presets in seconds, and share routines freely via 1-tap RA1: preset links.
 • Daily Ring Caps & Overnight Day-Start Parking: Cap daily rings, choose enabled weekdays, and automatically park overnight schedules until your chosen Day Start Time.
 • Drift Compensation: Pick Actual Dismissal (next alarm rolls from dismissal) or Classic Interval (absorbs snooze time to hold your initial ring grid).
-• Home Screen Widgets: Pin live, glanceable routine cards directly to your home screen for instant countdown visibility.
-• Printable PDF Adherence Logs & Local Backups: Review timestamped dismissal, snooze, skip, and muted history, share printable PDF reports for doctors or caregivers, and back up routines locally with RA1: export strings.
-• 100% Privacy-Focused & Offline: No accounts, no cloud sync, and no data collection. Every routine and log stays strictly on your device.
-• Zero Advertisements: A calm, distraction-free utility with zero ads, zero pop-up banners, and zero tracking.
+• Home Screen Widgets & OEM Reliability Guide: Pin live countdown cards to your home screen and follow built-in battery-whitelist guides for Samsung, Xiaomi, Oppo, and Vivo.
+• Printable PDF Adherence Logs: Review timestamped dismissal, snooze, skip, and muted history, and export printable PDF reports for doctors or caregivers.
+• 100% Privacy-Focused & Ad-Free: Zero accounts, zero cloud sync, zero ads, and zero tracking. Every routine and log stays strictly on your device.
 
 Fair Pricing:
-Core rolling routines are free forever. Need power tools? Upgrade optionally to Rolling Alarm Pro—including a one-time Lifetime unlock as well as annual and monthly plans—for unlimited routines, unlimited home screen widgets, Classic Interval drift compensation, custom local audio, gentle fade-in, hardware volume-key controls, full 365-day logs, printable PDF reports, and local RA1: backups."
-es-ES,Alarma Rodante: Intervalos,Alarma por intervalos y pastillas. Tu próxima alarma se ajusta al descartarla.,"Alarma Rodante es una alarma por intervalos tranquila, confiable y totalmente libre de anuncios diseñada para rutinas dinámicas en Android. A diferencia de los despertadores tradicionales sujetos a horas fijas, funciona en un bucle continuo real: en el instante exacto en que descartas una alarma, la app calcula y programa automáticamente la siguiente según tu intervalo.
+Core rolling routines are free forever (up to 2 live routines, 8/6 & 4/4 swing presets, 1 home widget, 7-day logs, and free RA1: routine sharing). Upgrade optionally to Rolling Alarm Pro—Annual, Monthly, or one-time Lifetime unlock—for unlimited routines/widgets, 2/1 & custom swing cycles, Classic Interval drift grid, custom local audio, gentle fade-in, hardware volume-key controls, 365-day logs, and printable PDF reports."
+es-ES,Alarma Rodante: Intervalos,Alarma por intervalos y pastillas. Tu próxima alarma se ajusta al descartarla.,"Especificaciones y Capacidades Rápidas:
+• Función Principal: Alarma real por intervalos tras descartar (Próxima Alarma = Hora de Descarte + Intervalo) con aviso a pantalla completa sobre el bloqueo.
+• Diseñada Para: Espaciado de dosis médicas, turnos rotativos FIFO (8/6, 2/1) y enfermería (4x4), cuidados de pacientes y rutinas TDAH.
+• Sin Conexión y Privacidad: Almacenamiento local SQLite 100% sin conexión. Cero cuentas, cero nube, cero anuncios y cero rastreo.
+• Gratis vs. Pro: Gratis para siempre hasta 2 rutinas activas, ciclos 8/6 y 4x4, 1 widget y registros de 7 días; Rolling Alarm Pro opcional (Anual, Mensual o pago único Vitalicio) añade rutinas/widgets ilimitados, Intervalo Clásico, audio personalizado/fade-in, registros de 365 días e informes PDF imprimibles.
+
+Alarma Rodante es una alarma por intervalos tranquila, confiable y libre de anuncios para rutinas dinámicas en Android. A diferencia de los despertadores fijos, funciona en un bucle continuo real: al descartar una alarma, la app calcula y programa automáticamente la siguiente según tu intervalo.
 
 Pensada para rutinas reales donde el horario cambia:
 • Intervalos de Medicación: Espacia tus tomas cada 4, 6 u 8 horas desde la dosis real anterior, sin solapar medicación si te despiertas más tarde.
-• Turnos Rotativos y FIFO: Mantén descansos, ciclos de turno nocturno y relevos sincronizados con tu ventana real de sueño.
-• Rutinas para TDAH: Refuerza la hidratación, bloques de enfoque, pausas activas y cambios de tarea con avisos claros a pantalla completa.
+• Turnos Rotativos FIFO y Enfermería: Automatiza ciclos 8/6, 2/1, 2/2 y 4 días activos / 4 libres con pausa automática durante los días de descanso.
+• Rutinas para TDAH: Refuerza hidratación, bloques de enfoque, pausas activas y cambios de tarea con avisos a pantalla completa.
 • Cuidados y Pacientes: Controla revisiones periódicas, tomas y cuidados con un historial cronológico preciso.
 
 Características Clave:
-• Horario Rodante Automático: Descarta una alarma y la siguiente se programa al instante. Omite antes de tiempo, pausa congelando el tiempo restante o silencia sin perder el conteo diario.
-• Plantillas de Inicio Rápido en 1 Toque: Crea en segundos rutinas de Medicación, Enfoque e Hidratación, Turno Nocturno / FIFO o Control de Cuidados.
-• Límites Diarios y Pausa Nocturna: Fija un máximo de avisos al día, elige días activos de la semana y aparca automáticamente las alarmas nocturnas hasta tu Hora de Inicio del Día.
-• Compensación de Deriva: Elige Descarte Real (cuenta desde que la apagas) o Intervalo Clásico (absorbe las posposiciones para mantener tu cadencia inicial).
-• Widgets de Pantalla de Inicio: Fija tarjetas en vivo de tus rutinas para ver la cuenta regresiva de un vistazo.
-• Informes PDF Imprimibles y Copias Locales: Consulta el historial con fecha y hora, comparte registros de adherencia en PDF para médicos o cuidadores y guarda copias locales con códigos RA1:.
-• 100% Privada y Sin Conexión: Sin cuentas, sin nube y sin recopilación de datos. Todas tus rutinas y registros permanecen estrictamente en tu dispositivo.
-• Cero Anuncios: Una herramienta tranquila y sin distracciones, con cero anuncios, cero banners emergentes y cero rastreo.
+• Horario Rodante Automático: Descarta una alarma y la siguiente se programa al instante. Omite antes, pausa congelando el tiempo o silencia sin perder el conteo.
+• Plantillas Rápidas y Compartir en 1 Toque: Inicia rutinas de Medicación, FIFO 8/6, Enfermería 4x4, TDAH o Cuidados y compártelas gratis mediante enlaces RA1:.
+• Límites Diarios y Pausa Nocturna: Fija un máximo diario, elige días activos y aparca alarmas nocturnas hasta tu Hora de Inicio del Día.
+• Compensación de Deriva: Elige Descarte Real o Intervalo Clásico (absorbe posposiciones para mantener tu cadencia inicial).
+• Widgets y Guía de Batería OEM: Fija tarjetas con cuenta regresiva y evita cortes de batería en Samsung, Xiaomi, Oppo y Vivo.
+• Informes PDF Imprimibles: Revisa el historial completo y comparte registros de adherencia en PDF para médicos o cuidadores.
+• 100% Privada y Cero Anuncios: Sin cuentas, sin nube, sin anuncios y sin rastreo. Todo permanece en tu dispositivo.
 
 Modelo Transparente:
-Las rutinas rodantes básicas son gratis para siempre. Si necesitas funciones avanzadas, puedes actualizar opcionalmente a Rolling Alarm Pro —con desbloqueo único de por vida o planes anual y mensual— para rutinas y widgets ilimitados, compensación de Intervalo Clásico, audio local personalizado, subida gradual, controles con botones de volumen, historial completo de 365 días, informes PDF imprimibles y copias RA1:."
-fr-FR,Alarme Roulante : Intervalles,Alarme à intervalles et pilulier. La suivante se règle dès l'arrêt.,"Alarme Roulante est une alarme à intervalles calme, fiable et entièrement sans publicité, conçue pour les routines dynamiques sur Android. Contrairement aux réveils classiques figés sur une heure fixe, elle fonctionne en boucle continue : dès que vous arrêtez une alarme, l'application calcule et programme automatiquement la suivante selon votre intervalle.
+Las rutinas rodantes básicas son gratis para siempre. Actualiza opcionalmente a Rolling Alarm Pro —Anual, Mensual o desbloqueo único Vitalicio— para rutinas y widgets ilimitados, ciclos personalizados, Intervalo Clásico, audio local, subida gradual, historial de 365 días e informes PDF."
+fr-FR,Alarme Roulante : Intervalles,Alarme à intervalles et pilulier. La suivante se règle dès l'arrêt.,"Spécifications et Capacités Rapides :
+• Fonction Principale : Véritable réveil à intervalles post-arrêt (Prochaine Alarme = Heure d'Arrêt + Intervalle) avec réveil plein écran sur écran verrouillé.
+• Conçue Pour : Espacement des prises de médicaments, cycles FIFO (8/6, 2/1) et infirmiers (4 jours actifs / 4 repos), suivi aidant et routines TDAH.
+• Hors Ligne & Confidentialité : Stockage SQLite 100% hors ligne sur l'appareil. Zéro compte, zéro cloud, zéro publicité et zéro suivi.
+• Gratuit vs Pro : Gratuit à vie pour 2 routines actives, cycles 8/6 & 4/4, 1 widget et journal 7 jours ; Rolling Alarm Pro en option (Annuel, Mensuel ou accès à Vie unique) ajoute routines/widgets illimités, Intervalle Classique, audio/fondu personnalisé, historique 365 jours et rapports PDF imprimables.
+
+Alarme Roulante est une alarme à intervalles calme, fiable et sans publicité conçue pour les routines dynamiques sur Android. Contrairement aux réveils figés sur une heure fixe, elle fonctionne en boucle continue : dès que vous arrêtez une alarme, l'app programme automatiquement la suivante selon votre intervalle.
 
 Idéale pour les rythmes qui évoluent au quotidien :
 • Prises de Médicaments : Espacez vos doses toutes les 4, 6 ou 8 heures à partir de la prise réelle, sans risque de doublon après un réveil tardif.
-• Horaires Postés, Rotatifs & FIFO : Synchronisez vos cycles de nuit, temps de récupération et pauses décalées sur votre vrai rythme de sommeil.
-• Routines TDAH : Cadencez hydratation, sessions de concentration, pauses posture et transitions grâce à un écran d'alarme clair et persistant.
+• Cycles FIFO & Horaires Infirmiers : Automatisez les roulements 8/6, 2/1, 2/2 et 4/4 avec mise en veille automatique pendant vos jours de repos.
+• Routines TDAH : Cadencez hydratation, sessions de focus, pauses posture et transitions avec un écran d'alarme persistant.
 • Aidants & Suivi Patient : Suivez les soins, repas et contrôles réguliers avec un journal horodaté fiable.
 
 Fonctionnalités Clés :
-• Programme Roulant Automatique : Arrêtez une alarme et la suivante se lance aussitôt. Passez en avance, mettez en pause en figeant le compte à rebours ou passez en mode muet sans perdre le décompte.
-• Modèles de Démarrage Rapide en 1 Tap : Configurez instantanément Médicaments, Focus & Hydratation, Poste de Nuit / FIFO ou Suivi Aidant.
-• Plafonds Quotidiens & Report Nocturne : Limitez le nombre de sonneries par jour, choisissez les jours actifs et reportez automatiquement les alarmes de nuit à votre Heure de Début de Journée.
-• Compensation de Dérive : Choisissez Arrêt Réel (repart de l'arrêt) ou Intervalle Classique (absorbe les rappels pour préserver votre grille initiale).
-• Widgets d'Écran d'Accueil : Épinglez des cartes en direct sur votre écran d'accueil pour voir le prochain compte à rebours en un coup d'œil.
-• Journaux PDF Imprimables & Sauvegardes Locales : Consultez l'historique complet des arrêts, rappels et cycles muets, partagez des rapports d'observance PDF imprimables et sauvegardez localement via les chaînes RA1:.
-• 100% Confidentiel & Hors Ligne : Aucun compte, aucun cloud, aucune collecte de données. Tout reste strictement sur votre appareil.
-• Zéro Publicité : Un utilitaire calme et sans distraction, avec zéro publicité, zéro bannière contextuelle et zéro suivi.
+• Programme Roulant Automatique : Arrêtez une alarme et la suivante repart aussitôt. Passez en avance, mettez en pause ou passez en mode muet sans perdre le décompte.
+• Modèles en 1 Tap & Partage Gratuit : Lancez Médicaments, FIFO 8/6, Infirmier 4/4, TDAH ou Aidant en secondes et partagez vos routines via codes RA1:.
+• Plafonds Quotidiens & Report Nocturne : Limitez les sonneries par jour, choisissez vos jours actifs et reportez les alarmes de nuit à l'Heure de Début de Journée.
+• Compensation de Dérive : Choisissez Arrêt Réel ou Intervalle Classique (absorbe les rappels pour préserver votre grille initiale).
+• Widgets & Guide Batterie OEM : Épinglez vos comptes à rebours et fiabilisez les alarmes sur Samsung, Xiaomi, Oppo et Vivo.
+• Journaux PDF Imprimables : Consultez l'historique complet et partagez des rapports d'observance PDF avec médecins ou proches.
+• 100% Confidentiel & Zéro Pub : Aucun compte, aucun cloud, aucune pub et aucun pistage.
 
 Tarification Claire :
-Les routines roulantes essentielles sont gratuites pour toujours. Besoin d'outils avancés ? Passez librement à Rolling Alarm Pro — incluant un déblocage à vie en un seul paiement ainsi que des formules annuelle et mensuelle — pour les routines et widgets illimités, le mode Intervalle Classique, l'audio local personnalisé, le fondu doux, les boutons de volume, l'historique 365 jours, les rapports PDF et les sauvegardes RA1:."
-de-DE,Rollender Alarm: Intervall,Intervall-Alarm & Pillen-Wecker. Nächster Alarm startet nach dem Ausschalten!,"Rollender Alarm ist ein ruhiger, zuverlässiger und völlig werbefreier Intervall-Wecker für Android, entwickelt für dynamische Routinen. Anders als klassische Wecker mit festen Uhrzeiten arbeitet Rollender Alarm in einer echten fortlaufenden Schleife: Genau in dem Moment, in dem Sie einen Alarm ausschalten, berechnet und plant die App automatisch den nächsten anhand Ihres Intervalls.
+Les routines essentielles sont gratuites à vie. Passez librement à Rolling Alarm Pro — Annuel, Mensuel ou déblocage à Vie unique — pour routines et widgets illimités, cycles personnalisés, Intervalle Classique, audio local, fondu doux, historique 365 jours et rapports PDF."
+de-DE,Rollender Alarm: Intervall,Intervall-Alarm & Pillen-Wecker. Nächster Alarm startet nach dem Ausschalten!,"Kurzübersicht & Funktionen:
+• Kernfunktion: Echter Intervall-Wecker nach dem Ausschalten (Nächster Alarm = Ausschaltzeit + Intervall) mit Vollbild-Wecken über dem Sperrbildschirm.
+• Entwickelt Für: Medikamenten-Abstände, FIFO- (8/6, 2/1) & Pflege-Schichtzyklen (4-on-4-off), Angehörigenpflege und ADHS-Routinen.
+• Offline & Datenschutz: 100% lokaler SQLite-Speicher auf dem Gerät. Kein Konto, keine Cloud, null Werbung und null Tracking.
+• Gratis vs. Pro: Dauerhaft kostenlos für bis zu 2 aktive Routinen, 8/6- & 4/4-Schichtvorlagen, 1 Widget und 7-Tage-Protokoll; optionales Rolling Alarm Pro (Jährlich, Monatlich oder einmalig Lebenszeit) bietet unbegrenzte Routinen/Widgets, Klassisches Intervall, eigene Töne/Fade-in, 365-Tage-Verlauf und druckbare PDF-Berichte.
+
+Rollender Alarm ist ein ruhiger, zuverlässiger und werbefreier Intervall-Wecker für Android für dynamische Routinen. Anders als feste Uhrzeit-Wecker läuft er in einer echten Schleife: Sobald Sie einen Alarm ausschalten, plant die App automatisch den nächsten nach Ihrem Intervall.
 
 Ideal für echte Tagesabläufe mit flexiblen Zeiten:
-• Medikamenten-Intervalle: Planen Sie Einnahmen alle 4, 6 oder 8 Stunden ab der tatsächlichen letzten Dosis – ohne versehentliche Doppelgaben nach spätem Aufstehen.
-• Wechsel- & FIFO-Schichtpläne: Halten Sie Nachtschicht-Zyklen, Ruhezeiten und Pausen synchron zu Ihrem realen Schlaffenster.
+• Medikamenten-Intervalle: Planen Sie Einnahmen alle 4, 6 oder 8 Stunden ab der echten letzten Dosis – ohne Doppelgaben nach spätem Aufstehen.
+• FIFO- & Pflege-Schichtzyklen: Automatisieren Sie 8/6-, 2/1-, 2/2- und 4-on-4-off-Zyklen inklusive automatischer Pause an freien Tagen.
 • ADHS-Routinen: Verankern Sie Trinkpausen, Fokus-Blöcke, Haltungs-Checks und Aufgabenwechsel mit klaren Vollbild-Signalen.
 • Pflege & Patientenkontrollen: Behalten Sie wiederkehrende Checks, Mahlzeiten und Pflegeintervalle mit Zeitstempeln im Blick.
 
 Hauptfunktionen:
-• Echter rollierender Intervall-Zeitplan: Alarm ausschalten – der nächste startet sofort automatisch. Vorzeitig überspringen, mit eingefrorener Restzeit pausieren oder lautlos stummschalten, ohne die Tageszählung zu verlieren.
-• 1-Tippen-Schnellstart-Vorlagen: Sofort startklar mit Vorlagen für Medikamente, Fokus & Hydration, Nachtschicht / FIFO und Pflege-Checks.
-• Tageslimits & nächtliches Parken: Begrenzen Sie tägliche Alarme, wählen Sie aktive Wochentage und parken Sie Nacht-Alarme automatisch bis zu Ihrem gewünschten Tagesbeginn.
-• Drift-Kompensation: Wählen Sie Tatsächliches Ausschalten (ab dem Ausschalten) oder Klassisches Intervall (Schlummerzeit wird ausgeglichen, um im Startraster zu bleiben).
-• Startbildschirm-Widgets: Pinnen Sie Live-Karten Ihrer Routinen direkt auf den Startbildschirm.
-• Druckbare PDF-Protokolle & lokale Backups: Prüfen Sie den vollständigen Verlauf, teilen Sie druckbare PDF-Einnahmeprotokolle für Ärzte oder Pflegekräfte und sichern Sie Routinen lokal als RA1:-Backup.
-• 100% Datenschutz & Offline: Kein Konto, keine Cloud, keine Datensammlung. Alle Routinen und Protokolle bleiben strikt auf Ihrem Gerät.
-• Null Werbung: Ein ruhiges, ablenkungsfreies Werkzeug mit null Werbung, null Pop-up-Bannern und null Tracking.
+• Echter rollierender Intervall-Zeitplan: Ausschalten – der nächste Alarm startet automatisch. Überspringen, pausieren oder stummschalten ohne Verlust der Tageszählung.
+• 1-Tippen-Vorlagen & Teilen: Starten Sie Medikamente, FIFO 8/6, Pflege 4/4, ADHS oder Pflege-Checks sofort und teilen Sie Routinen kostenlos per RA1:-Link.
+• Tageslimits & nächtliches Parken: Begrenzen Sie tägliche Alarme, wählen Sie Wochentage und parken Sie Nacht-Alarme bis zum gewünschten Tagesbeginn.
+• Drift-Kompensation: Wählen Sie Tatsächliches Ausschalten oder Klassisches Intervall (gleicht Schlummerzeit aus).
+• Widgets & OEM-Akku-Assistent: Pinnen Sie Live-Countdowns und sichern Sie zuverlässiges Wecken auf Samsung, Xiaomi, Oppo und Vivo.
+• Druckbare PDF-Protokolle: Prüfen Sie den Verlauf und teilen Sie druckbare PDF-Berichte für Ärzte oder Pflegekräfte.
+• 100% Datenschutz & Null Werbung: Kein Konto, keine Cloud, keine Werbung, kein Tracking.
 
 Faire Preisgestaltung:
-Die wichtigsten rollierenden Routinen bleiben dauerhaft kostenlos. Für Power-Tools können Sie optional auf Rolling Alarm Pro upgraden – inklusive einmaliger Lebenszeit-Freischaltung sowie Jahres- und Monatsabo – für unbegrenzte Routinen und Widgets, Klassisches Intervall, eigene lokale Audiodateien, sanftes Einblenden, Lautstärketasten-Steuerung, 365-Tage-Verlauf, druckbare PDF-Berichte und RA1:-Backups."
-ja-JP,ローリングアラーム：インターバルアラーム,間隔繰り返しアラーム＆服薬リマインダー。停止した瞬間から次のアラームを自動設定！,"ローリングアラームは、変動する生活リズムに合わせて設計された、穏やかで信頼性が高く、完全広告なしのAndroid向けインターバルアラームです。決まった時刻に鳴る従来の目覚まし時計とは異なり、現在のアラームを停止した瞬間に、設定した間隔から次の鳴動時刻を自動で計算・予約する連続ループを実現します。
+Kernroutinen bleiben dauerhaft gratis. Optionales Rolling Alarm Pro — Jährlich, Monatlich oder einmalige Lebenszeit-Lizenz — schaltet unbegrenzte Routinen/Widgets, eigene Schichtzyklen, Klassisches Intervall, eigene Audios, Fade-in, 365-Tage-Verlauf und PDF-Berichte frei."
+ja-JP,ローリングアラーム：インターバルアラーム,間隔繰り返しアラーム＆服薬リマインダー。停止した瞬間から次のアラームを自動設定！,"クイック仕様・主な機能：
+• コア機能：解除した瞬間から次回を自動計算（次回アラーム＝解除時刻＋間隔）するインターバルアラーム。ロック画面上での全画面起動に対応。
+• 最適な用途：服薬間隔管理、FIFO（8/6・2/1）や看護（4勤4休）のシフトサイクル、介護チェック、ADHDルーティン管理。
+• 完全オフライン＆プライバシー：端末内SQLiteのみで動作。アカウント不要、クラウド同期なし、広告ゼロ、トラッキングゼロ。
+• 無料版とPro版：無料版はライブ2件、8/6・4勤4休シフト、ウィジェット1個、7日間履歴が永久無料。オプションのRolling Alarm Pro（年額・月額・買い切りライフタイム）で無制限ルーティン＆ウィジェット、クラシック間隔、カスタム音声／フェードイン、365日履歴、印刷用PDF出力を解放。
+
+ローリングアラームは、変動する生活リズムに合わせて設計された穏やかで信頼性の高い完全広告なしのAndroid向けインターバルアラームです。固定時刻の目覚まし時計とは異なり、現在のアラームを停止した瞬間に設定間隔から次の時刻を自動計算・予約します。
 
 時間が前後しやすい毎日のルーティンに最適：
-• 服薬・ピルの間隔管理：前回実際に飲んだ時刻から4時間・6時間・8時間おきに自動設定。寝坊しても服用間隔が重なる心配がありません。
-• シフト勤務・交代制・FIFO勤務：夜勤の切り替えや変則シフト、休憩ループを実際の睡眠リズムにぴったり合わせます。
-• ADHDルーティン支援：水分補給、集中タイム、姿勢リセット、タスク切り替えを分かりやすい全画面アラームで継続サポート。
-• 介護・見守りチェック：授乳・食事・体位変換・巡回などの間隔をタイムスタンプ付き履歴で確実に管理できます。
+• 服薬・ピルの間隔管理：前回実際に飲んだ時刻から4・6・8時間おきに自動設定。寝坊しても服用が重なりません。
+• FIFO・交代制シフトサイクル：8/6、2/1、2/2、4勤4休のオン／オフ周期を自動化し、休養日は静かに待機して勤務再開日の開始時刻に復帰。
+• ADHDルーティン支援：水分補給、集中タイム、姿勢リセット、タスク切り替えを全画面アラームで継続サポート。
+• 介護・見守りチェック：食事・体位変換・巡回をタイムスタンプ付き履歴で確実に記録。
 
 主な機能：
-• 自動ローリング間隔スケジュール：停止するだけで次回を自動セット。早めのスキップ、残り時間を保持した一時停止、回数カウントを保った無音ミュートにも対応。
-• ワンタップ・クイックスタートテンプレート：服薬、集中＆水分補給、夜勤／FIFOシフト、介護チェックの定番ルーティンを数秒で作成。
-• 1日の鳴動上限＆翌朝開始時刻までの夜間待機：1日の回数制限や曜日指定ができ、上限到達時や夜間は指定した「1日の開始時刻」まで自動で待機します。
-• ドリフト補正：実停止基準（停止時刻から加算）とクラシック間隔（スヌーズ分を吸収して初回基準のグリッドを維持）から選択可能。
-• ホーム画面ウィジェット：ライブカウントダウン付きカードをホーム画面に固定して一目で確認。
-• 印刷用PDF記録レポート＆ローカルバックアップ：停止・スヌーズ・スキップ・ミュート履歴を確認し、医師や家族向けに印刷可能なPDFを共有。RA1:形式でローカルバックアップも可能です。
-• 100%オフライン＆プライバシー重視：アカウント登録なし、クラウド送信なし、データ収集なし。すべてのデータは端末内だけで安全に管理されます。
-• 広告ゼロ：広告なし、ポップアップバナーなし、トラッキングなしの穏やかで集中できるユーティリティです。
+• 自動ローリング間隔スケジュール：停止するだけで次回を自動セット。スキップ、残り時間保持の一時停止、無音ミュートに対応。
+• ワンタップテンプレート＆無料共有：服薬、FIFO 8/6、看護4/4、ADHD集中、介護の定番設定を即作成し、RA1:リンクで手軽に共有。
+• 1日の鳴動上限＆夜間待機：回数上限・曜日指定に加え、上限到達時や休養日は指定した「1日の開始時刻」まで自動待機。
+• ドリフト補正：実停止基準またはクラシック間隔（スヌーズ分を吸収）を選択可能。
+• ウィジェット＆端末バッテリー最適化ガイド：Samsung・Xiaomi・Oppo・Vivo向けの確実な鳴動設定ガイドを搭載。
+• 印刷用PDFレポート：医師や家族向けに印刷可能な服薬・実施記録PDFを出力。
+• 100%オフライン＆広告ゼロ：アカウント・クラウド・広告・追跡は一切なし。
 
 分かりやすい料金体系：
-基本のローリングルーティンは永久に無料です。さらに高度な機能が必要な場合は、買い切りのライフタイム版や年額・月額プランを選べるオプションの「Rolling Alarm Pro」で、無制限のルーティン・ウィジェット、クラシック間隔モード、カスタム音声ファイル、フェードイン、音量ボタン操作、365日履歴、印刷用PDF出力、RA1:バックアップを解放できます。"
-ko-KR,롤링 알람: 간격 반복 알람,간격 반복 알람 및 복약 알림. 알람을 끄는 순간 다음 알람이 자동 설정됩니다!,"롤링 알람은 유동적인 일상을 위해 설계된 차분하고 안정적이며 광고가 전혀 없는 Android용 간격 반복 알람입니다. 고정된 시각에만 울리는 일반 알람 시계와 달리 진정한 연속 루프로 동작합니다. 현재 알람을 해제하는 바로 그 순간, 설정한 간격에 따라 다음 알람을 자동으로 계산해 예약합니다.
+基本機能は永久無料。必要に応じて年額・月額・買い切りライフタイムのRolling Alarm Proへアップグレードできます。"
+ko-KR,롤링 알람: 간격 반복 알람,간격 반복 알람 및 복약 알림. 알람을 끄는 순간 다음 알람이 자동 설정됩니다!,"핵심 사양 및 기능 요약:
+• 핵심 기능: 해제 시점 기준 자동 간격 알람(다음 알람 = 해제 시각 + 간격) 및 잠금화면 전체 화면 기상 알림.
+• 추천 활용: 복약 간격 관리, FIFO(8/6, 2/1) 및 간호(4일 근무/4일 휴무) 교대 주기, 간병 체크, ADHD 루틴 관리.
+• 100% 오프라인 & 개인정보: 기기 내 SQLite 로컬 저장. 계정 가입 없음, 클라우드 동기화 없음, 광고 제로, 추적 제로.
+• 무료 vs Pro: 활성 루틴 2개, 8/6 및 4/4 교대 프리셋, 홈 위젯 1개, 7일 기록은 평생 무료. 선택형 Rolling Alarm Pro(연간·월간·일회성 평생)는 무제한 루틴/위젯, 클래식 간격 보정, 사용자 오디오/페이드인, 365일 기록 및 인쇄용 PDF 리포트 제공.
+
+롤링 알람은 유동적인 일상을 위해 설계된 차분하고 안정적이며 광고가 없는 Android용 간격 반복 알람입니다. 고정 시각 알람과 달리, 현재 알람을 끄는 즉시 설정한 간격에 맞춰 다음 알람을 자동 계산해 예약합니다.
 
 시간이 달라지는 실제 생활 루틴에 최적화:
-• 복약 간격 알림: 마지막으로 약을 실제로 복용한 시점부터 4시간·6시간·8시간 간격으로 예약해 늦잠을 자도 복용이 겹치지 않습니다.
-• 교대근무 및 FIFO 근무표: 야간 교대, 순환 근무, 휴식 루프를 실제 수면 패턴에 맞춰 정확하게 유지합니다.
-• ADHD 루틴 루프: 수분 섭취, 집중 세션, 자세 교정, 작업 전환을 명확한 전체 화면 알람으로 꾸준히 이어갑니다.
-• 간병 및 환자 확인: 수유, 체위 변경, 정기 체크를 시간 기록과 함께 체계적으로 관리합니다.
+• 복약 간격 알림: 마지막으로 약을 복용한 실제 시점부터 4·6·8시간 간격으로 자동 예약해 늦잠을 자도 복용이 겹치지 않습니다.
+• FIFO 및 간호 교대 주기: 8/6, 2/1, 2/2, 4근 4휴 온/오프 사이클을 자동화해 휴무일에는 조용히 대기하고 근무 시작일에 깔끔하게 재개됩니다.
+• ADHD 루틴 루프: 수분 섭취, 집중 세션, 자세 교정, 작업 전환을 전체 화면 알람으로 확실하게 알려줍니다.
+• 간병 및 환자 확인: 수유, 체위 변경, 정기 체크를 정확한 시간 기록과 함께 관리합니다.
 
 주요 기능:
-• 자동 롤링 간격 스케줄: 알람을 끄면 다음 울림이 즉시 자동 예약됩니다. 미리 건너뛰기, 남은 시간을 유지하는 일시정지, 횟수 기록을 유지하는 무음 음소거를 지원합니다.
-• 원탭 퀵스타트 템플릿: 복약 간격, 집중·수분 섭취, 야간/FIFO 교대근무, 간병 체크 프리셋으로 몇 초 만에 시작하세요.
-• 일일 최대 울림 제한 및 야간 시작 시간 대기: 하루 울림 횟수와 활성 요일을 설정하고, 한도에 도달하거나 야간이 되면 지정한 하루 시작 시간까지 자동으로 대기합니다.
-• 드리프트 보정: 실제 해제 기준(해제 시점부터 간격 계산) 또는 클래식 간격(다시 울림 지연을 흡수해 최초 울림 기준 유지) 중 선택할 수 있습니다.
-• 홈 화면 위젯: 실시간 카운트다운이 표시되는 루틴 카드를 홈 화면에 고정해 한눈에 확인하세요.
-• 인쇄용 PDF 이행 기록 및 로컬 백업: 해제·다시 울림·건너뛰기·음소거 이력을 확인하고 의료진이나 보호자를 위해 인쇄 가능한 PDF로 공유하며, RA1: 문자열로 로컬 백업할 수 있습니다.
-• 100% 오프라인 개인정보 보호: 계정 가입, 클라우드 동기화, 데이터 수집이 전혀 없으며 모든 기록은 기기에만 저장됩니다.
-• 광고 제로: 광고, 팝업 배너, 추적이 전혀 없는 차분하고 방해 없는 유틸리티입니다.
+• 자동 롤링 간격 스케줄: 해제 즉시 다음 알람 자동 예약. 미리 건너뛰기, 남은 시간 유지 일시정지, 무음 음소거 지원.
+• 원탭 템플릿 & 무료 공유: 복약, FIFO 8/6, 간호 4/4, ADHD 집중, 간병 프리셋을 즉시 시작하고 RA1: 링크로 간편하게 공유.
+• 일일 상한 및 야간 시작 시간 대기: 하루 최대 울림 횟수·요일 설정 및 야간/휴무 자동 대기.
+• 드리프트 보정: 실제 해제 기준 또는 클래식 간격(다시 울림 지연 흡수) 선택.
+• 홈 위젯 & 제조사 배터리 가이드: 삼성·샤오미·오포·비보 기기용 배터리 예외 설정 안내 내장.
+• 인쇄용 PDF 기록 리포트: 의료진·보호자 공유용 PDF 이행 보고서 출력.
+• 100% 오프라인 & 광고 제로: 계정, 클라우드, 광고, 추적이 전혀 없습니다.
 
-투명한 이용 방식:
-핵심 롤링 알람 루틴은 평생 무료입니다. 더 강력한 기능이 필요할 때만 일회성 평생 잠금 해제와 연간·월간 플랜을 제공하는 선택형 Rolling Alarm Pro로 업그레이드하여 무제한 루틴과 위젯, 클래식 간격 보정, 사용자 지정 로컬 오디오, 부드러운 페이드인, 볼륨 버튼 제어, 365일 전체 기록, PDF 리포트, RA1: 백업을 사용해 보세요."
-pt-BR,Alarme Rolante: Intervalos,Alarme de intervalo e remédios. O próximo alarme conta a partir do descarte!,"O Alarme Rolante é um alarme de intervalo calmo, confiável e totalmente livre de anúncios para Android, criado para rotinas dinâmicas. Ao contrário dos despertadores comuns presos a horários fixos, ele opera em um ciclo contínuo real: no momento exato em que você desativa o alarme atual, o aplicativo calcula e agenda automaticamente o próximo com base no seu intervalo.
+투명한 요금제:
+핵심 기능은 평생 무료이며, 필요할 때만 연간·월간 또는 일회성 평생 잠금 해제(Rolling Alarm Pro)로 업그레이드할 수 있습니다."
+pt-BR,Alarme Rolante: Intervalos,Alarme de intervalo e remédios. O próximo alarme conta a partir do descarte!,"Especificações Rápidas e Recursos:
+• Função Principal: Alarme de intervalo pós-descarte real (Próximo Alarme = Hora do Descarte + Intervalo) com disparo em tela cheia sobre a tela bloqueada.
+• Feito Para: Espaçamento de doses de remédios, escalas FIFO (8/6, 2/1) e enfermagem (4x4), cuidados de pacientes e rotinas TDAH.
+• Offline e Privacidade: Banco SQLite 100% local e offline. Zero contas, zero nuvem, zero anúncios e zero rastreamento.
+• Grátis vs. Pro: Grátis para sempre para até 2 rotinas ativas, ciclos 8/6 e 4x4, 1 widget e histórico de 7 dias; Rolling Alarm Pro opcional (Anual, Mensal ou Vitalício único) adiciona rotinas/widgets ilimitados, Intervalo Clássico, áudio local/fade-in, 365 dias de histórico e relatórios PDF imprimíveis.
+
+O Alarme Rolante é um alarme de intervalo calmo, confiável e livre de anúncios para Android, criado para rotinas dinâmicas. Ao contrário de despertadores fixos, opera em ciclo contínuo real: ao desativar um alarme, o app agenda automaticamente o próximo com base no seu intervalo.
 
 Feito para rotinas reais em que o horário muda:
-• Intervalos de Medicamentos: Espace doses a cada 4, 6 ou 8 horas a partir do horário em que você realmente tomou o remédio—sem sobrepor doses após acordar mais tarde.
-• Escalas de Turno Rotativas e FIFO: Mantenha ciclos de turno noturno, intervalos de descanso e viradas alinhados à sua janela real de sono.
-• Rotinas para TDAH: Estruture hidratação, blocos de foco, pausas de postura e transições de tarefa com alertas claros em tela cheia.
-• Cuidadores e Acompanhamento: Registre checagens periódicas, alimentações e cuidados com histórico preciso de horário.
+• Intervalos de Medicamentos: Espace doses a cada 4, 6 ou 8 horas a partir do horário real da última dose—sem sobrepor após acordar mais tarde.
+• Escalas FIFO e Enfermagem: Automatize ciclos 8/6, 2/1, 2/2 e 4 dias ativos / 4 folgas com pausa automática durante os dias de descanso.
+• Rotinas para TDAH: Estruture hidratação, blocos de foco, pausas de postura e transições com alertas claros em tela cheia.
+• Cuidadores e Acompanhamento: Registre checagens periódicas, alimentações e cuidados com histórico preciso.
 
 Principais Recursos:
-• Agenda Rolante Automática: Descarte um alarme e o próximo avança automaticamente. Pule antes da hora, pause congelando o tempo restante ou silencie sem perder a contagem diária.
-• Modelos de Início Rápido em 1 Toque: Comece em segundos com predefinições para Medicamentos, Foco & Hidratação, Turno Noturno / FIFO e Checagem de Cuidador.
-• Limite Diário e Pausa Noturna: Defina o máximo de toques por dia, escolha os dias ativos da semana e estacione alarmes noturnos automaticamente até o seu Horário de Início do Dia.
-• Compensação de Desvio (Drift): Escolha Descarte Real (conta a partir do descarte) ou Intervalo Clássico (absorve o tempo de soneca para manter a grade inicial).
-• Widgets na Tela Inicial: Fixe cartões ao vivo das suas rotinas na tela inicial para ver a contagem regressiva num relance.
-• Relatórios PDF Imprimíveis e Backups Locais: Revise todo o histórico de descartes, sonecas, pulos e ciclos silenciados, compartilhe relatórios de adesão em PDF para médicos ou cuidadores e salve backups locais RA1:.
-• 100% Privado e Offline: Sem contas, sem nuvem e sem coleta de dados. Todas as suas rotinas e registros ficam estritamente no seu dispositivo.
-• Zero Anúncios: Um utilitário calmo e sem distrações, com zero anúncios, zero banners pop-up e zero rastreamento.
+• Agenda Rolante Automática: Descarte um alarme e o próximo avança sozinho. Pule, pause congelando o tempo restante ou silencie sem perder a contagem.
+• Modelos em 1 Toque e Compartilhamento Grátis: Crie rotinas de Medicamentos, FIFO 8/6, Enfermagem 4x4, TDAH ou Cuidadores em segundos e compartilhe via links RA1:.
+• Limite Diário e Pausa Noturna: Defina o máximo diário, dias ativos e estacione alarmes noturnos até o Horário de Início do Dia.
+• Compensação de Desvio (Drift): Escolha Descarte Real ou Intervalo Clássico (absorve sonecas para manter a grade inicial).
+• Widgets e Guia de Bateria OEM: Fixe contagens regressivas e configure confiabilidade em Samsung, Xiaomi, Oppo e Vivo.
+• Relatórios PDF Imprimíveis: Revise o histórico completo e compartilhe relatórios de adesão em PDF com médicos ou cuidadores.
+• 100% Privado e Zero Anúncios: Sem contas, sem nuvem, sem anúncios e sem rastreamento.
 
 Preço Justo:
-As rotinas rolantes essenciais são gratuitas para sempre. Precisa de recursos avançados? Faça upgrade opcional para o Rolling Alarm Pro—incluindo desbloqueio vitalício com pagamento único, além de planos anual e mensal—para rotinas e widgets ilimitados, Intervalo Clássico, áudio local personalizado, aumento gradual de volume, botões de volume, histórico completo de 365 dias, PDFs imprimíveis e backups RA1:."
-ar,المنبه المتدحرج: منبه دوري,منبه فترات متكرر وتذكير للأدوية. يُضبط المنبه التالي فور إيقاف الحالي!,"المنبه المتدحرج هو منبه فترات هادئ وموثوق وخالٍ تمامًا من الإعلانات لنظام أندرويد، صُمّم للروتين المتغير. على عكس المنبهات التقليدية المرتبطة بساعات ثابتة، يعمل هذا التطبيق بحلقة متجددة حقيقية: في اللحظة التي توقف فيها المنبه الحالي، يحسب التطبيق تلقائيًا موعد المنبه التالي ويجدوله وفق الفاصل الزمني الذي اخترته.
+As rotinas essenciais são gratuitas para sempre. Faça upgrade opcional para o Rolling Alarm Pro — Anual, Mensal ou Vitalício único — para rotinas e widgets ilimitados, ciclos personalizados, Intervalo Clássico, áudio local, fade-in, 365 dias de histórico e PDFs."
+ar,المنبه المتدحرج: منبه دوري,منبه فترات متكرر وتذكير للأدوية. يُضبط المنبه التالي فور إيقاف الحالي!,"المواصفات والقدرات السريعة:
+• الوظيفة الأساسية: منبه فترات حقيقي بعد الإيقاف (المنبه التالي = وقت الإيقاف + الفاصل) مع تنبيه بملء الشاشة فوق شاشة القفل.
+• مصمم لأجل: تباعد جرعات الأدوية، ورديات FIFO (8/6 و 2/1) والتمريض (4 عمل / 4 راحة)، رعاية المرضى، وروتين ADHD.
+• دون إنترنت وخصوصية كاملة: تخزين محلي SQLite بنسبة 100% على الجهاز. بلا حسابات، بلا سحابة، بلا إعلانات، وبلا تتبع.
+• المجاني مقابل Pro: مجاني للأبد حتى روتينين نشطين، قوالب ورديات 8/6 و 4/4، ويدجت واحد وسجل 7 أيام؛ والترقية الاختيارية Rolling Alarm Pro (سنوي أو شهري أو فتح مدى الحياة بدفعة واحدة) تضيف روتينًا وويدجت غير محدودة، الفاصل الكلاسيكي، صوتًا مخصصًا وتصاعدًا تدريجيًا، سجل 365 يومًا وتقارير PDF للطباعة.
 
-مصمم للجداول الواقعية التي تتغير أوقاتها:
-• مواعيد جرعات الأدوية: اضبط الجرعات كل 4 أو 6 أو 8 ساعات بدءًا من وقت تناولك الفعلي للجرعة السابقة لتجنب تداخل المواعيد عند الاستيقاظ متأخرًا.
-• الورديات المتناوبة وجداول FIFO: حافظ على تناغم دورات العمل الليلي وفترات الراحة مع وقت نومك الفعلي.
-• روتين ADHD والتركيز: نظّم شرب الماء، وجلسات التركيز، واستراحات الجلوس، والانتقال بين المهام بتنبيهات واضحة بملء الشاشة.
-• الرعاية الصحية ومتابعة المرضى: تابع الفحوصات المتكررة والوجبات ومواعيد الرعاية مع سجل زمني دقيق.
+المنبه المتدحرج هو منبه فترات هادئ وموثوق وخالٍ من الإعلانات لأندرويد، صُمّم للروتين المتغير. على عكس المنبهات الثابتة، يعمل بحلقة متجددة: فور إيقاف المنبه، يجدول التطبيق تلقائيًا المنبه التالي وفق الفاصل المختار.
+
+مصمم للجداول الواقعية المتغيرة:
+• مواعيد جرعات الأدوية: اضبط الجرعات كل 4 أو 6 أو 8 ساعات من وقت تناولك الفعلي لتجنب تداخل الجرعات عند النوم المتأخر.
+• ورديات FIFO والتمريض: أتمت دورات 8/6 و 2/1 و 2/2 و 4/4 مع توقف تلقائي خلال أيام الراحة واستئناف سلس في وقت بداية اليوم.
+• روتين ADHD والتركيز: نظّم شرب الماء وجلسات التركيز والانتقال بين المهام بتنبيهات واضحة بملء الشاشة.
+• الرعاية الصحية: تابع الفحوصات المتكررة والوجبات بسجل زمني دقيق.
 
 الميزات الرئيسية:
-• جدولة متدحرجة تلقائية: أوقف المنبه ليتم جدولة التالي فورًا. يمكنك التخطي مبكرًا، أو الإيقاف المؤقت مع تجميد الوقت المتبقي، أو الكتم الصامت دون فقدان عدّاد اليوم.
-• قوالب البدء السريع بنقرة واحدة: ابدأ خلال ثوانٍ بقوالب جاهزة للأدوية، والتركيز والترطيب، والورديات الليلية/FIFO، ومتابعة الرعاية.
-• الحد اليومي والإيقاف الليلي التلقائي: حدد عدد الرنّات اليومية والأيام المفعّلة في الأسبوع، وأوقف الرنّات الليلية تلقائيًا حتى وقت بداية اليوم.
-• تعويض الانجراف: اختر التوقيت من الإيقاف الفعلي أو الفاصل الكلاسيكي الذي يمتص وقت الغفوة للحفاظ على جدول الرنّ الأولي.
-• أدوات الشاشة الرئيسية (Widgets): ثبّت بطاقات مباشرة لروتينك على الشاشة الرئيسية لمتابعة العدّ التنازلي بنظرة سريعة.
-• تقارير PDF للالتزام ونسخ احتياطي محلي: استعرض سجل الإيقاف والغفوة والتخطي والدورات الصامتة، وشارك تقارير PDF قابلة للطباعة مع الأطباء أو مقدمي الرعاية، واحفظ نسخًا محلية بصيغة RA1:.
-• خصوصية 100% دون إنترنت: بلا حسابات، بلا سحابة، وبلا جمع بيانات. تبقى جميع بياناتك وسجلاتك على جهازك فقط.
-• صفر إعلانات: أداة هادئة وخالية من المشتتات، بدون إعلانات، بدون لافتات منبثقة، وبدون أي تتبع.
+• جدولة متدحرجة تلقائية: أوقف المنبه ليُجدول التالي فورًا، مع التخطي أو الإيقاف المؤقت أو الكتم الصامت.
+• قوالب بنقرة واحدة ومشاركة مجانية: ابدأ فورًا بقوالب الأدوية و FIFO 8/6 والتمريض 4/4 و ADHD وشاركها مجانًا عبر روابط RA1:.
+• الحد اليومي والإيقاف الليلي: حدد الرنّات اليومية وأيام الأسبوع وأوقف الرنّات الليلية حتى وقت بداية اليوم.
+• تعويض الانجراف: اختر الإيقاف الفعلي أو الفاصل الكلاسيكي الذي يمتص وقت الغفوة.
+• الويدجت ودليل بطارية OEM: ثبّت العدّ التنازلي واضمن الموثوقية على أجهزة Samsung و Xiaomi و Oppo و Vivo.
+• تقارير PDF قابلة للطباعة: شارك سجلات الالتزام المطبوعة مع الأطباء أو مقدمي الرعاية.
+• خصوصية 100% وصفر إعلانات: بلا حسابات، بلا سحابة، بلا إعلانات وبلا تتبع.
 
-تسعير واضح وعادل:
-الروتين المتدحرج الأساسي مجاني للأبد. وللمزايا الاحترافية يمكنك الترقية اختياريًا إلى Rolling Alarm Pro — بما في ذلك فتح مدى الحياة بدفعة واحدة أو خطط سنوية وشهرية — للحصول على عدد غير محدود من الروتين والويدجت، والفاصل الكلاسيكي، وملفات صوت محلية مخصصة، والتصاعد التدريجي للصوت، والتحكم بأزرار الصوت، وسجل كامل لمدة 365 يومًا، وتقارير PDF، والنسخ الاحتياطي RA1:."
-ru-RU,Скользящий Будильник: Интервал,Интервальный будильник для лекарств и смен. Следующий — с момента отключения!,"Скользящий Будильник — это спокойный, надёжный и полностью свободный от рекламы интервальный будильник для Android, созданный для динамичных расписаний. В отличие от обычных будильников с жёсткой привязкой к часам, он работает по непрерывному циклу: в момент отключения сигнала приложение автоматически рассчитывает и ставит следующий через заданный интервал.
+تسعير عادل:
+الروتين الأساسي مجاني للأبد، مع ترقية اختيارية إلى Rolling Alarm Pro (سنوي، شهري، أو مدى الحياة بدفعة واحدة)."
+ru-RU,Скользящий Будильник: Интервал,Интервальный будильник для лекарств и смен. Следующий — с момента отключения!,"Краткие характеристики и возможности:
+• Основная функция: настоящий интервальный будильник от момента отключения (Следующий = Время отключения + Интервал) с полноэкранным пробуждением поверх экрана блокировки.
+• Для кого создан: интервалы приёма лекарств, вахтовые графики FIFO (8/6, 2/1) и смены медсестёр (4/4), уход за близкими и рутины при СДВГ.
+• Офлайн и приватность: 100% локальное хранилище SQLite на устройстве. Ноль аккаунтов, ноль облака, ноль рекламы и ноль слежки.
+• Бесплатно и Pro: бесплатно навсегда до 2 активных рутин, циклы 8/6 и 4/4, 1 виджет и журнал за 7 дней; опциональный Rolling Alarm Pro (год, месяц или разовая пожизненная лицензия) открывает безлимит рутин/виджетов, Классический интервал, свои мелодии/нарастание, журнал 365 дней и PDF-отчёты.
 
-Идеален для гибких жизненных графиков:
-• Приём лекарств по интервалам: отсчитывайте 4, 6 или 8 часов от реального времени последней дозы — никаких наложений, даже если вы проснулись позже.
-• Сменные и вахтовые графики (FIFO): держите ночные смены, циклы отдыха и перерывы синхронизированными с вашим реальным сном.
-• Рутины при СДВГ: поддерживайте питьевой режим, фокус-сессии, разминки и переключения задач с помощью заметных полноэкранных сигналов.
-• Уход за близкими и пациентами: контролируйте регулярные проверки, кормления и процедуры с точной историей по времени.
+Скользящий Будильник — спокойный, надёжный интервальный будильник без рекламы для Android. В отличие от обычных будильников на фиксированное время, он работает по непрерывному циклу: в момент отключения сигнала приложение автоматически ставит следующий через заданный интервал.
+
+Идеален для гибких графиков:
+• Приём лекарств по интервалам: отсчитывайте 4, 6 или 8 часов от реального времени последней дозы без наложений после позднего пробуждения.
+• Вахтовые (FIFO) и сменные циклы: автоматизируйте графики 8/6, 2/1, 2/2 и 4 через 4 с тихой паузой в выходные дни и чистым стартом новой вахты.
+• Рутины при СДВГ: поддерживайте воду, фокус-сессии, разминки и переключения задач заметными полноэкранными сигналами.
+• Уход за пациентами: ведите точный хронологический учёт процедур и проверок.
 
 Ключевые возможности:
-• Настоящее скользящее расписание: отключите будильник — следующий заведётся сам. Пропускайте заранее, ставьте на паузу с заморозкой таймера или включайте тихий режим без потери дневного счётчика.
-• Шаблоны быстрого старта в 1 касание: готовые пресеты для лекарств, фокуса и воды, ночных смен / FIFO и ухода за близкими.
-• Дневной лимит и ночная пауза: ограничивайте число срабатываний в сутки, выбирайте активные дни недели и автоматически переносите ночные сигналы на заданное время начала дня.
-• Компенсация сдвига: выберите расчёт от фактического отключения или «Классический интервал», который компенсирует повторы и сохраняет исходную сетку.
-• Виджеты на главном экране: закрепляйте живые карточки рутин с обратным отсчётом.
-• Печатные PDF-отчёты и локальные копии: просматривайте историю отключений, повторов, пропусков и тихих циклов, делитесь PDF-журналами для врачей или сиделок и делайте локальные резервные копии RA1:.
-• 100% приватность и офлайн-работа: без аккаунтов, облака и сбора данных — всё хранится только на вашем устройстве.
-• Ноль рекламы: спокойная утилита без отвлекающих факторов — без рекламы, без всплывающих баннеров и без слежки.
+• Настоящее скользящее расписание: отключите сигнал — следующий заведётся сам. Пропуск, пауза с заморозкой таймера и тихий режим без потери счётчика.
+• Шаблоны и обмен в 1 касание: пресеты Лекарства, FIFO 8/6, Смена 4/4, СДВГ и Уход плюс бесплатный обмен рутинами через ссылки RA1:.
+• Дневной лимит и ночная пауза: ограничение срабатываний в сутки, выбор дней недели и перенос ночных сигналов на время начала дня.
+• Компенсация сдвига: расчёт от фактического отключения или Классический интервал (компенсирует повторы).
+• Виджеты и гид по батарее OEM: живые карточки на экране и инструкции для Samsung, Xiaomi, Oppo и Vivo.
+• Печатные PDF-отчёты: просматривайте историю и делитесь PDF-журналами с врачами.
+• 100% офлайн и ноль рекламы: без аккаунтов, облака, рекламы и трекеров.
 
 Честные условия:
-Базовые скользящие рутины бесплатны навсегда. Нужны расширенные инструменты? По желанию перейдите на Rolling Alarm Pro — доступна разовая пожизненная покупка, а также годовой и месячный планы — для безлимитных рутин и виджетов, «Классического интервала», своих аудиофайлов, плавного нарастания звука, кнопок громкости, полной истории за 365 дней, PDF-отчётов и резервных копий RA1:."
-hi-IN,रोलिंग अलार्म: अंतराल अलार्म,ऑटो-रिपीट अंतराल अलार्म व दवा रिमाइंडर। बंद करते ही अगला अलार्म सेट होता है!,"रोलिंग अलार्म Android के लिए एक शांत, विश्वसनीय और पूरी तरह से विज्ञापन-मुक्त अंतराल अलार्म घड़ी है, जिसे बदलती दिनचर्या के लिए बनाया गया है। निश्चित समय वाली सामान्य अलार्म घड़ियों के विपरीत, यह एक सच्चे निरंतर लूप में काम करता है: जिस पल आप अलार्म बंद करते हैं, ऐप आपके चुने हुए अंतराल के अनुसार अगला अलार्म अपने आप शेड्यूल कर देता है।
+Базовые рутины бесплатны навсегда. При желании доступен Rolling Alarm Pro — годовой, месячный или разовый пожизненный доступ."
+hi-IN,रोलिंग अलार्म: अंतराल अलार्म,ऑटो-रिपीट अंतराल अलार्म व दवा रिमाइंडर। बंद करते ही अगला अलार्म सेट होता है!,"मुख्य विशेषताएं और क्षमताएं:
+• मुख्य कार्य: असली पोस्ट-डिसमिसल अंतराल अलार्म घड़ी (अगला अलार्म = बंद करने का समय + अंतराल) लॉक-स्क्रीन पर फुल-स्क्रीन वेक के साथ।
+• किनके लिए बना: दवा की खुराक का अंतराल, FIFO (8/6, 2/1) और नर्सिंग (4-ऑन-4-ऑफ) शिफ्ट साइकिल, केयरगिवर जांच और ADHD रूटीन।
+• ऑफ़लाइन और गोपनीयता: 100% ऑफ़लाइन ऑन-डिवाइस SQLite स्टोरेज। कोई अकाउंट नहीं, कोई क्लाउड सिंक नहीं, शून्य विज्ञापन और शून्य ट्रैकिंग।
+• मुफ़्त बनाम Pro: 2 सक्रिय रूटीन, 8/6 और 4/4 शिफ्ट प्रीसेट, 1 होम विजेट और 7-दिन का लॉग हमेशा मुफ़्त; वैकल्पिक Rolling Alarm Pro (वार्षिक, मासिक या एक बार लाइफटाइम) में असीमित रूटीन/विजेट, क्लासिक इंटरवल ग्रिड, कस्टम ऑडियो/फेड-इन, 365-दिन लॉग और प्रिंट करने योग्य PDF रिपोर्ट मिलती है।
 
-बदलते समय वाली वास्तविक दिनचर्या के लिए उपयुक्त:
-• दवा की खुराक का अंतराल: अपनी पिछली खुराक वास्तव में लेने के समय से हर 4, 6 या 8 घंटे में रिमाइंडर पाएं—देर से जागने पर भी खुराक ओवरलैप नहीं होगी।
-• रोटेटिंग व FIFO शिफ्ट रोस्टर: नाइट-शिफ्ट टर्नअराउंड, आराम के समय और ब्रेक लूप को अपनी वास्तविक नींद के अनुसार रखें।
-• ADHD रूटीन लूप: पानी पीने, फोकस सत्र, पॉश्चर रीसेट और काम बदलने के लिए स्पष्ट फुल-स्क्रीन अलार्म का सहारा लें।
-• देखभाल और मरीज़ की जांच: नियमित जांच, भोजन और देखभाल के अंतराल को सटीक टाइमस्टैम्प इतिहास के साथ ट्रैक करें।
+रोलिंग अलार्म Android के लिए एक शांत, विश्वसनीय और विज्ञापन-मुक्त अंतराल अलार्म घड़ी है। निश्चित समय वाली घड़ियों के विपरीत, जिस पल आप अलार्म बंद करते हैं, यह आपके चुने अंतराल के अनुसार अगला अलार्म अपने आप शेड्यूल कर देता है।
 
-मुख्य विशेषताएं:
-• ऑटो-रोलिंग अंतराल शेड्यूल: अलार्म बंद करें और अगला अपने आप आगे बढ़ जाए। समय से पहले स्किप करें, बचे हुए समय को रोककर पॉज़ करें, या दैनिक गिनती खोए बिना साइलेंट म्यूट करें।
-• 1-टैप क्विक-स्टार्ट टेम्पलेट्स: दवा, फोकस और हाइड्रेशन, नाइट शिफ्ट / FIFO और केयरगिवर चेक के लिए सेकंडों में रूटीन शुरू करें।
-• दैनिक रिंग सीमा और रात्रि डे-स्टार्ट पार्किंग: रोज़ की अधिकतम रिंग तय करें, सक्रिय सप्ताह के दिन चुनें, और रात के अलार्म अपने आप आपके चुने हुए डे-स्टार्ट समय तक पार्क करें।
-• ड्रिफ्ट कम्पेन्सेशन: वास्तविक डिसमिसल (बंद करने के समय से) या क्लासिक इंटरवल (स्नूज़ समय को समायोजित कर शुरुआती ग्रिड बनाए रखें) चुनें।
-• होम स्क्रीन विजेट्स: तुरंत काउंटडाउन देखने के लिए लाइव रूटीन कार्ड सीधे होम स्क्रीन पर पिन करें।
-• प्रिंट करने योग्य PDF लॉग और लोकल बैकअप: डिसमिस, स्नूज़, स्किप और म्यूट इतिहास देखें, डॉक्टरों या देखभालकर्ताओं के लिए प्रिंट करने योग्य PDF रिपोर्ट साझा करें, और RA1: बैकअप सहेजें।
-• 100% गोपनीयता और ऑफ़लाइन: कोई अकाउंट नहीं, कोई क्लाउड नहीं और कोई डेटा संग्रह नहीं। आपका सारा डेटा केवल आपके डिवाइस पर रहता है।
-• शून्य विज्ञापन: बिना किसी विज्ञापन, बिना पॉप-अप बैनर और बिना किसी ट्रैकिंग के एक शांत, व्याकुलता-मुक्त उपयोगिता।
+बदलते समय वाली दिनचर्या के लिए उपयुक्त:
+• दवा की खुराक का अंतराल: पिछली खुराक लेने के वास्तविक समय से हर 4, 6 या 8 घंटे में अलार्म—देर से जागने पर भी खुराक ओवरलैप नहीं होगी।
+• FIFO और नर्सिंग शिफ्ट रोस्टर: 8/6, 2/1, 2/2 और 4-ऑन-4-ऑफ साइकिल अपने आप चलाएं और छुट्टी के दिनों में शांत पार्किंग पाएं।
+• ADHD रूटीन लूप: पानी, फोकस सत्र, पॉश्चर रीसेट और कार्य बदलाव के लिए स्पष्ट फुल-स्क्रीन अलार्म।
+• देखभाल और मरीज़ की जांच: नियमित जांच व भोजन का सटीक टाइमस्टैम्प रिकॉर्ड रखें।
 
-पारदर्शी मूल्य निर्धारण:
-मुख्य रोलिंग रूटीन हमेशा के लिए मुफ़्त हैं। अधिक पावर टूल्स के लिए आप वैकल्पिक रूप से Rolling Alarm Pro में अपग्रेड कर सकते हैं—जिसमें एक बार का लाइफटाइम अनलॉक के साथ वार्षिक और मासिक प्लान शामिल हैं—जिससे असीमित रूटीन और विजेट, क्लासिक इंटरवल मोड, कस्टम लोकल ऑडियो, धीमा फेड-इन, वॉल्यूम-की कंट्रोल, 365-दिन का पूरा इतिहास, PDF रिपोर्ट और RA1: बैकअप मिलते हैं।"
+प्रमुख सुविधाएं:
+• ऑटो-रोलिंग अंतराल शेड्यूल: बंद करें और अगला अलार्म अपने आप सेट हो। स्किप, पॉज़ और साइलेंट म्यूट सपोर्ट।
+• 1-टैप टेम्पलेट और मुफ़्त शेयरिंग: दवा, FIFO 8/6, नर्सिंग 4/4, ADHD और केयरगिवर प्रीसेट तुरंत शुरू करें और RA1: लिंक से साझा करें।
+• दैनिक रिंग सीमा और रात्रि पार्किंग: रोज़ की अधिकतम रिंग व सप्ताह के दिन चुनें और रात के अलार्म डे-स्टार्ट समय तक पार्क करें।
+• ड्रिफ्ट कम्पेन्सेशन: वास्तविक डिसमिसल या क्लासिक इंटरवल चुनें।
+• होम विजेट और OEM बैटरी गाइड: Samsung, Xiaomi, Oppo और Vivo के लिए बिल्ट-इन बैटरी विश्वसनीयता गाइड।
+• प्रिंट करने योग्य PDF लॉग: डॉक्टरों या परिवार के लिए PDF रिपोर्ट साझा करें।
+• 100% गोपनीय और शून्य विज्ञापन: कोई अकाउंट, क्लाउड, विज्ञापन या ट्रैकिंग नहीं।
+
+पारदर्शी मूल्य:
+मुख्य रूटीन हमेशा मुफ़्त हैं। अधिक टूल्स के लिए वैकल्पिक Rolling Alarm Pro (वार्षिक, मासिक या एक बार लाइफटाइम अनलॉक) उपलब्ध है।"

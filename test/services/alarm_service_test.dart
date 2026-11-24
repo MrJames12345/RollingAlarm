@@ -152,6 +152,9 @@ void main() {
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
           EnabledWeekdays: 0x7F,
+          CycleOnDays: 0,
+          CycleOffDays: 0,
+          CycleAnchorEpochDay: null,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
@@ -247,6 +250,9 @@ void main() {
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
           EnabledWeekdays: 0x7F,
+          CycleOnDays: 0,
+          CycleOffDays: 0,
+          CycleAnchorEpochDay: null,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.InitialRing.index,
           ShowPreview: true,
@@ -339,6 +345,9 @@ void main() {
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
           EnabledWeekdays: 0x7F,
+          CycleOnDays: 0,
+          CycleOffDays: 0,
+          CycleAnchorEpochDay: null,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,
@@ -445,6 +454,9 @@ void main() {
         MaxTimesPerDay: 0,
         DayStartSeconds: 0,
         EnabledWeekdays: 0x7F,
+        CycleOnDays: 0,
+        CycleOffDays: 0,
+        CycleAnchorEpochDay: null,
         DriftCompensationTypeCode:
             DriftCompensationTypeCodeEnum.InitialRing.index,
         ShowPreview: true,
@@ -540,6 +552,9 @@ void main() {
           MaxTimesPerDay: 0,
           DayStartSeconds: 0,
           EnabledWeekdays: 0x7F,
+          CycleOnDays: 0,
+          CycleOffDays: 0,
+          CycleAnchorEpochDay: null,
           DriftCompensationTypeCode:
               DriftCompensationTypeCodeEnum.ActualDismissal.index,
           ShowPreview: true,

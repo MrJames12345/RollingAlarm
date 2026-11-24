@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rolling_alarm/components/common/app_theme_scope.dart';
+import 'package:rolling_alarm/components/common/oem_battery_guide_sheet.dart';
 import 'package:rolling_alarm/enums/app_theme_mode.dart';
 import 'package:rolling_alarm/services/permissions.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -31,6 +32,8 @@ void main() {
   var mockCanScheduleExact = true;
   var mockCanUseFsi = true;
   var mockIgnoringBattery = false;
+  String? mockManufacturer = 'samsung';
+  var batteryRequestCount = 0;
   Future<int?> Function(MethodCall call)? onRequestPermissionOverride;
 
   setUpAll(() {
@@ -67,6 +70,11 @@ void main() {
             'canScheduleExactAlarms' => mockCanScheduleExact,
             'canUseFullScreenIntent' => mockCanUseFsi,
             'isIgnoringBatteryOptimizations' => mockIgnoringBattery,
+            'getDeviceManufacturer' => mockManufacturer,
+            'requestIgnoreBatteryOptimizations' => () {
+              batteryRequestCount++;
+              return true;
+            }(),
             _ => null,
           };
         });
@@ -87,8 +95,15 @@ void main() {
     mockCanScheduleExact = true;
     mockCanUseFsi = true;
     mockIgnoringBattery = false;
+    mockManufacturer = 'samsung';
+    batteryRequestCount = 0;
     onRequestPermissionOverride = null;
+    RA_PermissionService.debugAllowOemSheetInTests = null;
     RA_ColourStyles.apply(AppThemeModeEnum.Dark);
+  });
+
+  tearDown(() {
+    RA_PermissionService.debugAllowOemSheetInTests = null;
   });
 
   Widget buildHost(void Function(BuildContext) onContext) {
@@ -253,6 +268,105 @@ void main() {
         expect(prefs.getBool('ra_perm_notif_prompted'), isTrue);
         // Must remain unset because the FSI dialog was never displayed.
         expect(prefs.getBool('ra_perm_fsi_prompted'), isNull);
+      },
+    );
+
+    test(
+      'RA_OemBatteryGuideContent resolves tailored copy for Samsung, Xiaomi, Oppo, Vivo, and generic Android',
+      () {
+        final samsung = RA_OemBatteryGuideContent.forManufacturer('Samsung');
+        expect(samsung.brandBadge, contains('Samsung'));
+        expect(samsung.bullets, hasLength(2));
+
+        final xiaomi = RA_OemBatteryGuideContent.forManufacturer('POCO');
+        expect(xiaomi.brandBadge, contains('Xiaomi'));
+        expect(xiaomi.bullets, hasLength(2));
+
+        final oppo = RA_OemBatteryGuideContent.forManufacturer('OnePlus');
+        expect(oppo.brandBadge, contains('OnePlus'));
+        expect(oppo.bullets, hasLength(2));
+
+        final vivo = RA_OemBatteryGuideContent.forManufacturer('vivo');
+        expect(vivo.brandBadge, contains('Vivo'));
+        expect(vivo.bullets, hasLength(2));
+
+        final generic = RA_OemBatteryGuideContent.forManufacturer('Google');
+        expect(generic.brandBadge, contains('Android'));
+        expect(generic.bullets, hasLength(2));
+      },
+    );
+
+    testWidgets(
+      'post-first-save OEM battery sheet appears once when unexempt, calls requestIgnoreBatteryOptimizations, and does not repeat',
+      (tester) async {
+        RA_PermissionService.debugAllowOemSheetInTests = true;
+        permissionStatuses[Permission.notification.value] =
+            PermissionStatus.granted.index;
+        mockSdkInt = 34;
+        mockCanUseFsi = true;
+        mockIgnoringBattery = false;
+        mockManufacturer = 'xiaomi';
+
+        late BuildContext ctx;
+        await tester.pumpWidget(buildHost((c) => ctx = c));
+
+        final future = RA_PermissionService.ensureCoreAlarmPermissions(ctx);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+
+        expect(find.byType(RA_OemBatteryGuideSheet), findsOneWidget);
+        expect(find.text('Keep Xiaomi Alarms Reliable'), findsOneWidget);
+        expect(find.text('Allow Unrestricted Battery'), findsOneWidget);
+        expect(find.text('Later'), findsOneWidget);
+
+        await tester.tap(find.text('Allow Unrestricted Battery'));
+        await tester.pumpAndSettle();
+        await future;
+
+        expect(batteryRequestCount, equals(1));
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getBool(RA_PermissionService.oemBatteryPromptedKey),
+          isTrue,
+        );
+
+        // Second call must not re-show the one-time sheet.
+        await RA_PermissionService.ensureCoreAlarmPermissions(ctx);
+        await tester.pump();
+        expect(find.byType(RA_OemBatteryGuideSheet), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'OEM battery sheet is skipped when already exempt or manufacturer channel is absent',
+      (tester) async {
+        RA_PermissionService.debugAllowOemSheetInTests = true;
+        permissionStatuses[Permission.notification.value] =
+            PermissionStatus.granted.index;
+        mockSdkInt = 34;
+        mockCanUseFsi = true;
+
+        late BuildContext ctx;
+        await tester.pumpWidget(buildHost((c) => ctx = c));
+
+        // Already exempt -> skipped.
+        mockIgnoringBattery = true;
+        mockManufacturer = 'samsung';
+        await RA_PermissionService.ensureCoreAlarmPermissions(ctx);
+        await tester.pump();
+        expect(find.byType(RA_OemBatteryGuideSheet), findsNothing);
+
+        // Unexempt, but channel returned null -> skipped without burning flag.
+        mockIgnoringBattery = false;
+        mockManufacturer = null;
+        await RA_PermissionService.ensureCoreAlarmPermissions(ctx);
+        await tester.pump();
+        expect(find.byType(RA_OemBatteryGuideSheet), findsNothing);
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getBool(RA_PermissionService.oemBatteryPromptedKey),
+          isNull,
+        );
       },
     );
   });

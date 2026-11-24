@@ -22,9 +22,11 @@ import 'package:rolling_alarm/pages/routine_summary.dart';
 import 'package:rolling_alarm/providers/providers.dart';
 import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
+import 'package:rolling_alarm/services/export.dart';
 import 'package:rolling_alarm/services/permissions.dart';
 import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/routine_duplicate.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/services/weekday_schedule.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
@@ -171,6 +173,10 @@ class RA_RoutineCard extends ConsumerWidget {
                                 ],
                               ),
                               _TodayRingCount(
+                                routine: routine,
+                                muted: isPaused,
+                              ),
+                              _SwingRosterBadge(
                                 routine: routine,
                                 muted: isPaused,
                               ),
@@ -443,6 +449,8 @@ class RA_RoutineCard extends ConsumerWidget {
         await _duplicateRoutine(context, ref);
       case RA_RoutineCardMenuAction.resetTodayCounter:
         await _resetTodayCounter(context, ref);
+      case RA_RoutineCardMenuAction.sharePreset:
+        await _shareRoutinePreset(context);
       case RA_RoutineCardMenuAction.delete:
         final confirmed = await RA_showDeleteRoutineDialog(
           context,
@@ -479,6 +487,19 @@ class RA_RoutineCard extends ConsumerWidget {
     if (newId != null && context.mounted) {
       await RA_PermissionService.ensureCoreAlarmPermissions(context);
     }
+  }
+
+  Future<void> _shareRoutinePreset(BuildContext context) async {
+    RA_Haptics.heavyUnawaited();
+    Rect? origin;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      origin = box.localToGlobal(Offset.zero) & box.size;
+    }
+    await RA_ExportService.shareRoutinePreset(
+      routine,
+      sharePositionOrigin: origin,
+    );
   }
 
   Future<void> _resetTodayCounter(BuildContext context, WidgetRef ref) async {
@@ -857,8 +878,14 @@ class _TodayRingCount extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final logicalToday = RA_DailyRingLimit.periodStart(now, routine.DayStartSeconds);
-    if (!RA_WeekdaySchedule.isDateEnabled(routine.EnabledWeekdays, logicalToday)) {
+    if (!RA_SwingRosterSchedule.isDateActive(
+      now,
+      enabledWeekdays: routine.EnabledWeekdays,
+      dayStartSeconds: routine.DayStartSeconds,
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
+    )) {
       return const SizedBox.shrink();
     }
 
@@ -895,6 +922,78 @@ class _TodayRingCount extends ConsumerWidget {
           color: muted
               ? RA_ColourStyles.faintPrimary
               : RA_ColourStyles.mutedPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+/// Crisp swing-roster badge showing ON-swing day count or R&R next-start time.
+class _SwingRosterBadge extends StatelessWidget {
+  final RoutineModel routine;
+  final bool muted;
+
+  const _SwingRosterBadge({required this.routine, this.muted = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = RA_SwingRosterSchedule.statusAt(
+      now: DateTime.now(),
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
+      dayStartSeconds: routine.DayStartSeconds,
+      enabledWeekdays: routine.EnabledWeekdays,
+    );
+    if (status == null) return const SizedBox.shrink();
+
+    final accent = status.isOnSwing
+        ? RA_ColourStyles.secondary
+        : RA_ColourStyles.pauseOchre;
+    final readable = muted
+        ? RA_ColourStyles.mutedPrimary
+        : RA_ColourStyles.readableAccent(accent);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: RA_ShapeStyles.space8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: muted ? 0.08 : 0.14),
+          borderRadius: RA_ShapeStyles.tinyBorderRadius,
+          border: Border.all(
+            color: accent.withValues(alpha: muted ? 0.2 : 0.42),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: RA_ShapeStyles.space8,
+            vertical: 3,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                status.isOnSwing
+                    ? Icons.work_history_outlined
+                    : Icons.beach_access_outlined,
+                size: 13,
+                color: readable,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  status.badgeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RA_TextStyles.tinyFont.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: readable,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

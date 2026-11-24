@@ -11,4 +11,5 @@ enum RoutineEditFieldEnum {
   dayStart,
   driftCompensation,
   days,
+  swingRoster,
 }

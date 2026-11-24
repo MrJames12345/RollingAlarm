@@ -14,7 +14,7 @@ import 'package:rolling_alarm/services/alarm_calculator.dart';
 import 'package:rolling_alarm/services/audio.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/notification.dart';
-import 'package:rolling_alarm/services/weekday_schedule.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -500,11 +500,21 @@ class RA_AlarmService {
       final isResumingFromSnooze = state.CurrentSnoozeCount > 0;
 
       if (!isResumingFromSnooze) {
-        if (!RA_WeekdaySchedule.isDateEnabled(routine.EnabledWeekdays, now)) {
-          final deferred = RA_WeekdaySchedule.deferToEnabledDay(
+        if (!RA_SwingRosterSchedule.isDateActive(
+          now,
+          enabledWeekdays: routine.EnabledWeekdays,
+          dayStartSeconds: routine.DayStartSeconds,
+          cycleOnDays: routine.CycleOnDays,
+          cycleOffDays: routine.CycleOffDays,
+          cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
+        )) {
+          final deferred = RA_SwingRosterSchedule.deferToActiveDay(
             now,
-            routine.EnabledWeekdays,
+            enabledWeekdays: routine.EnabledWeekdays,
             dayStartSeconds: routine.DayStartSeconds,
+            cycleOnDays: routine.CycleOnDays,
+            cycleOffDays: routine.CycleOffDays,
+            cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
           );
           final rows = await db.updateRoutineState(
             routineId,
@@ -527,6 +537,7 @@ class RA_AlarmService {
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
+          _pingUiIsolate(routineId);
           return;
         }
 
@@ -541,13 +552,16 @@ class RA_AlarmService {
           dayStartSeconds: routine.DayStartSeconds,
         );
         if (!canRing) {
-          final deferred = RA_WeekdaySchedule.deferToEnabledDay(
+          final deferred = RA_SwingRosterSchedule.deferToActiveDay(
             RA_DailyRingLimit.nextCalendarDayStart(
               now,
               routine.DayStartSeconds,
             ),
-            routine.EnabledWeekdays,
+            enabledWeekdays: routine.EnabledWeekdays,
             dayStartSeconds: routine.DayStartSeconds,
+            cycleOnDays: routine.CycleOnDays,
+            cycleOffDays: routine.CycleOffDays,
+            cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
           );
           final rows = await db.updateRoutineState(
             routineId,
@@ -570,6 +584,7 @@ class RA_AlarmService {
             refreshWidget: false,
           );
           await RA_WidgetService.updateWidgetState(db: db);
+          _pingUiIsolate(routineId);
           return;
         }
       }
@@ -753,8 +768,8 @@ class RA_AlarmService {
     final effectiveExtra = isSamePeriod ? state.ExtraMaxTimesToday : 0;
 
     // Daily cap only defers the next interval cycle, never an in-cycle snooze.
-    // Weekday filter applies to dismiss/skip the same way.
-    return RA_WeekdaySchedule.deferToEnabledDay(
+    // Swing roster + weekday filters apply to dismiss/skip the same way.
+    return RA_SwingRosterSchedule.deferToActiveDay(
       RA_DailyRingLimit.deferIfDailyLimitReached(
         proposed: calculated,
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
@@ -766,8 +781,11 @@ class RA_AlarmService {
         now: now,
         dayStartSeconds: routine.DayStartSeconds,
       ),
-      routine.EnabledWeekdays,
+      enabledWeekdays: routine.EnabledWeekdays,
       dayStartSeconds: routine.DayStartSeconds,
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
     );
   }
 
@@ -1001,7 +1019,7 @@ class RA_AlarmService {
         InitialRingTime: state?.InitialRingTime ?? now,
         Now: now,
       );
-      next = RA_WeekdaySchedule.deferToEnabledDay(
+      next = RA_SwingRosterSchedule.deferToActiveDay(
         RA_DailyRingLimit.deferIfDailyLimitReached(
           proposed: calculated,
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
@@ -1013,8 +1031,11 @@ class RA_AlarmService {
           now: now,
           dayStartSeconds: routine.DayStartSeconds,
         ),
-        routine.EnabledWeekdays,
+        enabledWeekdays: routine.EnabledWeekdays,
         dayStartSeconds: routine.DayStartSeconds,
+        cycleOnDays: routine.CycleOnDays,
+        cycleOffDays: routine.CycleOffDays,
+        cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
       );
       snoozeCount = 0;
     }
@@ -1111,10 +1132,13 @@ class RA_AlarmService {
     }
 
     if (newNext != null) {
-      newNext = RA_WeekdaySchedule.deferToEnabledDay(
+      newNext = RA_SwingRosterSchedule.deferToActiveDay(
         newNext,
-        routine.EnabledWeekdays,
+        enabledWeekdays: routine.EnabledWeekdays,
         dayStartSeconds: routine.DayStartSeconds,
+        cycleOnDays: routine.CycleOnDays,
+        cycleOffDays: routine.CycleOffDays,
+        cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
       );
     }
 
@@ -1282,6 +1306,9 @@ class RA_AlarmService {
       maxTimesPerDayEnabled: routine.MaxTimesPerDayEnabled,
       dayStartSeconds: routine.DayStartSeconds,
       enabledWeekdays: routine.EnabledWeekdays,
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
     );
 
     final recovered = await db.recoverRoutine(
@@ -1340,6 +1367,9 @@ class RA_AlarmService {
       intervalSeconds: routine.IntervalSeconds,
       dayStartSeconds: routine.DayStartSeconds,
       enabledWeekdays: routine.EnabledWeekdays,
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
     );
 
     // While paused, store the new interval relative to PausedAt so resume
@@ -1353,7 +1383,7 @@ class RA_AlarmService {
       final safeIntervalSeconds = routine.IntervalSeconds < 1
           ? 60
           : routine.IntervalSeconds;
-      next = RA_WeekdaySchedule.deferToEnabledDay(
+      next = RA_SwingRosterSchedule.deferToActiveDay(
         RA_DailyRingLimit.deferIfDailyLimitReached(
           proposed: pausedAt.add(Duration(seconds: safeIntervalSeconds)),
           maxTimesPerDay: routine.MaxTimesPerDayEnabled
@@ -1365,8 +1395,11 @@ class RA_AlarmService {
           now: now,
           dayStartSeconds: routine.DayStartSeconds,
         ),
-        routine.EnabledWeekdays,
+        enabledWeekdays: routine.EnabledWeekdays,
         dayStartSeconds: routine.DayStartSeconds,
+        cycleOnDays: routine.CycleOnDays,
+        cycleOffDays: routine.CycleOffDays,
+        cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
       );
     }
 
@@ -1475,17 +1508,23 @@ class RA_AlarmService {
         now: now,
         dayStartSeconds: routine.DayStartSeconds,
       );
-      next = RA_WeekdaySchedule.deferToEnabledDay(
+      next = RA_SwingRosterSchedule.deferToActiveDay(
         candidate,
-        routine.EnabledWeekdays,
+        enabledWeekdays: routine.EnabledWeekdays,
         dayStartSeconds: routine.DayStartSeconds,
+        cycleOnDays: routine.CycleOnDays,
+        cycleOffDays: routine.CycleOffDays,
+        cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
       );
       nextChanged = true;
     } else if (isAtCap && !wasAtCap && next != null) {
-      next = RA_WeekdaySchedule.deferToEnabledDay(
+      next = RA_SwingRosterSchedule.deferToActiveDay(
         RA_DailyRingLimit.nextCalendarDayStart(now, routine.DayStartSeconds),
-        routine.EnabledWeekdays,
+        enabledWeekdays: routine.EnabledWeekdays,
         dayStartSeconds: routine.DayStartSeconds,
+        cycleOnDays: routine.CycleOnDays,
+        cycleOffDays: routine.CycleOffDays,
+        cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
       );
       nextChanged = true;
     }
@@ -1572,7 +1611,7 @@ class RA_AlarmService {
       InitialRingTime: initialRing,
       Now: now,
     );
-    final next = RA_WeekdaySchedule.deferToEnabledDay(
+    final next = RA_SwingRosterSchedule.deferToActiveDay(
       RA_DailyRingLimit.deferIfDailyLimitReached(
         proposed: calculated,
         maxTimesPerDay: routine.MaxTimesPerDayEnabled
@@ -1584,8 +1623,11 @@ class RA_AlarmService {
         now: now,
         dayStartSeconds: routine.DayStartSeconds,
       ),
-      routine.EnabledWeekdays,
+      enabledWeekdays: routine.EnabledWeekdays,
       dayStartSeconds: routine.DayStartSeconds,
+      cycleOnDays: routine.CycleOnDays,
+      cycleOffDays: routine.CycleOffDays,
+      cycleAnchorEpochDay: routine.CycleAnchorEpochDay,
     );
 
     int? timeSinceLastDismissal;

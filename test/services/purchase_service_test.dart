@@ -1073,6 +1073,8 @@ void main() {
             300,
             scrollable: verticalScrollable.first,
           );
+          await tester.ensureVisible(importFinder);
+          await tester.pump();
           await tester.tap(importFinder);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 200));

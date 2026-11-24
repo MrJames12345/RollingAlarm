@@ -2,19 +2,22 @@ package com.casellaweb.rolling_alarm
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import java.io.File
 import java.util.Calendar
+import java.util.TimeZone
 
 /**
  * Read-only SQLite guard against Drift's `rolling_alarm.db`.
  *
  * Prevents native [AlarmRingingService] / [AlarmReceiver] / [AlarmResurrectionReceiver]
  * from waking the screen or playing audio for routines that were muted, paused,
- * soft-deleted, on a disabled weekday, or already at their daily cap before a
- * pending `setAlarmClock` fired.
+ * soft-deleted, on a disabled weekday, on an R&R off-swing day, or already at
+ * their daily cap before a pending `setAlarmClock` fired.
  */
 object AlarmSqliteGate {
     private const val ALL_DAYS_MASK = 0x7F
+    private const val MILLIS_PER_DAY = 86_400_000L
 
     private data class RoutineGateRow(
         val deleted: Boolean,
@@ -23,6 +26,9 @@ object AlarmSqliteGate {
         val dayStartSeconds: Int,
         val maxTimesPerDayEnabled: Boolean,
         val maxTimesPerDay: Int,
+        val cycleOnDays: Int,
+        val cycleOffDays: Int,
+        val cycleAnchorEpochDay: Int?,
     )
 
     private data class StateGateRow(
@@ -72,26 +78,7 @@ object AlarmSqliteGate {
         val db = openDb(path) ?: return false
         return try {
             db.use { sqlite ->
-                val routineRow = sqlite.rawQuery(
-                    """
-                    SELECT deleted, is_active, enabled_weekdays, day_start_seconds,
-                           max_times_per_day_enabled, max_times_per_day
-                    FROM routines
-                    WHERE id = ?
-                    LIMIT 1
-                    """.trimIndent(),
-                    arrayOf(routineId.toString()),
-                ).use { cursor ->
-                    if (!cursor.moveToFirst()) return true
-                    RoutineGateRow(
-                        deleted = cursor.getInt(0) == 1,
-                        isActive = cursor.getInt(1) == 1,
-                        enabledWeekdays = cursor.getInt(2),
-                        dayStartSeconds = cursor.getInt(3),
-                        maxTimesPerDayEnabled = cursor.getInt(4) == 1,
-                        maxTimesPerDay = cursor.getInt(5),
-                    )
-                }
+                val routineRow = queryRoutineGateRow(sqlite, routineId) ?: return true
 
                 if (routineRow.deleted || !routineRow.isActive) {
                     return true
@@ -133,8 +120,28 @@ object AlarmSqliteGate {
                 }
 
                 val nowMillis = System.currentTimeMillis()
-                if (!isWeekdayEnabled(routineRow.enabledWeekdays, nowMillis)) {
-                    return true
+                val swingAnchor = routineRow.cycleAnchorEpochDay
+                if (routineRow.cycleOnDays > 0 &&
+                    routineRow.cycleOffDays > 0 &&
+                    swingAnchor != null
+                ) {
+                    val logicalPeriodCal = periodStartCalendar(nowMillis, routineRow.dayStartSeconds)
+                    if (!isOnSwingDay(
+                            logicalPeriodCal = logicalPeriodCal,
+                            cycleOnDays = routineRow.cycleOnDays,
+                            cycleOffDays = routineRow.cycleOffDays,
+                            cycleAnchorEpochDay = swingAnchor,
+                        )
+                    ) {
+                        return true
+                    }
+                    if (!isWeekdayEnabled(routineRow.enabledWeekdays, logicalPeriodCal.timeInMillis)) {
+                        return true
+                    }
+                } else {
+                    if (!isWeekdayEnabled(routineRow.enabledWeekdays, nowMillis)) {
+                        return true
+                    }
                 }
 
                 if (routineRow.maxTimesPerDayEnabled && routineRow.maxTimesPerDay > 0) {
@@ -157,6 +164,94 @@ object AlarmSqliteGate {
         }
     }
 
+    /**
+     * Reads v19 routine columns including swing-roster metadata, falling back
+     * to v18 columns cleanly if an alarm fires after app update before Drift
+     * has run its v18 -> v19 migration.
+     */
+    private fun queryRoutineGateRow(sqlite: SQLiteDatabase, routineId: Int): RoutineGateRow? {
+        return try {
+            sqlite.rawQuery(
+                """
+                SELECT deleted, is_active, enabled_weekdays, day_start_seconds,
+                       max_times_per_day_enabled, max_times_per_day,
+                       cycle_on_days, cycle_off_days, cycle_anchor_epoch_day
+                FROM routines
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(routineId.toString()),
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                RoutineGateRow(
+                    deleted = cursor.getInt(0) == 1,
+                    isActive = cursor.getInt(1) == 1,
+                    enabledWeekdays = cursor.getInt(2),
+                    dayStartSeconds = cursor.getInt(3),
+                    maxTimesPerDayEnabled = cursor.getInt(4) == 1,
+                    maxTimesPerDay = cursor.getInt(5),
+                    cycleOnDays = cursor.getInt(6),
+                    cycleOffDays = cursor.getInt(7),
+                    cycleAnchorEpochDay = if (cursor.isNull(8)) null else cursor.getInt(8),
+                )
+            }
+        } catch (_: SQLiteException) {
+            sqlite.rawQuery(
+                """
+                SELECT deleted, is_active, enabled_weekdays, day_start_seconds,
+                       max_times_per_day_enabled, max_times_per_day
+                FROM routines
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(routineId.toString()),
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                RoutineGateRow(
+                    deleted = cursor.getInt(0) == 1,
+                    isActive = cursor.getInt(1) == 1,
+                    enabledWeekdays = cursor.getInt(2),
+                    dayStartSeconds = cursor.getInt(3),
+                    maxTimesPerDayEnabled = cursor.getInt(4) == 1,
+                    maxTimesPerDay = cursor.getInt(5),
+                    cycleOnDays = 0,
+                    cycleOffDays = 0,
+                    cycleAnchorEpochDay = null,
+                )
+            }
+        }
+    }
+
+    /**
+     * Matches Dart `RA_SwingRosterSchedule.isEpochDayOnSwing`: projects the
+     * logical period's local calendar `(year, month, day)` onto UTC midnight
+     * for DST-safe epoch-day indexing and applies Euclidean modulo.
+     */
+    private fun isOnSwingDay(
+        logicalPeriodCal: Calendar,
+        cycleOnDays: Int,
+        cycleOffDays: Int,
+        cycleAnchorEpochDay: Int,
+    ): Boolean {
+        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(
+                logicalPeriodCal.get(Calendar.YEAR),
+                logicalPeriodCal.get(Calendar.MONTH),
+                logicalPeriodCal.get(Calendar.DAY_OF_MONTH),
+                0,
+                0,
+                0,
+            )
+            set(Calendar.MILLISECOND, 0)
+        }
+        val logicalEpochDay = Math.floorDiv(utcCal.timeInMillis, MILLIS_PER_DAY).toInt()
+        val cycleLength = cycleOnDays + cycleOffDays
+        val delta = logicalEpochDay - cycleAnchorEpochDay
+        val pos = ((delta % cycleLength) + cycleLength) % cycleLength
+        return pos < cycleOnDays
+    }
+
     /** Matches Dart `RA_WeekdaySchedule`: bit 0 = Monday .. bit 6 = Sunday; 0 = all days. */
     private fun isWeekdayEnabled(mask: Int, nowMillis: Long): Boolean {
         val effective = if (mask == 0) ALL_DAYS_MASK else (mask and ALL_DAYS_MASK)
@@ -176,7 +271,7 @@ object AlarmSqliteGate {
     }
 
     /** Local DST-safe day-start boundary matching Dart `RA_DailyRingLimit.periodStart`. */
-    private fun periodStartMillis(nowMillis: Long, dayStartSeconds: Int): Long {
+    private fun periodStartCalendar(nowMillis: Long, dayStartSeconds: Int): Calendar {
         val offsetSec = dayStartSeconds.coerceIn(0, 24 * 3600 - 1)
         val hour = offsetSec / 3600
         val minute = (offsetSec % 3600) / 60
@@ -196,7 +291,11 @@ object AlarmSqliteGate {
             todayStart.set(Calendar.SECOND, second)
             todayStart.set(Calendar.MILLISECOND, 0)
         }
-        return todayStart.timeInMillis
+        return todayStart
+    }
+
+    private fun periodStartMillis(nowMillis: Long, dayStartSeconds: Int): Long {
+        return periodStartCalendar(nowMillis, dayStartSeconds).timeInMillis
     }
 
     /** Drift DateTime columns are stored as Unix seconds (defensively decode ms/us too). */

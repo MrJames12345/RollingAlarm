@@ -173,6 +173,7 @@ reset_display() {
 
 ORIGINAL_AUTO_TIME="$(adb_value settings get global auto_time)"
 ORIGINAL_IMMERSIVE_CONFIRMATIONS="$(adb_value settings get secure immersive_mode_confirmations)"
+ORIGINAL_HIDE_ERROR_DIALOGS="$(adb_value settings get global hide_error_dialogs)"
 WAS_ROOT=0
 [[ "$(adb_value id -u)" == "0" ]] && WAS_ROOT=1
 CLOCK_CONTROL=0
@@ -194,6 +195,11 @@ restore_emulator() {
     adb shell settings delete secure immersive_mode_confirmations >/dev/null 2>&1
   else
     adb shell settings put secure immersive_mode_confirmations "$ORIGINAL_IMMERSIVE_CONFIRMATIONS" >/dev/null 2>&1
+  fi
+  if [[ -z "$ORIGINAL_HIDE_ERROR_DIALOGS" || "$ORIGINAL_HIDE_ERROR_DIALOGS" == "null" ]]; then
+    adb shell settings delete global hide_error_dialogs >/dev/null 2>&1
+  else
+    adb shell settings put global hide_error_dialogs "$ORIGINAL_HIDE_ERROR_DIALOGS" >/dev/null 2>&1
   fi
   demo exit
   adb shell settings put global sysui_demo_allowed 0 >/dev/null 2>&1
@@ -325,14 +331,16 @@ capture_profile() {
   profile_dir="${OUTPUT_DIR}/${profile}"
 
   echo "== ${profile}: ${size} at ${density} dpi =="
-  # Chrome's GPU process restarts on every density change, and on emulators
-  # using host Vulkan that restart can freeze the whole emulator.
+  # Chrome's GPU process and Pixel Launcher can stall or raise ANR dialogs on
+  # display density changes; force-stop both and close any system dialogs first.
   adb shell am force-stop com.android.chrome >/dev/null 2>&1 || true
+  adb shell am force-stop com.google.android.apps.nexuslauncher >/dev/null 2>&1 || true
   adb shell wm size "$size"
   adb shell wm density "$density"
   # A display or density change rebuilds the status bar, and icons such as the
   # cellular signal are only redrawn when demo mode is entered from scratch.
   sleep 2
+  adb shell am force-stop com.google.android.apps.nexuslauncher >/dev/null 2>&1 || true
   demo exit
   sleep 1
   apply_clean_status_bar
@@ -364,9 +372,10 @@ adb shell dumpsys deviceidle whitelist "+${APP_PACKAGE}" >/dev/null 2>&1 || true
 echo "Enabling demo mode..."
 adb shell settings put global sysui_demo_allowed 1
 
-# Suppress the one time "Viewing full screen" tip that appears when the
-# screenshot build hides the navigation bar.
+# Suppress the one time "Viewing full screen" tip and any emulator ANR popups
+# (such as Pixel Launcher during density switches) so captures stay clean.
 adb shell settings put secure immersive_mode_confirmations confirmed
+adb shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 || true
 
 if (( WAS_ROOT )); then
   CLOCK_CONTROL=1

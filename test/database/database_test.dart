@@ -753,5 +753,90 @@ void main() {
         expect(remainingIds, isNot(contains(softDeletedLogRow)));
       },
     );
+
+    test(
+      'v18 to v19 migration adds swing-roster columns with safe defaults and preserves existing rows',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('ra_mig_v19_');
+        final dbPath = p.join(tempDir.path, 'legacy_v18.db');
+        try {
+          final raw = sqlite3.sqlite3.open(dbPath);
+          raw.execute('''
+            CREATE TABLE routines (
+              id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              snooze_seconds INTEGER NOT NULL DEFAULT 300,
+              interval_seconds INTEGER NOT NULL,
+              max_times_per_day INTEGER NOT NULL DEFAULT 0,
+              day_start_seconds INTEGER NOT NULL DEFAULT 0,
+              max_times_per_day_enabled INTEGER NOT NULL DEFAULT 0,
+              enabled_weekdays INTEGER NOT NULL DEFAULT 127,
+              drift_compensation_type_code INTEGER NOT NULL,
+              show_preview INTEGER NOT NULL DEFAULT 1,
+              vibrate INTEGER NOT NULL DEFAULT 1,
+              volume INTEGER NOT NULL DEFAULT 50,
+              fade_in INTEGER NOT NULL DEFAULT 0,
+              audio_uri TEXT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+              modified_at INTEGER NULL,
+              deleted INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+          raw.execute('''
+            CREATE TABLE app_meta (
+              key TEXT NOT NULL PRIMARY KEY,
+              value TEXT NOT NULL,
+              updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER))
+            );
+          ''');
+          raw.execute('''
+            INSERT INTO routines (name, interval_seconds, drift_compensation_type_code)
+            VALUES ('Pre-Swing Routine', 14400, 0);
+          ''');
+          raw.execute('''
+            INSERT INTO app_meta ("key", "value")
+            VALUES ('legacy_pro_grandfathered', 'true');
+          ''');
+          raw.execute('PRAGMA user_version = 18;');
+          raw.close();
+
+          final upgraded = RA_Database.openForIsolate(dbPath);
+          try {
+            final routines = await upgraded.watchAllRoutines().first;
+            expect(routines, hasLength(1));
+            final existing = routines.first;
+            expect(existing.Name, equals('Pre-Swing Routine'));
+            expect(existing.CycleOnDays, equals(0));
+            expect(existing.CycleOffDays, equals(0));
+            expect(existing.CycleAnchorEpochDay, isNull);
+            expect(await upgraded.isLegacyProGrandfathered(), isTrue);
+
+            final swingId = await upgraded.insertRoutine(
+              RoutinesCompanion(
+                Name: const Value('WA FIFO 8/6'),
+                IntervalSeconds: const Value(43200),
+                CycleOnDays: const Value(8),
+                CycleOffDays: const Value(6),
+                CycleAnchorEpochDay: const Value(20605),
+                DriftCompensationTypeCode: Value(
+                  DriftCompensationTypeCodeEnum.ActualDismissal.index,
+                ),
+              ),
+            );
+            final inserted = await upgraded.getRoutineById(swingId);
+            expect(inserted.CycleOnDays, equals(8));
+            expect(inserted.CycleOffDays, equals(6));
+            expect(inserted.CycleAnchorEpochDay, equals(20605));
+          } finally {
+            await upgraded.close();
+          }
+        } finally {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        }
+      },
+    );
   });
 }

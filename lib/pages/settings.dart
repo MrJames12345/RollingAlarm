@@ -23,6 +23,7 @@ import 'package:rolling_alarm/services/export.dart';
 import 'package:rolling_alarm/services/notification.dart';
 import 'package:rolling_alarm/services/permissions.dart';
 import 'package:rolling_alarm/services/purchase.dart';
+import 'package:rolling_alarm/services/review.dart';
 import 'package:rolling_alarm/services/widget.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:rolling_alarm/utils.dart';
@@ -71,6 +72,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
   Future<void> _requestBatteryExemption() async {
     await RA_AlarmService.requestIgnoreBatteryOptimizations();
+    await _refreshReliabilityStatus();
+  }
+
+  Future<void> _openOemBatteryGuide() async {
+    await RA_PermissionService.showOemBatteryGuide(context);
     await _refreshReliabilityStatus();
   }
 
@@ -292,6 +298,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   isActive: _reliabilityStatus?.displayOverAppsGranted == true,
                   onTap: () => unawaited(_requestDisplayOverApps()),
                 ),
+                const SizedBox(height: RA_ShapeStyles.space8),
+                _SettingsAction(
+                  icon: Icons.phone_android_rounded,
+                  title: 'Manufacturer Battery Guide (Samsung / Xiaomi / Oppo)',
+                  subtitle:
+                      'Tailored steps to stop OEM battery savers silencing alarms.',
+                  onTap: () => unawaited(_openOemBatteryGuide()),
+                ),
               ],
             ),
           ),
@@ -310,7 +324,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 _SettingsAction(
                   icon: Icons.file_download,
                   title: 'Import Routines',
-                  subtitle: 'Paste an RA1 string to add routines.',
+                  subtitle: 'Paste an RA1 code or preset link to add routines.',
                   onTap: () => unawaited(_import(context, ref)),
                 ),
               ],
@@ -321,6 +335,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             bottomSpacing: RA_ShapeStyles.space48,
             child: Column(
               children: [
+                _SettingsAction(
+                  icon: Icons.star_outline_rounded,
+                  title: 'Rate Rolling Alarm',
+                  subtitle:
+                      'Enjoying Rolling Alarm? Leave a quick rating on Google Play.',
+                  onTap: () => unawaited(RA_ReviewService.openStoreListing()),
+                ),
+                const SizedBox(height: RA_ShapeStyles.space8),
                 _SettingsAction(
                   icon: Icons.privacy_tip_outlined,
                   title: 'Privacy Policy',
@@ -590,10 +612,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   /// routine rings without needing to be opened and saved again.
   Future<void> _scheduleImported(RA_Database db, List<int> routineIds) async {
     for (final routineId in routineIds) {
+      final routine = await db.getRoutineById(routineId);
+      if (!routine.IsActive) continue;
       final state = await db.getRoutineState(routineId);
       final next = state?.NextTriggerTime;
       if (next == null) continue;
-      final routine = await db.getRoutineById(routineId);
       await RA_AlarmService.scheduleNext(
         routineId: routineId,
         triggerTime: next,

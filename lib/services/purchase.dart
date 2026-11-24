@@ -25,10 +25,10 @@ extension PurchaseTierDetails on RA_PurchaseTier {
 
   /// Offline / unconfigured fallback price display in AUD.
   String get fallbackPriceString => switch (this) {
-    RA_PurchaseTier.foundingLifetime => r'$19.99 AUD',
-    RA_PurchaseTier.lifetime => r'$29.99 AUD',
-    RA_PurchaseTier.annual => r'$19.99 AUD',
-    RA_PurchaseTier.monthly => r'$2.99 AUD',
+    RA_PurchaseTier.foundingLifetime => r'$39.99 AUD',
+    RA_PurchaseTier.lifetime => r'$49.99 AUD',
+    RA_PurchaseTier.annual => r'$24.99 AUD',
+    RA_PurchaseTier.monthly => r'$4.99 AUD',
   };
 
   bool get isSubscription => switch (this) {
@@ -105,6 +105,8 @@ class RA_PurchaseService {
 
   // SharedPreferences & HomeWidget keys
   static const String firstSeenEpochMsKey = 'ra_first_seen_epoch_ms';
+  static const String foundingBannerDismissedKey =
+      'ra_founding_banner_dismissed';
   static const String rcIsProCachedKey = 'ra_rc_is_pro_cached';
   static const String isProEffectiveKey = 'ra_is_pro_effective';
   static const String widgetIsProKey = 'ra_is_pro';
@@ -295,6 +297,11 @@ class RA_PurchaseService {
     }
     return _computeFoundingRemaining(firstSeenMs, reference);
   }
+
+  /// Synchronous check for whether the 24-hour Day-1 Founding Lifetime offer
+  /// window is currently active.
+  static bool isFoundingOfferActive({DateTime? now}) =>
+      foundingOfferRemainingSync(now: now) >= const Duration(seconds: 1);
 
   static Duration _computeFoundingRemaining(int firstSeenMs, DateTime now) {
     final expiresAtMs = firstSeenMs + foundingOfferWindow.inMilliseconds;

@@ -270,7 +270,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       return null;
     }
     if (annualProduct == null && monthlyProduct == null) {
-      return 'SAVE 44%';
+      return 'SAVE 58%';
     }
     return null;
   }
@@ -356,7 +356,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
     final annualMonthlySubtext = annualProduct?.pricePerMonthString != null
         ? 'Equivalent to ${annualProduct!.pricePerMonthString}/mo'
-        : (annualProduct == null ? r'Equivalent to ~$1.67 AUD/mo' : null);
+        : (annualProduct == null ? r'Equivalent to ~$2.08 AUD/mo' : null);
 
     final annualSavingsBadge = _resolveAnnualSavingsBadge(
       annualProduct: annualProduct,
@@ -574,7 +574,10 @@ class _ProFeatureList extends StatelessWidget {
 
   static const List<(IconData, String)> _features = [
     (Icons.all_inclusive_rounded, 'Unlimited Rolling Routines'),
-    (Icons.grid_on_rounded, 'Initial Ring Grid & Extra Daily Caps'),
+    (
+      Icons.grid_on_rounded,
+      'Initial Ring Grid, Custom Swing Rosters & Extra Daily Caps',
+    ),
     (
       Icons.graphic_eq_rounded,
       'Custom Audio + Gentle Fade-In + Volume-Key Actions',

@@ -49,7 +49,7 @@ class RA_QuickTemplatesStrip extends ConsumerWidget {
                   _TemplateCard(
                     template: templates[index],
                     selected: templates[index].id == selectedTemplateId,
-                    showProPill: templates[index].usesProDriftMode && !isPro,
+                    showProPill: templates[index].isProTemplate && !isPro,
                     onTap: () => onSelect(templates[index]),
                   ),
                 ],

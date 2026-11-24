@@ -26,6 +26,15 @@ class Routines extends Table {
   /// Monday-first weekday bitmask (bit 0 = Mon … bit 6 = Sun). Default all days.
   IntColumn get EnabledWeekdays => integer().withDefault(const Constant(127))();
 
+  /// Active days in a swing roster cycle (`0` means swing cycle disabled).
+  IntColumn get CycleOnDays => integer().withDefault(const Constant(0))();
+
+  /// Off-duty / R&R days in a swing roster cycle when [CycleOnDays] > 0.
+  IntColumn get CycleOffDays => integer().withDefault(const Constant(0))();
+
+  /// Local calendar epoch day representing Day 1 of the ON swing.
+  IntColumn get CycleAnchorEpochDay => integer().nullable()();
+
   IntColumn get DriftCompensationTypeCode => integer()();
   BoolColumn get ShowPreview => boolean().withDefault(const Constant(true))();
 

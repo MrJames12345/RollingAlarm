@@ -42,6 +42,7 @@ import 'package:rolling_alarm/services/alarm.dart';
 import 'package:rolling_alarm/services/daily_ring_limit.dart';
 import 'package:rolling_alarm/services/purchase.dart';
 import 'package:rolling_alarm/services/settings.dart';
+import 'package:rolling_alarm/services/swing_roster.dart';
 import 'package:rolling_alarm/styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,8 +60,10 @@ enum RA_ScreenshotScene {
 /// to finish before capture.
 const Duration _settleDelay = Duration(milliseconds: 2500);
 
-/// Editor section scrolled flush to the top of the editor scene.
-const String _editorTopSection = 'Interval';
+/// Editor section scrolled flush to the top of the editor scene so daily ring
+/// caps, enabled weekdays, and the active FIFO 8/6 swing roster controls are
+/// all showcased cleanly in frame.
+const String _editorTopSection = 'Daily limit';
 
 /// Point in the ring page's repeating pulse where the alarm icon is still
 /// legible under its glow. The pulse is frozen here so every capture matches.
@@ -141,12 +144,13 @@ Future<void> _openScene(
   }
 
   final medication = await database.getRoutineById(demo.medication);
+  final fifoSwing = await database.getRoutineById(demo.fifoSwing);
   final page = switch (scene) {
     // Dashboard is the home route; ringing is opened by RA_AlarmRingPresenter.
     RA_ScreenshotScene.dashboard || RA_ScreenshotScene.ringing => null,
     RA_ScreenshotScene.editor => RoutineEditPage(
       dbPath: dbPath,
-      existingRoutine: medication,
+      existingRoutine: fifoSwing,
     ),
     RA_ScreenshotScene.summary => RoutineSummaryPage(
       routineId: medication.Id,
@@ -167,14 +171,21 @@ Future<void> _openScene(
       await Scrollable.ensureVisible(section);
     }
   }
+  if (scene == RA_ScreenshotScene.settings) {
+    final section = _findText('Side Buttons');
+    if (section != null) {
+      await Scrollable.ensureVisible(section);
+    }
+  }
   if (scene == RA_ScreenshotScene.paywall) {
     // On compact phone displays, scroll the paywall just far enough to reveal
-    // all three pricing tiers (Day-1 Lifetime, Annual, Monthly) plus the CTA.
+    // all three pricing tiers (Day-1 Lifetime, Annual, Monthly) with the top
+    // rounded border of Lifetime Unlock fully visible plus the CTA & disclosure.
     final monthly = _findText('Monthly Pro');
     if (monthly != null) {
       final scrollable = Scrollable.maybeOf(monthly);
       if (scrollable != null && scrollable.position.maxScrollExtent > 0) {
-        final target = (scrollable.position.maxScrollExtent - 32.0).clamp(
+        final target = (scrollable.position.maxScrollExtent - 80.0).clamp(
           0.0,
           scrollable.position.maxScrollExtent,
         );
@@ -227,12 +238,14 @@ Element? _findText(String text) {
 
 class _DemoRoutineIds {
   final int medication;
+  final int fifoSwing;
   final int hydrate;
   final int stretch;
   final int eyeRest;
 
   const _DemoRoutineIds({
     required this.medication,
+    required this.fifoSwing,
     required this.hydrate,
     required this.stretch,
     required this.eyeRest,
@@ -243,13 +256,14 @@ DateTime _wholeSecond(DateTime value) => DateTime.fromMillisecondsSinceEpoch(
   value.millisecondsSinceEpoch ~/ 1000 * 1000,
 );
 
-/// Replaces all data with six routines that together show every home card
-/// state except ringing (which opens the full screen ring page instead).
-/// Home lists by creation date, and only the first three cards fit on a phone,
-/// so those carry the most distinct states: a daily capped countdown, a paused
-/// routine with a frozen countdown, and a muted weekday routine. The plain
-/// Hydrate countdown is fourth and is the routine that rings. Posture Check
-/// and Vitamins (daily limit reached) fill the taller tablet dashboards.
+/// Replaces all data with six routines that showcase the flagship v1.1.0 states
+/// except ringing (which opens the full screen ring page instead).
+/// Home lists by creation date, and the first three cards fill a phone screen:
+/// Medication (daily capped countdown), FIFO 8/6 Day Swing (active swing-roster
+/// badge `8/6 Swing · Day 3 of 8 ON`), and Stretch Break (muted weekday routine).
+/// Hydrate is fourth and serves as the silent ringing routine. Eye Rest (paused
+/// with frozen countdown) and Vitamins (daily limit reached) fill taller tablet
+/// dashboards.
 ///
 /// All trigger times are in the future so nothing fires during capture.
 Future<_DemoRoutineIds> _seedDemoData(
@@ -258,7 +272,15 @@ Future<_DemoRoutineIds> _seedDemoData(
 }) async {
   final now = _wholeSecond(DateTime.now());
   const dayStart = 6 * 3600;
+  const fifoDayStart = 5 * 3600;
   final today = RA_DailyRingLimit.periodStart(now, dayStart);
+  final fifoToday = RA_DailyRingLimit.periodStart(now, fifoDayStart);
+  final fifoAnchorEpochDay =
+      RA_SwingRosterSchedule.logicalEpochDay(
+        now,
+        dayStartSeconds: fifoDayStart,
+      ) -
+      2;
   final silent = RA_AlarmSound.silent.encode();
 
   return db.transaction(() async {
@@ -291,6 +313,39 @@ Future<_DemoRoutineIds> _seedDemoData(
         TimesRingToday: const Value(1),
         TimesRingDay: Value(today),
         LastDismissedAt: Value(now.subtract(const Duration(minutes: 50))),
+      ),
+    );
+
+    // WA FIFO 8/6 active swing roster (Day 3 of 8 ON) showcased on phone card #2
+    // and in the routine editor scene.
+    final fifoCreated = now.subtract(const Duration(days: 9));
+    final fifoSwing = await db.insertRoutine(
+      RoutinesCompanion.insert(
+        Name: 'FIFO 8/6 Day Swing',
+        IntervalSeconds: 12 * 3600,
+        SnoozeSeconds: const Value(10 * 60),
+        DriftCompensationTypeCode:
+            DriftCompensationTypeCodeEnum.ActualDismissal.index,
+        MaxTimesPerDayEnabled: const Value(true),
+        MaxTimesPerDay: const Value(1),
+        DayStartSeconds: const Value(fifoDayStart),
+        CycleOnDays: const Value(8),
+        CycleOffDays: const Value(6),
+        CycleAnchorEpochDay: Value(fifoAnchorEpochDay),
+        Volume: const Value(80),
+        FadeIn: const Value(true),
+        CreatedAt: Value(fifoCreated),
+      ),
+    );
+    await db.insertRoutineState(
+      RoutineStatesCompanion.insert(
+        RoutineId: fifoSwing,
+        NextTriggerTime: Value(now.add(const Duration(hours: 9, minutes: 45))),
+        TimesRingToday: const Value(0),
+        TimesRingDay: Value(fifoToday),
+        LastDismissedAt: Value(
+          now.subtract(const Duration(hours: 2, minutes: 15)),
+        ),
       ),
     );
 
@@ -357,7 +412,8 @@ Future<_DemoRoutineIds> _seedDemoData(
       ),
     );
 
-    final eyeRestCreated = now.subtract(const Duration(days: 9));
+    // The last two routines fill tablet sized dashboards cleanly.
+    final eyeRestCreated = now.subtract(const Duration(days: 2));
     final eyeRest = await db.insertRoutine(
       RoutinesCompanion.insert(
         Name: 'Eye Rest',
@@ -381,34 +437,6 @@ Future<_DemoRoutineIds> _seedDemoData(
         PausedAt: Value(eyeRestPaused),
         TimesRingToday: const Value(2),
         TimesRingDay: Value(today),
-      ),
-    );
-
-    // The last two routines only fit on tablet sized dashboards, which would
-    // otherwise leave the lower part of the screen empty.
-    final postureCreated = now.subtract(const Duration(days: 2));
-    final posture = await db.insertRoutine(
-      RoutinesCompanion.insert(
-        Name: 'Posture Check',
-        IntervalSeconds: 45 * 60,
-        SnoozeSeconds: const Value(3 * 60),
-        DriftCompensationTypeCode:
-            DriftCompensationTypeCodeEnum.ActualDismissal.index,
-        DayStartSeconds: const Value(dayStart),
-        CreatedAt: Value(postureCreated),
-      ),
-    );
-    await db.insertRoutineState(
-      RoutineStatesCompanion.insert(
-        RoutineId: posture,
-        NextTriggerTime: Value(
-          now.add(const Duration(minutes: 18, seconds: 30)),
-        ),
-        TimesRingToday: const Value(1),
-        TimesRingDay: Value(today),
-        LastDismissedAt: Value(
-          now.subtract(const Duration(minutes: 26, seconds: 30)),
-        ),
       ),
     );
 
@@ -463,6 +491,11 @@ Future<_DemoRoutineIds> _seedDemoData(
       now.difference(medicationCreated),
     );
     await log(
+      fifoSwing,
+      LogActionTypeCodeEnum.Create,
+      now.difference(fifoCreated),
+    );
+    await log(
       hydrate,
       LogActionTypeCodeEnum.Create,
       now.difference(hydrateCreated),
@@ -483,6 +516,12 @@ Future<_DemoRoutineIds> _seedDemoData(
       LogActionTypeCodeEnum.Dismiss,
       const Duration(hours: 16, minutes: 52),
       sinceLastDismissal: const Duration(hours: 8, minutes: 3),
+    );
+    await log(
+      fifoSwing,
+      LogActionTypeCodeEnum.Dismiss,
+      const Duration(hours: 2, minutes: 15),
+      sinceLastDismissal: const Duration(hours: 12, minutes: 4),
     );
     await log(
       hydrate,
@@ -548,11 +587,6 @@ Future<_DemoRoutineIds> _seedDemoData(
       sinceLastDismissal: const Duration(hours: 1, minutes: 5, seconds: 21),
     );
     await log(
-      posture,
-      LogActionTypeCodeEnum.Create,
-      now.difference(postureCreated),
-    );
-    await log(
       vitamins,
       LogActionTypeCodeEnum.Create,
       now.difference(vitaminsCreated),
@@ -563,16 +597,11 @@ Future<_DemoRoutineIds> _seedDemoData(
       const Duration(minutes: 29),
       sinceLastDismissal: const Duration(minutes: 31),
     );
-    await log(
-      posture,
-      LogActionTypeCodeEnum.Dismiss,
-      const Duration(minutes: 26, seconds: 30),
-      sinceLastDismissal: const Duration(minutes: 47, seconds: 10),
-    );
     await log(eyeRest, LogActionTypeCodeEnum.Pause, const Duration(minutes: 5));
 
     return _DemoRoutineIds(
       medication: medication,
+      fifoSwing: fifoSwing,
       hydrate: hydrate,
       stretch: stretch,
       eyeRest: eyeRest,
